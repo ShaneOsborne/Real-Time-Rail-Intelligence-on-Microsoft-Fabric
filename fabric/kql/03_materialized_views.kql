@@ -1,0 +1,23 @@
+// Lab 06 - step 3: materialized views (latest state per train, delay/cancellation summaries).
+// `ifnotexists` makes the script safe to re-run; to change a view definition use
+// `.alter materialized-view` or drop and recreate it.
+.execute database script with (ContinueOnErrors=false) <|
+.create ifnotexists materialized-view with (backfill=true, folder="views", docstring="Latest movement per train_id") TrainLatest on table TrustMovements {
+    TrustMovements
+    | summarize arg_max(event_time, *) by train_id
+}
+
+.create ifnotexists materialized-view with (backfill=true, folder="views", docstring="Movements and delays per TOC/location per 15 minutes") DelaysBy15Min on table TrustMovements {
+    TrustMovements
+    | summarize movements = count(), late = countif(delay_minutes > 0), late_15_plus = countif(delay_minutes >= 15), avg_delay = avg(delay_minutes), max_delay = max(delay_minutes) by toc_id, loc_stanox, window_start = bin(event_time, 15m)
+}
+
+.create ifnotexists materialized-view with (backfill=true, folder="views", docstring="Cancellations per TOC/reason per 15 minutes") CancellationsBy15Min on table TrustCancellations {
+    TrustCancellations
+    | summarize cancellations = count(), trains = dcount(train_id) by toc_id, canx_reason_code, window_start = bin(canx_time, 15m)
+}
+
+.create ifnotexists materialized-view with (backfill=true, folder="views", docstring="Daily performance per TOC") DailyTocPerformance on table TrustMovements {
+    TrustMovements
+    | summarize movements = count(), on_time = countif(variation_status == "ON TIME"), late = countif(variation_status == "LATE"), early = countif(variation_status == "EARLY"), avg_delay = avg(delay_minutes) by toc_id, day = startofday(event_time)
+}

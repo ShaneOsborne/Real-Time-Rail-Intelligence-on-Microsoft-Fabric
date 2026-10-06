@@ -1,0 +1,37 @@
+# Run from src/bridge:  docker compose up --build
+# Configuration comes from the repo-root .env (copy .env.example to .env first).
+services:
+  bridge:
+    build: .
+    image: rail-fabric-rti/bridge:local
+    container_name: rail-bridge
+    env_file:
+      - path: ../../.env
+        required: false   # needs Docker Compose v2.24+
+    environment:
+      # Container-specific values; these override anything with the same name in .env.
+      HEALTH_PORT: "8080"
+      BRIDGE_OUTPUT_FILE: /app/out/messages.jsonl
+      # Interpolated from your shell (scripts/run-local.sh exports it); defaults to console.
+      BRIDGE_SINK: ${BRIDGE_SINK:-console}
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./out:/app/out
+    restart: unless-stopped
+    stop_grace_period: 20s
+
+  # Offline demo: replays bundled fixtures to the console - no NROD or Fabric account needed.
+  #   docker compose --profile offline up --build replay
+  replay:
+    profiles: ["offline"]
+    build: .
+    image: rail-fabric-rti/bridge:local
+    environment:
+      BRIDGE_SOURCE: replay
+      BRIDGE_SINK: console
+      REPLAY_LOOP: "true"
+      REPLAY_INTERVAL_S: "2"
+      HEALTH_PORT: "8080"
+    ports:
+      - "8081:8080"

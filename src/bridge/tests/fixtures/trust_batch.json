@@ -1,0 +1,18 @@
+[
+  {
+    "header": {"msg_type": "0001", "source_dev_id": "", "user_id": "", "original_data_source": "TSIA", "msg_queue_timestamp": "1759655692000", "source_system_id": "TRUST"},
+    "body": {"schedule_source": "C", "train_file_address": null, "schedule_end_date": "2026-12-12", "train_id": "721A21MY05", "tp_origin_timestamp": "2026-10-05", "creation_timestamp": "1759655692000", "tp_origin_stanox": "", "origin_dep_timestamp": "1759658400000", "train_service_code": "21700001", "toc_id": "21", "d1266_record_number": "00000", "train_call_type": "AUTOMATIC", "train_uid": "C12345", "train_call_mode": "NORMAL", "schedule_type": "P", "sched_origin_stanox": "72100", "schedule_wtt_id": "1A21M", "schedule_start_date": "2026-05-17"}
+  },
+  {
+    "header": {"msg_type": "0003", "source_dev_id": "", "user_id": "", "original_data_source": "SMART", "msg_queue_timestamp": "1759659000000", "source_system_id": "TRUST"},
+    "body": {"event_type": "DEPARTURE", "gbtt_timestamp": "1759658400000", "original_loc_stanox": "", "planned_timestamp": "1759658400000", "timetable_variation": "17", "original_loc_timestamp": "", "current_train_id": "", "delay_monitoring_point": "true", "next_report_run_time": "4", "reporting_stanox": "72100", "actual_timestamp": "1759659420000", "correction_ind": "false", "event_source": "AUTOMATIC", "train_file_address": null, "platform": " 3", "division_code": "21", "train_terminated": "false", "train_id": "721A21MY05", "offroute_ind": "false", "variation_status": "LATE", "train_service_code": "21700001", "toc_id": "21", "loc_stanox": "72100", "auto_expected": "true", "direction_ind": "DOWN", "route": "1", "planned_event_type": "DEPARTURE", "next_report_stanox": "72104", "line_ind": "F"}
+  },
+  {
+    "header": {"msg_type": "0003", "source_dev_id": "", "user_id": "", "original_data_source": "SMART", "msg_queue_timestamp": "1759659060000", "source_system_id": "TRUST"},
+    "body": {"event_type": "ARRIVAL", "gbtt_timestamp": "1759659000000", "original_loc_stanox": "", "planned_timestamp": "1759659030000", "timetable_variation": "0", "original_loc_timestamp": "", "current_train_id": "", "delay_monitoring_point": "true", "next_report_run_time": "2", "reporting_stanox": "87701", "actual_timestamp": "1759659030000", "correction_ind": "false", "event_source": "AUTOMATIC", "train_file_address": null, "platform": "", "division_code": "88", "train_terminated": "false", "train_id": "872B10MY05", "offroute_ind": "false", "variation_status": "ON TIME", "train_service_code": "24673005", "toc_id": "88", "loc_stanox": "87701", "auto_expected": "true", "direction_ind": "UP", "route": "2", "planned_event_type": "ARRIVAL", "next_report_stanox": "87219", "line_ind": ""}
+  },
+  {
+    "header": {"msg_type": "0002", "source_dev_id": "", "user_id": "", "original_data_source": "SDR", "msg_queue_timestamp": "1759659100000", "source_system_id": "TRUST"},
+    "body": {"train_file_address": null, "train_service_code": "22214000", "orig_loc_stanox": "", "toc_id": "79", "dep_timestamp": "1759660200000", "division_code": "79", "loc_stanox": "54311", "canx_timestamp": "1759659100000", "canx_reason_code": "YI", "train_id": "543P47MY05", "orig_loc_timestamp": "", "canx_type": "ON CALL"}
+  }
+]

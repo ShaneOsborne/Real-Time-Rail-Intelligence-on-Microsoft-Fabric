@@ -1,0 +1,46 @@
+// Lab 06 - step 4: reusable query functions (used by dashboards, data agent and the Rayfin app).
+.execute database script with (ContinueOnErrors=false) <|
+.create-or-alter function with (folder="query", docstring="Location lookup keyed by STANOX (one row per STANOX)") LocationByStanox() {
+    Locations
+    | where isnotempty(stanox)
+    | summarize arg_max(iff(isnotnull(lat), 1, 0), name, tiploc, crs, lat, lon) by stanox
+    | project stanox, location_name = name, tiploc, crs, lat, lon
+}
+
+.create-or-alter function with (folder="query", docstring="Movements enriched with location names and TOC names") MovementsEnriched(lookback:timespan = 1h) {
+    TrustMovements
+    | where event_time > ago(lookback)
+    | lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox
+    | lookup kind=leftouter TocCodes on toc_id
+}
+
+.create-or-alter function with (folder="query", docstring="Trains whose latest report is at least minDelay minutes late") LateTrains(minDelay:int = 15, lookback:timespan = 2h) {
+    TrainLatest
+    | where event_time > ago(lookback) and delay_minutes >= minDelay and coalesce(train_terminated, false) == false
+    | lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox
+    | lookup kind=leftouter TocCodes on toc_id
+    | project event_time, train_id, toc_id, toc_name, delay_minutes, variation_status, location_name, loc_stanox, event_type, lat, lon
+    | order by delay_minutes desc
+}
+
+.create-or-alter function with (folder="query", docstring="Latest position of every active train with coordinates (for maps)") NetworkSnapshot(lookback:timespan = 1h) {
+    TrainLatest
+    | where event_time > ago(lookback) and coalesce(train_terminated, false) == false
+    | lookup kind=inner (LocationByStanox() | where isnotnull(lat)) on $left.loc_stanox == $right.stanox
+    | project train_id, toc_id, event_time, event_type, delay_minutes, variation_status, location_name, crs, lat, lon
+}
+
+.create-or-alter function with (folder="query", docstring="Cancellations in the last window compared with the trailing average") CancellationSpike(window:timespan = 15m, baseline:timespan = 6h) {
+    let recent = toscalar(TrustCancellations | where canx_time > ago(window) | count);
+    let base = toscalar(TrustCancellations | where canx_time between (ago(baseline) .. ago(window)) | count);
+    let expected = todouble(base) * (window / (baseline - window));
+    print recent_cancellations = recent, expected_cancellations = round(expected, 1), ratio = iff(expected == 0, real(null), round(recent / expected, 2))
+}
+
+.create-or-alter function with (folder="query", docstring="Station board: recent movements at a CRS code, e.g. StationBoard('LDS')") StationBoard(crsCode:string, lookback:timespan = 1h) {
+    let stanoxes = Locations | where crs =~ crsCode | distinct stanox;
+    TrustMovements
+    | where event_time > ago(lookback) and loc_stanox in (stanoxes)
+    | project event_time, train_id, toc_id, event_type, platform, variation_status, delay_minutes
+    | order by event_time desc
+}

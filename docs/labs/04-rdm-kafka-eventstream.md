@@ -1,0 +1,65 @@
+# Lab 04 – Ingest RDM Kafka Train Movements with Eventstream
+
+**Time:** 30 minutes · **Previous:** [Lab 03](03-reference-data.md) · **Next:** [Lab 05a](05a-bridge-local.md)
+
+## Objectives
+
+* Connect the **Apache Kafka** source connector in Eventstream to the Rail Data Marketplace *NWR Train Movements* product.
+* Land the raw messages in the Eventhouse table **`RdmTrustRaw`** (one dynamic `payload` column), where update policies (Lab 06) parse them.
+
+## Prerequisites
+
+* Lab 02 (Eventstream `RailEventstreamRdm`) is done.
+* Lab 06 **step 1** (`01_tables.kql`) and **step 2** (`02_update_policies.kql`) have run, so the target table and mapping exist and parsing happens on ingest. Run `python fabric/scripts/apply_kql.py` now if you haven't already.
+* The Kafka details from your RDM subscription page.
+
+## Option A – automated
+
+Not available. The Eventstream topology (sources, destinations, operators) is configured in the portal. This repo
+doesn't generate Eventstream definition payloads. Follow Option B.
+
+## Option B – manual (portal)
+
+> Portal labels change from time to time. If a label differs slightly, pick the closest match.
+
+1. Open **RailEventstreamRdm** → **Add source** → **External sources** → **Apache Kafka** → **Connect**.
+2. Create a **new connection**:
+   * **Bootstrap server**: from RDM (`host:port`; comma-separate multiple brokers)
+   * **Authentication**: username and password from RDM (stored as a Fabric cloud connection)
+3. Configure the source:
+   * **Topic**: from RDM
+   * **Consumer group**: from RDM. Use the exact value RDM issued
+   * **Reset auto offset**: `Latest` for live demos, `Earliest` to backfill whatever the broker retains
+   * **Security protocol**: `SASL_SSL`
+   * **SASL mechanism**: `PLAIN`
+4. **Next** → **Add** → **Publish**. In **Data preview**, you should see JSON TRUST messages appear.
+5. **Add destination** → **Eventhouse**:
+   * **Data ingestion mode**: *Direct ingestion* (simplest; the Eventhouse does the parsing) or
+     *Event processing before ingestion* (if you want to add Eventstream operators).
+   * Workspace `rail-fabric-rti`, Eventhouse `RailEventhouse`, KQL database `RailKQL`.
+   * **Destination table**: existing table **`RdmTrustRaw`**.
+   * **Input data format**: JSON. Choose the existing mapping **`RdmTrustRawMapping`**, which maps the whole record (`$`) to `payload`. If the wizard proposes its own column mapping instead, edit it so that only `payload` (dynamic) is populated from the full record.
+6. **Publish**.
+
+### Should Eventstream split arrays?
+
+The update policies handle **both** shapes: a single TRUST message object, or a JSON array (batch) of them, which they expand with `mv-expand`. You don't need an Eventstream operator.
+
+> TODO(verify): The exact RDM message envelope for *NWR Train Movements* may differ from the NROD STOMP body (for example, extra wrapper fields). Check a message in **Data preview**. If TRUST items sit under a wrapper property, change `ExpandTrustRdm()` in `fabric/kql/02_update_policies.kql` to point at that property.
+
+## Checkpoint
+
+```kusto
+RdmTrustRaw | take 5
+RdmTrustRaw | summarize n = count() by t = bin(ingestion_time(), 1m) | order by t desc
+TrustMovements | where source == "rdm" | take 10
+```
+
+## Troubleshooting
+
+| Symptom | Fix |
+|---|---|
+| Source shows authentication errors | Re-check the username and password. Check the mechanism is `PLAIN` and the protocol is `SASL_SSL` |
+| No data, no errors | Check the topic name and consumer group. Use `Latest` and wait a minute; it's a beta feed with no SLA |
+| Data in `RdmTrustRaw` but none in `TrustMovements` | Look at the payload shape (see TODO above). Run `.show ingestion failures` |
+| Duplicated movements | You're also ingesting `TRAIN_MVT_ALL_TOC` through the bridge. Filter on `source`, or drop one feed (see Lab 00) |

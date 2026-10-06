@@ -1,0 +1,152 @@
+// Lab 06 - step 2: parsing functions + update policies.
+// Batched TRUST payloads (JSON arrays) from either source are expanded and routed by header.msg_type:
+//   0001 activation, 0002 cancellation, 0003 movement, 0004-0008 -> TrustOtherEvents.
+// NOTE: TRUST timestamps are epoch milliseconds. The Open Rail Data wiki notes they reflect UK local
+// time in some fields - check https://wiki.openraildata.com/index.php/Train_Movements before relying on
+// sub-hour accuracy around BST changes.
+.execute database script with (ContinueOnErrors=false) <|
+.create-or-alter function with (folder="parsing", docstring="Expand NROD TRUST events from RawFeed") ExpandTrustNrod() {
+    RawFeed
+    | where feed == "trust"
+    | extend items = iff(gettype(payload) == "array", payload, pack_array(payload))
+    | mv-expand item = items
+    | project received_utc, source, item
+}
+
+.create-or-alter function with (folder="parsing", docstring="Expand RDM Kafka TRUST events from RdmTrustRaw") ExpandTrustRdm() {
+    RdmTrustRaw
+    | extend items = iff(gettype(payload) == "array", payload, pack_array(payload))
+    | mv-expand item = items
+    | project received_utc = ingestion_time(), source = "rdm", item
+}
+
+.create-or-alter function with (folder="parsing", docstring="Epoch-ms string to datetime (null-safe)") EpochMs(v:dynamic) {
+    iff(isempty(tostring(v)), datetime(null), unixtime_milliseconds_todatetime(tolong(v)))
+}
+
+.create-or-alter function with (folder="parsing", docstring="TRUST 0003 movement") ParseMovements(T:(received_utc:datetime, source:string, item:dynamic)) {
+    T
+    | where tostring(item.header.msg_type) == "0003"
+    | extend b = item.body
+    | extend vs = tostring(b.variation_status), tv = toint(b.timetable_variation)
+    | project
+        event_time = EpochMs(b.actual_timestamp),
+        planned_time = EpochMs(b.planned_timestamp),
+        gbtt_time = EpochMs(b.gbtt_timestamp),
+        train_id = tostring(b.train_id),
+        train_service_code = tostring(b.train_service_code),
+        toc_id = tostring(b.toc_id),
+        event_type = tostring(b.event_type),
+        planned_event_type = tostring(b.planned_event_type),
+        loc_stanox = tostring(b.loc_stanox),
+        next_report_stanox = tostring(b.next_report_stanox),
+        platform = trim(@"\s+", tostring(b.platform)),
+        line_ind = tostring(b.line_ind),
+        variation_status = vs,
+        timetable_variation = tv,
+        delay_minutes = case(vs == "LATE", tv, vs == "EARLY", -tv, 0),
+        train_terminated = tobool(b.train_terminated),
+        correction_ind = tobool(b.correction_ind),
+        offroute_ind = tobool(b.offroute_ind),
+        direction_ind = tostring(b.direction_ind),
+        event_source = tostring(b.event_source),
+        source,
+        received_utc
+}
+
+.create-or-alter function with (folder="parsing", docstring="TRUST 0001 activation") ParseActivations(T:(received_utc:datetime, source:string, item:dynamic)) {
+    T
+    | where tostring(item.header.msg_type) == "0001"
+    | extend b = item.body
+    | project
+        creation_time = EpochMs(b.creation_timestamp),
+        origin_dep_time = EpochMs(b.origin_dep_timestamp),
+        train_id = tostring(b.train_id),
+        train_uid = tostring(b.train_uid),
+        train_service_code = tostring(b.train_service_code),
+        toc_id = tostring(b.toc_id),
+        sched_origin_stanox = tostring(b.sched_origin_stanox),
+        schedule_type = tostring(b.schedule_type),
+        schedule_source = tostring(b.schedule_source),
+        schedule_wtt_id = tostring(b.schedule_wtt_id),
+        schedule_start_date = tostring(b.schedule_start_date),
+        schedule_end_date = tostring(b.schedule_end_date),
+        train_call_type = tostring(b.train_call_type),
+        source,
+        received_utc
+}
+
+.create-or-alter function with (folder="parsing", docstring="TRUST 0002 cancellation") ParseCancellations(T:(received_utc:datetime, source:string, item:dynamic)) {
+    T
+    | where tostring(item.header.msg_type) == "0002"
+    | extend b = item.body
+    | project
+        canx_time = EpochMs(b.canx_timestamp),
+        dep_time = EpochMs(b.dep_timestamp),
+        train_id = tostring(b.train_id),
+        train_service_code = tostring(b.train_service_code),
+        toc_id = tostring(b.toc_id),
+        loc_stanox = tostring(b.loc_stanox),
+        orig_loc_stanox = tostring(b.orig_loc_stanox),
+        canx_reason_code = tostring(b.canx_reason_code),
+        canx_type = tostring(b.canx_type),
+        source,
+        received_utc
+}
+
+.create-or-alter function with (folder="parsing", docstring="TRUST 0004-0008") ParseOtherTrust(T:(received_utc:datetime, source:string, item:dynamic)) {
+    T
+    | extend mt = tostring(item.header.msg_type)
+    | where mt in ("0004", "0005", "0006", "0007", "0008")
+    | project
+        msg_type = mt,
+        msg_time = EpochMs(item.header.msg_queue_timestamp),
+        train_id = tostring(item.body.train_id),
+        toc_id = tostring(item.body.toc_id),
+        body = item.body,
+        source,
+        received_utc
+}
+
+.create-or-alter function with (folder="parsing", docstring="TD C-class/S-class messages") ParseTd() {
+    RawFeed
+    | where feed == "td"
+    | extend k = tostring(bag_keys(payload)[0])
+    | extend m = payload[k]
+    | project
+        event_time = EpochMs(m.time),
+        msg_type = tostring(m.msg_type),
+        area_id = tostring(m.area_id),
+        from_berth = tostring(m.from),
+        to_berth = tostring(m.to),
+        descr = tostring(m.descr),
+        received_utc
+}
+
+.create-or-alter function with (folder="parsing", docstring="RTPPM national page (verify field names against the RTPPM wiki page)") ParseRtppm() {
+    RawFeed
+    | where feed == "rtppm"
+    | extend d = payload.RTPPMDataMsgV1.RTPPMData
+    | extend n = d.NationalPage.NationalPPM
+    | project
+        snapshot_time = EpochMs(d.snapshotTStamp),
+        total = toint(n.Total),
+        on_time = toint(n.OnTime),
+        late = toint(n.Late),
+        cancel_very_late = toint(n.CancelVeryLate),
+        ppm = toreal(n.PPM.text),
+        rag = tostring(n.PPM.rag),
+        received_utc
+}
+
+.alter table TrustMovements policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseMovements(ExpandTrustNrod())","IsTransactional":false,"PropagateIngestionProperties":false},{"IsEnabled":true,"Source":"RdmTrustRaw","Query":"ParseMovements(ExpandTrustRdm())","IsTransactional":false,"PropagateIngestionProperties":false}]'
+
+.alter table TrustActivations policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseActivations(ExpandTrustNrod())","IsTransactional":false,"PropagateIngestionProperties":false},{"IsEnabled":true,"Source":"RdmTrustRaw","Query":"ParseActivations(ExpandTrustRdm())","IsTransactional":false,"PropagateIngestionProperties":false}]'
+
+.alter table TrustCancellations policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseCancellations(ExpandTrustNrod())","IsTransactional":false,"PropagateIngestionProperties":false},{"IsEnabled":true,"Source":"RdmTrustRaw","Query":"ParseCancellations(ExpandTrustRdm())","IsTransactional":false,"PropagateIngestionProperties":false}]'
+
+.alter table TrustOtherEvents policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseOtherTrust(ExpandTrustNrod())","IsTransactional":false,"PropagateIngestionProperties":false},{"IsEnabled":true,"Source":"RdmTrustRaw","Query":"ParseOtherTrust(ExpandTrustRdm())","IsTransactional":false,"PropagateIngestionProperties":false}]'
+
+.alter table TdEvents policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseTd()","IsTransactional":false,"PropagateIngestionProperties":false}]'
+
+.alter table RtppmNational policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseRtppm()","IsTransactional":false,"PropagateIngestionProperties":false}]'

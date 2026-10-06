@@ -1,0 +1,4 @@
+[
+  {"CA_MSG": {"time": "1759659000000", "area_id": "SK", "msg_type": "CA", "from": "4057", "to": "4061", "descr": "2K35"}},
+  {"CC_MSG": {"time": "1759659001000", "area_id": "WY", "msg_type": "CC", "to": "0207", "descr": "1A21"}}
+]

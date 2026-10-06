@@ -1,0 +1,34 @@
+[
+  {
+    "question": "Which trains are more than 15 minutes late right now?",
+    "query": "LateTrains(15, 2h)\n| project event_time, train_id, toc_id, toc_name, delay_minutes, location_name\n| take 10"
+  },
+  {
+    "question": "How many trains were cancelled in the last hour, by reason code?",
+    "query": "TrustCancellations\n| where canx_time > ago(1h)\n| summarize cancellations = count() by canx_reason_code\n| order by cancellations desc"
+  },
+  {
+    "question": "What is the average delay by operator over the last 3 hours?",
+    "query": "DelaysBy15Min\n| where window_start > ago(3h)\n| summarize movements = sum(movements), avg_delay = round(avg(avg_delay), 1) by toc_id\n| lookup kind=leftouter TocCodes on toc_id\n| order by avg_delay desc"
+  },
+  {
+    "question": "Show the latest departures and arrivals at Leeds",
+    "query": "StationBoard('LDS', 1h)\n| take 20"
+  },
+  {
+    "question": "Which locations had the most trains 15+ minutes late today?",
+    "query": "TrustMovements\n| where event_time > startofday(now()) and delay_minutes >= 15\n| summarize late_trains = dcount(train_id) by loc_stanox\n| lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox\n| top 10 by late_trains desc\n| project location_name, crs, late_trains"
+  },
+  {
+    "question": "Is there a spike in cancellations at the moment?",
+    "query": "CancellationSpike(15m, 6h)"
+  },
+  {
+    "question": "What percentage of movements were on time yesterday per operator?",
+    "query": "DailyTocPerformance\n| where day == startofday(ago(1d))\n| extend on_time_pct = round(100.0 * on_time / movements, 1)\n| lookup kind=leftouter TocCodes on toc_id\n| order by on_time_pct asc"
+  },
+  {
+    "question": "Where is train 1A21 now?",
+    "query": "TrainLatest\n| where train_id contains '1A21'\n| lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox\n| project event_time, train_id, event_type, location_name, variation_status, delay_minutes"
+  }
+]

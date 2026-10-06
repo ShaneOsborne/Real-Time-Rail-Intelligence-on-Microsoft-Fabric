@@ -1,0 +1,59 @@
+// Lab 06 - sample queries. Run each one individually (place the cursor in it and press Run).
+
+// 1. Is data arriving? Events per feed in the last 15 minutes
+RawFeed
+| where received_utc > ago(15m)
+| summarize events = count(), last = max(received_utc) by feed, topic
+
+// 2. TRUST message type mix (last hour)
+RawFeed
+| where feed == "trust" and received_utc > ago(1h)
+| summarize count() by msg_type
+| order by msg_type asc
+
+// 3. Most delayed trains right now
+LateTrains(15, 2h)
+| take 25
+
+// 4. Average delay per TOC in 15-minute buckets (last 6 hours)
+DelaysBy15Min
+| where window_start > ago(6h)
+| summarize movements = sum(movements), late_15_plus = sum(late_15_plus), avg_delay = round(avg(avg_delay), 1) by toc_id, window_start
+| render timechart with (xcolumn = window_start, ycolumns = avg_delay, series = toc_id)
+
+// 5. Worst locations by late arrivals/departures today
+TrustMovements
+| where event_time > startofday(now())
+| summarize late_15_plus = countif(delay_minutes >= 15), movements = count() by loc_stanox
+| lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox
+| top 20 by late_15_plus desc
+
+// 6. Cancellations by reason code (last 24h)
+CancellationsBy15Min
+| where window_start > ago(24h)
+| summarize cancellations = sum(cancellations) by canx_reason_code
+| order by cancellations desc
+
+// 7. Cancellation spike check
+CancellationSpike(15m, 6h)
+
+// 8. Journey of a single train (replace the train_id)
+TrustMovements
+| where train_id == "721A21MY05"
+| order by event_time asc
+| project event_time, event_type, loc_stanox, platform, variation_status, delay_minutes
+
+// 9. Network snapshot for a map
+NetworkSnapshot(1h)
+| render scatterchart with (kind = map)
+
+// 10. RTPPM national PPM trend
+RtppmNational
+| where snapshot_time > ago(12h)
+| project snapshot_time, ppm
+| render timechart
+
+// 11. Update-policy failures (troubleshooting)
+.show ingestion failures
+| where FailedOn > ago(1h)
+| take 20

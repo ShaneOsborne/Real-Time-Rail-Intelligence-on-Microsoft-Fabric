@@ -1,0 +1,45 @@
+// Lab 08 - Real-Time Dashboard tile queries. One tile per query; suggested visual in the comment.
+// Add a dashboard parameter `_lookback` (timespan, default 1h) and `_minDelay` (int, default 15) if you want them.
+
+// Tile: "Events / minute by feed"  (Line chart, auto-refresh 30s)
+RawFeed
+| where received_utc > ago(1h)
+| summarize events = count() by feed, bin(received_utc, 1m)
+
+// Tile: "Trains 15+ min late"  (Stat / card)
+TrainLatest
+| where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false
+| count
+
+// Tile: "Cancellations last hour"  (Stat / card)
+TrustCancellations
+| where canx_time > ago(1h)
+| count
+
+// Tile: "National PPM (RTPPM)"  (Stat, if RTPPM_ALL is subscribed)
+RtppmNational
+| top 1 by snapshot_time desc
+| project ppm
+
+// Tile: "Most delayed trains"  (Table)
+LateTrains(15, 2h)
+| take 20
+
+// Tile: "Average delay by operator (15-min)"  (Time chart)
+DelaysBy15Min
+| where window_start > ago(6h)
+| summarize avg_delay = round(avg(avg_delay), 1) by toc_id, window_start
+
+// Tile: "Network map"  (Map visual: latitude = lat, longitude = lon, size/colour = delay_minutes)
+NetworkSnapshot(1h)
+
+// Tile: "Cancellations by reason (24h)"  (Bar chart)
+CancellationsBy15Min
+| where window_start > ago(24h)
+| summarize cancellations = sum(cancellations) by canx_reason_code
+| top 10 by cancellations desc
+
+// Tile: "Ingestion lag (seconds)"  (Time chart) - received_utc vs actual movement time
+TrustMovements
+| where received_utc > ago(1h)
+| summarize p50 = percentile((received_utc - event_time) / 1s, 50), p95 = percentile((received_utc - event_time) / 1s, 95) by bin(received_utc, 5m)

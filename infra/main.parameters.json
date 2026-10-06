@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+  "contentVersion": "1.0.0.0",
+  "parameters": {
+    "location": { "value": "uksouth" },
+    "namePrefix": { "value": "railrti" },
+    "createAcr": { "value": true },
+    "containerImage": { "value": "" },
+    "imageTag": { "value": "latest" },
+    "cpu": { "value": "0.25" },
+    "memory": { "value": "0.5Gi" },
+    "nrodTopics": { "value": "TRAIN_MVT_ALL_TOC" },
+    "subscriptionPrefix": { "value": "rail-fabric-rti" },
+    "logRetentionDays": { "value": 30 }
+  }
+}

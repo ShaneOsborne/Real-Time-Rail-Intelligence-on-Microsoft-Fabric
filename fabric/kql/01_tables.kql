@@ -1,0 +1,36 @@
+// Lab 06 - step 1: tables, ingestion mappings and retention.
+// Run the WHOLE file at once: select all (Ctrl+A) in a KQL queryset and press Run,
+// or run `python fabric/scripts/apply_kql.py`. Commands inside a database script
+// must be separated by a blank line and must not contain blank lines themselves.
+.execute database script with (ContinueOnErrors=false) <|
+.create-merge table RawFeed (source:string, topic:string, feed:string, msg_type:string, message_id:string, batch_index:int, received_utc:datetime, payload:dynamic)
+
+.create-or-alter table RawFeed ingestion json mapping "RawFeedMapping" '[{"column":"source","Properties":{"Path":"$.source"}},{"column":"topic","Properties":{"Path":"$.topic"}},{"column":"feed","Properties":{"Path":"$.feed"}},{"column":"msg_type","Properties":{"Path":"$.msg_type"}},{"column":"message_id","Properties":{"Path":"$.message_id"}},{"column":"batch_index","Properties":{"Path":"$.batch_index"}},{"column":"received_utc","Properties":{"Path":"$.received_utc"}},{"column":"payload","Properties":{"Path":"$.payload"}}]'
+
+.create-merge table RdmTrustRaw (payload:dynamic)
+
+.create-or-alter table RdmTrustRaw ingestion json mapping "RdmTrustRawMapping" '[{"column":"payload","Properties":{"Path":"$"}}]'
+
+.create-merge table TrustMovements (event_time:datetime, planned_time:datetime, gbtt_time:datetime, train_id:string, train_service_code:string, toc_id:string, event_type:string, planned_event_type:string, loc_stanox:string, next_report_stanox:string, platform:string, line_ind:string, variation_status:string, timetable_variation:int, delay_minutes:int, train_terminated:bool, correction_ind:bool, offroute_ind:bool, direction_ind:string, event_source:string, source:string, received_utc:datetime)
+
+.create-merge table TrustActivations (creation_time:datetime, origin_dep_time:datetime, train_id:string, train_uid:string, train_service_code:string, toc_id:string, sched_origin_stanox:string, schedule_type:string, schedule_source:string, schedule_wtt_id:string, schedule_start_date:string, schedule_end_date:string, train_call_type:string, source:string, received_utc:datetime)
+
+.create-merge table TrustCancellations (canx_time:datetime, dep_time:datetime, train_id:string, train_service_code:string, toc_id:string, loc_stanox:string, orig_loc_stanox:string, canx_reason_code:string, canx_type:string, source:string, received_utc:datetime)
+
+.create-merge table TrustOtherEvents (msg_type:string, msg_time:datetime, train_id:string, toc_id:string, body:dynamic, source:string, received_utc:datetime)
+
+.create-merge table TdEvents (event_time:datetime, msg_type:string, area_id:string, from_berth:string, to_berth:string, descr:string, received_utc:datetime)
+
+.create-merge table RtppmNational (snapshot_time:datetime, total:int, on_time:int, late:int, cancel_very_late:int, ppm:real, rag:string, received_utc:datetime)
+
+.create-merge table Locations (stanox:string, tiploc:string, crs:string, nlc:string, name:string, lat:real, lon:real)
+
+.create-merge table TocCodes (toc_id:string, toc_name:string)
+
+.alter-merge table RawFeed policy retention softdelete = 7d recoverability = disabled
+
+.alter-merge table RdmTrustRaw policy retention softdelete = 7d recoverability = disabled
+
+.alter-merge table TdEvents policy retention softdelete = 7d
+
+.alter-merge table TrustMovements policy retention softdelete = 365d

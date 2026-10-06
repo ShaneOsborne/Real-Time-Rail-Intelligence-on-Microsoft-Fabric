@@ -1,0 +1,9 @@
+// OPTIONAL: seed TocCodes (TRUST toc_id business code -> operator name).
+// TODO: fill rows from the Open Rail Data wiki "TOC Codes" page:
+//   https://wiki.openraildata.com/index.php/TOC_Codes
+// Codes are intentionally not hard-coded here because operators change; verify before use.
+.set-or-replace TocCodes <|
+    datatable(toc_id:string, toc_name:string)
+    [
+        // "<sector code>", "<operator name>",
+    ]
