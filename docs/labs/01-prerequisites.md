@@ -10,12 +10,12 @@ Get every account, subscription, tenant setting and tool in place before you bui
 
 1. Register at <https://publicdatafeeds.networkrail.co.uk/>. Accounts are limited (about 1,000 users), so register early.
 2. Wait for the account to become **active**. You'll get an email.
-3. In **My Feeds**, subscribe to:
-   * **Train Movements**: *All TOCs* (`TRAIN_MVT_ALL_TOC`)
-   * **RTPPM** (`RTPPM_ALL`), **VSTP** (`VSTP_ALL`) and **TSR** (`TSR_ALL_ROUTE`) – optional
-   * **TD**: *All signalling areas* (`TD_ALL_SIG_AREA`) – optional and high volume
-   * **All Reference Data** – required for CORPUS and SMART downloads (Lab 03)
-   * **SCHEDULE** – optional
+3. ~~In **My Feeds**, subscribe to:~~
+  * ~~**Train Movements**: *All TOCs* (`TRAIN_MVT_ALL_TOC`)~~
+  * ~~**RTPPM** (`RTPPM_ALL`), **VSTP** (`VSTP_ALL`) and **TSR** (`TSR_ALL_ROUTE`) – optional~~
+  * ~~**TD**: *All signalling areas* (`TD_ALL_SIG_AREA`) – optional and high volume~~
+  * ~~**All Reference Data** – required for CORPUS and SMART downloads (Lab 03)~~
+  * ~~**SCHEDULE** – optional~~
 4. Make a note of your login email and password. These are `NROD_USERNAME` and `NROD_PASSWORD`.
 
 ## 2. Rail Data Marketplace (RDM)
@@ -32,6 +32,8 @@ Get every account, subscription, tenant setting and tool in place before you bui
 
 * An Azure subscription with permission to create resource groups and role assignments (Owner, or Contributor plus User Access Administrator), so Bicep can grant Key Vault and ACR roles.
 * Resource providers registered: `Microsoft.App`, `Microsoft.OperationalInsights`, `Microsoft.KeyVault`, `Microsoft.ContainerRegistry` and `Microsoft.ManagedIdentity`.
+
+Run the following command within the 'Cloud Shell' in the Azure Portal to ensure all providers are available 
 
 ```bash
 for p in Microsoft.App Microsoft.OperationalInsights Microsoft.KeyVault Microsoft.ContainerRegistry Microsoft.ManagedIdentity; do
@@ -73,11 +75,27 @@ The Fabric CLI (`fab`) isn't needed. The scripts call the Fabric REST API with `
 ## 7. Clone the repo and configure
 
 ```bash
-git clone https://github.com/<you>/rail-fabric-rti.git
-cd rail-fabric-rti
+git clone https://github.com/<you>/Real-Time-Rail-Intelligence-on-Microsoft-Fabric.git
+cd Real-Time-Rail-Intelligence-on-Microsoft-Fabric
 cp .env.example .env     # then edit .env
 az login
 ```
+
+## 8. Edit the initial values within .env
+
+Check the default values within the .env file, we will modify some of these later as we go through the labs but for the moment ensure the following are populated
+
+Section : Network Rail Open Data (NROD)
+- NROD_USERNAME
+- NROD_PASSWORD
+- NROD_CLIENT_ID
+
+Section : Rail Data Marketplace (RDM) Kafka
+- RDM_KAFKA_BOOTSTRAP_SERVERS
+- RDM_KAFKA_TOPIC (Ensure you enter the JSON topic)
+- RDM_KAFKA_CONSUMER_GROUP
+- RDM_KAFKA_USERNAME
+- RDM_KAFKA_PASSWORD
 
 ## Checkpoint
 

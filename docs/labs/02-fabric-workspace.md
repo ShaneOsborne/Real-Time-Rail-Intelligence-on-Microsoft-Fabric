@@ -21,6 +21,9 @@ Lab 01 is done, and you have `FABRIC_CAPACITY_ID` (Fabric admin portal → *Capa
 
 ## Option A – automated
 
+Ensure the following parameters are populated within your .env
+FABRIC_CAPACITY_ID
+
 ```bash
 az login
 ./scripts/fabric-setup.sh           # or: ./scripts/fabric-setup.ps1
@@ -34,7 +37,7 @@ idempotent: it reuses items with the same display name. When it finishes, it pri
 
 ## Option B – manual (portal)
 
-1. Go to <https://app.fabric.microsoft.com> → **Workspaces** → **+ New workspace** → name it `rail-fabric-rti` →
+1. Go to <https://app.fabric.microsoft.com> → **Workspaces** → **+ New workspace** → name it `RailIntelligence` →
    *Advanced* → choose your **Fabric capacity** (or trial) → **Apply**.
 2. **+ New item** → **Eventhouse** → `RailEventhouse`. Fabric also creates a default KQL database with the same name.
 3. In the Eventhouse, **+ Database** → `RailKQL`. You can use the default database instead if you set
