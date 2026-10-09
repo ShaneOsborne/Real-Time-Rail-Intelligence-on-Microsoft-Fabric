@@ -27,7 +27,7 @@ doesn't generate Eventstream definition payloads. Follow Option B.
 
 > Portal labels change from time to time. If a label differs slightly, pick the closest match.
 
-1. Open **RailEventstreamRdm** → **Add source** → **External sources** → **Apache Kafka** → **Connect**.
+1. Open **RailEventstreamRdm** → **Add source** → **Connect data sources** → **Apache Kafka** → **Connect**.
 2. Create a **new connection**:
    * **Bootstrap server**: from RDM (`host:port`; comma-separate multiple brokers)
    * **Authentication**: username and password from RDM (stored as a Fabric cloud connection)
