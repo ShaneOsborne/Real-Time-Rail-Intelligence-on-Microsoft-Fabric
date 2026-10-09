@@ -11,6 +11,8 @@
     "memory": { "value": "0.5Gi" },
     "nrodTopics": { "value": "TRAIN_MVT_ALL_TOC" },
     "subscriptionPrefix": { "value": "rail-fabric-rti" },
-    "logRetentionDays": { "value": 30 }
+    "logRetentionDays": { "value": 30 },
+    "bridgeTarget": { "value": "eventstream" },
+    "deployRdmRelay": { "value": false }
   }
 }

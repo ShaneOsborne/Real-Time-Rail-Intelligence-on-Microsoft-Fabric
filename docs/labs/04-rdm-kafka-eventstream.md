@@ -7,6 +7,11 @@
 * Connect the **Apache Kafka** source connector in Eventstream to the Rail Data Marketplace *NWR Train Movements* product.
 * Land the raw messages in the Eventhouse table **`RdmTrustRaw`** (one dynamic `payload` column), where update policies (Lab 06) parse them.
 
+> **Shared Event Hub mode (optional, [Lab 05c](05c-shared-event-hub.md)).** If your instructor runs the shared Event Hub,
+> **don't** add the Apache Kafka source below and you don't need your own RDM account. Instead, add an **Azure Event Hubs** source
+> for the `rdm-trust` hub with your own consumer group (Lab 05c, step S2). The destination (`RdmTrustRaw`, `RdmTrustRawMapping`)
+> and the checkpoint queries are the same.
+
 ## Prerequisites
 
 * Lab 02 (Eventstream `RailEventstreamRdm`) is done.
@@ -63,3 +68,4 @@ TrustMovements | where source == "rdm" | take 10
 | No data, no errors | Check the topic name and consumer group. Use `Latest` and wait a minute; it's a beta feed with no SLA |
 | Data in `RdmTrustRaw` but none in `TrustMovements` | Look at the payload shape (see TODO above). Run `.show ingestion failures` |
 | Duplicated movements | You're also ingesting `TRAIN_MVT_ALL_TOC` through the bridge. Filter on `source`, or drop one feed (see Lab 00) |
+| Only part of the data arrives | Another consumer uses the same RDM consumer group, for example the instructor's RDM relay (Lab 05c) or a second Eventstream | Run only one reader per RDM consumer group |

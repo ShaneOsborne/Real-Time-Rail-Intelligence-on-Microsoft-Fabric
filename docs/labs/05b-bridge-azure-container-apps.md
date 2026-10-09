@@ -7,6 +7,7 @@
 * Host the bridge 24×7 on **Azure Container Apps**, with **exactly one replica** (min = max = 1) at **0.25 vCPU / 0.5 GiB**.
 * Keep secrets in **Key Vault**, read through a **user-assigned managed identity**, and send logs to **Log Analytics**.
 * Build the image in **Azure Container Registry**, or use a public **GHCR** image built by CI.
+* *Optional:* point the bridge at the shared **Azure Event Hub** (`BRIDGE_TARGET=eventhub`) and deploy the **RDM Kafka relay** as a second app (`DEPLOY_RDM_RELAY=true`). See [Lab 05c](05c-shared-event-hub.md).
 
 Cost: about **$14/month** list-price estimate after the free grant, plus small Log Analytics, Key Vault and ACR charges. For `TD_ALL_SIG_AREA`, set `BRIDGE_CPU=0.5` and `BRIDGE_MEMORY=1Gi`.
 
@@ -32,6 +33,24 @@ What it does:
 2. Writes `nrod-username`, `nrod-password` and `eventstream-connection-string` to Key Vault, retrying while RBAC propagates.
 3. Runs `az acr build`, so you don't need Docker locally.
 4. Phase 2 Bicep (`deployApp=true`) deploys the container app with Key Vault secret references, probes on `/healthz` and 1 replica.
+
+### Optional: shared Event Hub target and RDM relay (Lab 05c)
+
+Run `./scripts/create-eventhub.sh` (or `.ps1`) first. It writes `eventhub-nrod-connection-string` and `eventhub-rdm-connection-string` to the shared Key Vault. Then:
+
+| Variable (`.env` or shell) | Default | Effect |
+|---|---|---|
+| `BRIDGE_TARGET` | `eventstream` | `eventhub`: the bridge app uses the Key Vault secret `eventhub-nrod-connection-string`, `EVENTHUB_CONNECTION_STRING` and `BRIDGE_SINK=eventhub`. `EVENTSTREAM_CONNECTION_STRING` isn't needed |
+| `DEPLOY_RDM_RELAY` | `false` | `true`: also stores `rdm-kafka-username` / `rdm-kafka-password` and deploys `<NAME_PREFIX>-rdm-relay` (same image, `BRIDGE_SOURCE=kafka`, 1 replica, 0.25 vCPU / 0.5 GiB). Needs `RDM_KAFKA_*` in `.env` |
+
+```bash
+BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
+```
+
+The script stops early if a required Event Hub secret is missing. The Bicep parameters are `bridgeTarget` and `deployRdmRelay` (plus
+`rdmKafkaBootstrapServers`, `rdmKafkaTopic` and `rdmKafkaConsumerGroup`). With the defaults, the deployment is exactly the same as before.
+Setting `DEPLOY_RDM_RELAY=false` later doesn't delete an existing relay app (deployments are incremental):
+`az containerapp delete -g $RG -n ${NAME_PREFIX:-railrti}-rdm-relay --yes`.
 
 To use the image built by GitHub Actions instead (`.github/workflows/bridge-ci.yml` pushes it to GHCR), make the package public or add registry credentials, then set:
 
@@ -84,7 +103,8 @@ az deployment group create -g $RG -n bridge-phase2 -f infra/main.bicep -p @infra
 In the portal, you'd create a *Container App* with: image `<acr>.azurecr.io/rail-bridge:v1` pulled with the managed identity;
 **0.25 CPU / 0.5 Gi**; **Scale min 1 / max 1**; ingress **disabled**; secrets as **Key Vault references** (identity = the UAMI);
 environment variables `BRIDGE_SINK=eventstream`, `BRIDGE_SOURCE=stomp`, `NROD_TOPICS=…`, and `NROD_USERNAME`, `NROD_PASSWORD` and `EVENTSTREAM_CONNECTION_STRING` → *Reference a secret*;
-and a liveness probe of HTTP GET `/healthz` on port 8080.
+and a liveness probe of HTTP GET `/healthz` on port 8080. For the optional shared Event Hub, the portal steps for the bridge and the
+RDM relay app are in [Lab 05c, B6](05c-shared-event-hub.md#b6-container-apps).
 
 ## Checkpoint
 
@@ -118,3 +138,5 @@ In Fabric, `RawFeed | summarize max(received_utc)` should advance every few seco
 | Replica count shows 0 | `minReplicas` must be 1. Re-deploy phase 2 |
 | CPU throttling with TD | Increase to `0.5` vCPU / `1Gi` |
 | Rotating the Eventstream key | Update the Key Vault secret, then `az containerapp revision restart` (or deploy a new revision) |
+| `Key Vault secret 'eventhub-…' not found` | `BRIDGE_TARGET=eventhub` or `DEPLOY_RDM_RELAY=true` without the shared Event Hub | Run `./scripts/create-eventhub.sh` first (Lab 05c) |
+| Relay restarts with SASL errors | Wrong RDM credentials in Key Vault | Update `rdm-kafka-username` / `rdm-kafka-password`, then restart the relay revision |

@@ -9,6 +9,8 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 COPY requirements.txt .
+# confluent-kafka (RDM relay, BRIDGE_SOURCE=kafka) ships manylinux wheels with librdkafka bundled,
+# so the glibc-based slim image needs no build tools.
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY rail_bridge ./rail_bridge

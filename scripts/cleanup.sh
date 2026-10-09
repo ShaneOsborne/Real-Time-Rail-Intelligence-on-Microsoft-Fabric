@@ -7,7 +7,7 @@ load_env
 need_cmd az
 require AZ_RESOURCE_GROUP
 
-read -r -p "Delete resource group '$AZ_RESOURCE_GROUP' and everything in it? [y/N] " ans
+read -r -p "Delete resource group '$AZ_RESOURCE_GROUP' and everything in it (incl. the optional Event Hubs namespace, Lab 05c)? [y/N] " ans
 if [[ "$ans" =~ ^[Yy]$ ]]; then
   az group delete -n "$AZ_RESOURCE_GROUP" --yes --no-wait
   echo "Deletion started. Key Vault is soft-deleted (7 days); purge with:"

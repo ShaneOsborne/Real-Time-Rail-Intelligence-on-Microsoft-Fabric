@@ -23,6 +23,8 @@ jobs:
           az bicep lint --file infra/main.bicep
           az bicep build --file infra/keyvault.bicep --stdout > /dev/null
           az bicep lint --file infra/keyvault.bicep
+          az bicep build --file infra/eventhubs.bicep --stdout > /dev/null
+          az bicep lint --file infra/eventhubs.bicep
 
   scripts:
     runs-on: ubuntu-latest

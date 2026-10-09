@@ -1,3 +1,5 @@
-# Runtime dependencies for the STOMP -> Eventstream bridge
+# Runtime dependencies for the STOMP -> Eventstream bridge (and the optional RDM Kafka -> Event Hub relay)
 stomp.py>=8.1,<9
 azure-eventhub>=5.11,<6
+# BRIDGE_SOURCE=kafka only. Pre-built manylinux wheels (librdkafka bundled) install on python:3.12-slim with no compiler.
+confluent-kafka>=2.3,<3

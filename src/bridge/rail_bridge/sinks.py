@@ -1,7 +1,7 @@
-"""Output sinks: console (stdout), file (JSON Lines) and eventstream (Event Hubs-compatible).
+"""Output sinks: console (stdout), file (JSON Lines) and eventstream / eventhub (Event Hubs protocol).
 
 ``send`` must either deliver *all* events or raise; the STOMP listener only ACKs
-a frame after ``send`` returns successfully.
+a frame (and the Kafka relay only commits offsets) after ``send`` returns successfully.
 """
 
 from __future__ import annotations
@@ -26,7 +26,7 @@ class Sink(Protocol):
     def close(self) -> None: ...
 
 
-def _dumps(ev: dict[str, Any]) -> str:
+def _dumps(ev: Any) -> str:
     return json.dumps(ev, separators=(",", ":"), ensure_ascii=False)
 
 
@@ -71,9 +71,13 @@ class FileSink:
 class EventstreamSink:
     """Sends to a Fabric Eventstream *Custom endpoint* source using its
     Event Hubs-compatible connection string (``Endpoint=sb://...;EntityPath=...``).
+
+    The same class serves ``BRIDGE_SINK=eventhub``: an Azure Event Hub connection string
+    works identically, only the ``label`` used in errors and logs differs.
     """
 
-    def __init__(self, connection_string: str, entity_name: str = "") -> None:
+    def __init__(self, connection_string: str, entity_name: str = "", label: str = "Eventstream") -> None:
+        self.label = label
         try:
             from azure.eventhub import EventData, EventHubProducerClient
         except ImportError as exc:  # pragma: no cover - dependency present in image
@@ -94,7 +98,8 @@ class EventstreamSink:
                 for ev in events:
                     data = self._EventData(_dumps(ev))
                     data.content_type = "application/json"
-                    data.properties = {"topic": ev.get("topic", ""), "feed": ev.get("feed", "")}
+                    if isinstance(ev, dict):
+                        data.properties = {"topic": ev.get("topic", ""), "feed": ev.get("feed", "")}
                     try:
                         batch.add(data)
                     except ValueError:
@@ -105,7 +110,7 @@ class EventstreamSink:
                 if len(batch) > 0:
                     self._client.send_batch(batch)
             except Exception as exc:  # noqa: BLE001 - surface any SDK failure as SinkError
-                raise SinkError(f"Eventstream send failed: {exc}") from exc
+                raise SinkError(f"{self.label} send failed: {exc}") from exc
 
     def close(self) -> None:
         with self._lock:
@@ -119,4 +124,6 @@ def build_sink(kind: str, output_file: str = "", connection_string: str = "", en
         return FileSink(output_file)
     if kind == "eventstream":
         return EventstreamSink(connection_string, entity_name)
+    if kind == "eventhub":
+        return EventstreamSink(connection_string, entity_name, label="Event Hub")
     raise ValueError(f"Unknown sink '{kind}'")

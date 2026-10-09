@@ -1,19 +1,24 @@
 #!/usr/bin/env bash
 # Run the STOMP bridge locally.
-#   ./scripts/run-local.sh venv   [console|file|eventstream] [--replay]
-#   ./scripts/run-local.sh docker [console|file|eventstream] [--replay]
+#   ./scripts/run-local.sh venv   [console|file|eventstream|eventhub] [--replay|--kafka]
+#   ./scripts/run-local.sh docker [console|file|eventstream|eventhub] [--replay|--kafka]
 #   ./scripts/run-local.sh test
+# --kafka runs the optional RDM Kafka relay (BRIDGE_SOURCE=kafka, Lab 05c) instead of the NROD STOMP source.
 source "$(dirname "$0")/_common.sh"
 load_env
 
 MODE="${1:-venv}"
 SINK="${2:-${BRIDGE_SINK:-console}}"
-REPLAY="${3:-}"
+REPLAY="${3:-}"   # --replay or --kafka
 BRIDGE_DIR="$REPO_ROOT/src/bridge"
 
 extra_args=(--sink "$SINK")
 if [[ "$REPLAY" == "--replay" ]]; then
   extra_args+=(--source replay --replay-file "$BRIDGE_DIR/tests/fixtures/replay_frames.json")
+elif [[ "$REPLAY" == "--kafka" ]]; then
+  extra_args+=(--source kafka)
+  # The relay sends to the rdm-trust hub, not the nrod-feed hub used by the NROD bridge.
+  export EVENTHUB_CONNECTION_STRING="${EVENTHUB_RDM_CONNECTION_STRING:-}"
 fi
 
 case "$MODE" in
@@ -37,6 +42,11 @@ case "$MODE" in
       log "Starting offline replay container"
       exec docker compose --profile offline up --build replay
     fi
+    if [[ "$REPLAY" == "--kafka" ]]; then
+      log "Starting RDM Kafka relay container (sink=$SINK)"
+      export RELAY_SINK="$SINK"
+      exec docker compose --profile relay up --build rdm-relay
+    fi
     mkdir -p out && chmod a+rwx out   # container runs as uid 10001
     log "Starting bridge container (sink=$SINK)"
     export BRIDGE_SINK="$SINK"
@@ -52,7 +62,7 @@ case "$MODE" in
     exec python -m pytest -q
     ;;
   *)
-    echo "Usage: $0 {venv|docker|test} [console|file|eventstream] [--replay]" >&2
+    echo "Usage: $0 {venv|docker|test} [console|file|eventstream|eventhub] [--replay|--kafka]" >&2
     exit 1
     ;;
 esac

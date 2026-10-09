@@ -8,7 +8,7 @@ Import-DotEnv
 Assert-Command az
 Assert-Env @('AZ_RESOURCE_GROUP')
 
-$ans = Read-Host "Delete resource group '$($env:AZ_RESOURCE_GROUP)' and everything in it? [y/N]"
+$ans = Read-Host "Delete resource group '$($env:AZ_RESOURCE_GROUP)' and everything in it (incl. the optional Event Hubs namespace, Lab 05c)? [y/N]"
 if ($ans -match '^[Yy]$') {
     Invoke-Az group delete -n $env:AZ_RESOURCE_GROUP --yes --no-wait
     Write-Host 'Deletion started. Key Vault is soft-deleted (7 days): az keyvault list-deleted; az keyvault purge -n <name>'

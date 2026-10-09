@@ -13,6 +13,10 @@
 1. **Ingest** live train movements from two sources:
    * **Rail Data Marketplace (RDM)** *NWR Train Movements* over Kafka, straight into a Fabric **Eventstream** through the Apache Kafka source connector (Lab 04).
    * **Network Rail Open Data (NROD)** over STOMP, through a small Python **bridge** that forwards to an Eventstream **custom endpoint**. The bridge runs locally (Lab 05a) or on Azure Container Apps (Lab 05b).
+   * *Optional shared mode (Lab 05c):* an **Azure Event Hubs** namespace sits between the sources and Fabric. One instructor-run
+     bridge (and an RDM Kafka relay) sends to it, and each student's Eventstream reads it with an **Azure Event Hubs** source and its own
+     consumer group. Use it for a class (NROD allows one connection per account; RDM subscriptions are per user) or when the Fabric
+     capacity is paused overnight: Event Hubs keeps buffering for up to 7 days. The direct paths above stay the default.
 2. **Store and shape** the data in an **Eventhouse**. Raw JSON lands in `RawFeed` / `RdmTrustRaw`. **Update policies** split batched TRUST messages by `msg_type` into typed tables, and **materialized views** keep the latest state for each train and the delay summaries (Lab 06). Reference data (CORPUS, SMART, NaPTAN) goes into a **Lakehouse** and a KQL `Locations` table (Lab 03).
 3. **Act and visualise** with **Activator** alerts (Lab 07), a **Real-Time Dashboard** and a **Power BI** report (Lab 08).
 4. **Converse** through a **Fabric data agent** (Lab 09), an **Azure AI Foundry agent** that calls it (Lab 10), and a **Rayfin** Fabric app with a live map and a chat panel (Lab 11).
@@ -56,6 +60,8 @@ Volumes: TRUST peaks at about 600 messages a minute (in batches), TD at about 6,
 | Azure Functions (Consumption) | ❌ Not designed for a permanent socket. ✅ Fine for the **daily reference-file pull** | Low |
 | Azure Functions Premium/Flex (always ready) | Works, but over-provisioned | ~$80–150+/month |
 | Your laptop / Docker | ✅ Training and development | Free |
+
+For classes or paused capacities, add the optional shared **Azure Event Hubs Standard** tier ([Lab 05c](05c-shared-event-hub.md)): about **$22/month** for 1 throughput unit plus a few dollars of ingress, and **~$14/month** more if you also run the RDM relay app (list-price estimates).
 
 ## Automated and manual parts
 

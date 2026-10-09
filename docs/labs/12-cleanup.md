@@ -17,18 +17,22 @@ docker compose -f src/bridge/docker-compose.yml down     # if the bridge is runn
 
 ## Option B – manual
 
-1. **Bridge**: stop it locally (Ctrl+C or `docker compose down`). In Azure, delete the resource group `rg-rail-fabric-rti`.
+1. **Bridge**: stop it locally (Ctrl+C or `docker compose down`, plus `docker compose --profile relay down` if you ran the RDM relay). In Azure, delete the resource group `rg-rail-fabric-rti`.
+   That also deletes the optional **Event Hubs namespace** and the **RDM relay** app (Lab 05c). If you created the namespace in another
+   resource group, delete it with `az eventhubs namespace delete -g <rg> -n <namespace>`. Students should delete their Event Hubs sources
+   (or the whole workspace) too, and the instructor should rotate the `students-listen` key if the namespace is kept.
    Key Vault is soft-deleted for 7 days. Purge it with `az keyvault purge -n <name>` if you want to reuse the name.
 2. **Fabric**: delete the Rayfin app, data agent, Activator `RailAlerts`, dashboards, Eventstreams (stopping the Kafka consumer),
    Eventhouse, Lakehouse and notebook. Or delete the whole workspace.
 3. **Capacity**: **pause** pay-as-you-go F-SKU capacity, or delete it if you created it only for these labs.
 4. **Foundry**: delete the agent (`python foundry/agent_client.py --create --delete-after` cleans up automatically) and the Fabric connection.
 5. **Subscriptions**: unsubscribe from the RDM products and NROD feeds you no longer need. Durable subscriptions expire on the broker.
-6. **Secrets**: delete `.env`, or rotate the NROD password and Eventstream keys if you shared them anywhere.
+6. **Secrets**: delete `.env`, or rotate the NROD password, the Eventstream keys and (Lab 05c) the Event Hubs and RDM keys if you shared them anywhere.
 7. **GHCR**: delete the container package if you published one.
 
 ## Checkpoint
 
 - [ ] `az group exists -n rg-rail-fabric-rti` returns `false`
 - [ ] The Fabric workspace is gone, or the capacity is paused
-- [ ] No bridge process is running anywhere
+- [ ] No bridge or RDM relay process is running anywhere
+- [ ] (Lab 05c) `az eventhubs namespace list -g rg-rail-fabric-rti -o table` returns nothing, or the resource group is gone

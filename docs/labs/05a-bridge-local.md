@@ -8,6 +8,7 @@
   **console**, then **file (JSONL)**, then **eventstream**.
 * Do it both ways: in a **Python virtual environment** and in **Docker / Docker Compose**.
 * Wire the bridge to the Fabric **Eventstream custom endpoint** and on to the Eventhouse `RawFeed` table.
+* *Optional:* send to the shared **Azure Event Hub** instead (sink `eventhub`, [Lab 05c](05c-shared-event-hub.md)), and run the RDM Kafka relay locally.
 
 ## Prerequisites
 
@@ -39,6 +40,9 @@ NROD ActiveMQ (STOMP :61618)
 | Live → Eventstream (venv) | `./scripts/run-local.sh venv eventstream` | `./scripts/run-local.ps1 -Mode venv -Sink eventstream` |
 | Offline replay (Docker) | `./scripts/run-local.sh docker console --replay` | `./scripts/run-local.ps1 -Mode docker -Replay` |
 | Live → Eventstream (Docker) | `./scripts/run-local.sh docker eventstream` | `./scripts/run-local.ps1 -Mode docker -Sink eventstream` |
+| *Optional:* live → shared Event Hub `nrod-feed` (venv) | `./scripts/run-local.sh venv eventhub` | `./scripts/run-local.ps1 -Mode venv -Sink eventhub` |
+| *Optional:* RDM Kafka relay → console (venv) | `./scripts/run-local.sh venv console --kafka` | `./scripts/run-local.ps1 -Mode venv -Sink console -Kafka` |
+| *Optional:* RDM Kafka relay → Event Hub `rdm-trust` (Docker) | `./scripts/run-local.sh docker eventhub --kafka` | `./scripts/run-local.ps1 -Mode docker -Sink eventhub -Kafka` |
 
 ## Option B – manual, step by step
 
@@ -83,6 +87,27 @@ curl -s localhost:8080/metrics             # frames_received, events_sent, frame
 python -m rail_bridge --sink eventstream
 ```
 
+### B3b. Optional: send to the shared Event Hub (sink `eventhub`)
+
+In shared mode ([Lab 05c](05c-shared-event-hub.md)) the instructor's bridge sends to an Azure Event Hub instead of an Eventstream.
+`eventhub` is the same Event Hubs producer as `eventstream`; only the connection string differs.
+
+1. Copy the `nrod-feed` hub's **bridge-send** connection string (Event Hubs namespace → `nrod-feed` → *Shared access policies* →
+   `bridge-send`, or the Key Vault secret `eventhub-nrod-connection-string`) into `.env` as `EVENTHUB_CONNECTION_STRING=…`.
+   If it's empty, the bridge falls back to `EVENTSTREAM_CONNECTION_STRING`. **Never commit it.**
+2. Run `python -m rail_bridge --sink eventhub`.
+
+The **RDM Kafka relay** runs from the same code with `--source kafka` (or `BRIDGE_SOURCE=kafka`). It reads `RDM_KAFKA_*` from `.env`,
+forwards each message value unchanged, and commits offsets only after a successful send. The scripts map
+`EVENTHUB_RDM_CONNECTION_STRING` (the `rdm-trust` send string) to the relay; the relay never falls back to the Eventstream string.
+
+```bash
+EVENTHUB_CONNECTION_STRING="$EVENTHUB_RDM_CONNECTION_STRING" python -m rail_bridge --source kafka --sink eventhub
+```
+
+> Only one consumer may use an RDM consumer group at a time. Stop the local relay before the Azure one starts (and pause your
+> Lab 04 Kafka source if it uses the same group).
+
 ### B4. Docker / Docker Compose
 
 ```bash
@@ -123,5 +148,7 @@ TrustMovements | where source == "nrod" | take 10
 | Connected but no messages | Not subscribed to that feed in *My Feeds*, or a quiet period (night) | Check *My Feeds*. Try `RTPPM_ALL` (one message a minute) |
 | Gap after downtime | NROD buffers durable messages for only about 5 minutes | Keep the bridge running. Use Container Apps (05b) for 24×7 |
 | `Eventstream send failed … Unauthorized` | Wrong or rotated SAS key, or `EntityPath` missing | Copy the connection string again. Set `EVENTSTREAM_ENTITY_NAME` if there's no `EntityPath` |
+| `Event Hub send failed …` (sink `eventhub`) | Same causes, for the shared Event Hub | Use the hub-level `bridge-send` connection string. Set `EVENTHUB_NAME` if there's no `EntityPath` |
+| Relay: `EVENTHUB_CONNECTION_STRING is required` | `EVENTHUB_RDM_CONNECTION_STRING` isn't set (the relay doesn't fall back to the Eventstream string) | Set it in `.env`, or export `EVENTHUB_CONNECTION_STRING` before running `python -m rail_bridge --source kafka` |
 | `PermissionError` writing `out/` in Docker | Host directory isn't writable by uid 10001 | `chmod a+rwx out` |
 | Events in `RawFeed` but parsed tables empty | Update policies aren't applied | Run Lab 06 (`apply_kql.py`), then `.show ingestion failures` |

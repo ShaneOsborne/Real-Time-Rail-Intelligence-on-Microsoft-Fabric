@@ -3,6 +3,9 @@
 //   1. deployApp=false -> identity, Log Analytics, Key Vault, ACR, Container Apps environment
 //   2. secrets are written to Key Vault and the image is built/pushed
 //   3. deployApp=true  -> the single-replica container app that reads secrets from Key Vault
+// Optional shared Event Hub tier (Lab 05c, infra/eventhubs.bicep):
+//   bridgeTarget='eventhub' -> the NROD bridge sends to the nrod-feed event hub instead of a Fabric Eventstream
+//   deployRdmRelay=true     -> a second app (<prefix>-rdm-relay, same image) relays RDM Kafka to the rdm-trust event hub
 targetScope = 'resourceGroup'
 
 @description('Azure region. Pick the region closest to your Fabric capacity (e.g. uksouth).')
@@ -53,6 +56,22 @@ param tags object = {
   project: 'rail-fabric-rti'
 }
 
+@description('Where the NROD bridge sends: a Fabric Eventstream custom endpoint (default) or the shared Azure Event Hub (Lab 05c).')
+@allowed([ 'eventstream', 'eventhub' ])
+param bridgeTarget string = 'eventstream'
+
+@description('Deploy the optional RDM Kafka -> Event Hub relay as a second container app (Lab 05c).')
+param deployRdmRelay bool = false
+
+@description('RDM Kafka bootstrap servers (host:port[,host:port]) for the relay. Not a secret.')
+param rdmKafkaBootstrapServers string = ''
+
+@description('RDM Kafka topic for the relay.')
+param rdmKafkaTopic string = ''
+
+@description('RDM Kafka consumer group issued by Rail Data Marketplace.')
+param rdmKafkaConsumerGroup string = ''
+
 @description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Lab 01). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
 param keyVaultName string = ''
 
@@ -61,6 +80,30 @@ var kvName = !empty(keyVaultName) ? keyVaultName : take('${namePrefix}kv${suffix
 var acrName = take('${namePrefix}acr${suffix}', 50)
 var acrImage = createAcr ? '${acr.properties.loginServer}/rail-bridge:${imageTag}' : ''
 var image = !empty(containerImage) ? containerImage : acrImage
+var bridgeSecretName = bridgeTarget == 'eventhub' ? 'eventhub-nrod-connection-string' : 'eventstream-connection-string'
+var bridgeSecretEnv = bridgeTarget == 'eventhub' ? 'EVENTHUB_CONNECTION_STRING' : 'EVENTSTREAM_CONNECTION_STRING'
+var healthProbes = [
+  {
+    type: 'Liveness'
+    httpGet: {
+      path: '/healthz'
+      port: 8080
+    }
+    initialDelaySeconds: 10
+    periodSeconds: 30
+    failureThreshold: 3
+  }
+  {
+    type: 'Startup'
+    httpGet: {
+      path: '/healthz'
+      port: 8080
+    }
+    initialDelaySeconds: 3
+    periodSeconds: 5
+    failureThreshold: 12
+  }
+]
 
 // Built-in role definition IDs
 var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
@@ -194,8 +237,9 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
           identity: uami.id
         }
         {
-          name: 'eventstream-connection-string'
-          keyVaultUrl: '${kv.properties.vaultUri}secrets/eventstream-connection-string'
+          // eventstream-connection-string (default) or eventhub-nrod-connection-string (bridgeTarget=eventhub)
+          name: bridgeSecretName
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/${bridgeSecretName}'
           identity: uami.id
         }
       ]
@@ -211,7 +255,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
           }
           env: [
             { name: 'BRIDGE_SOURCE', value: 'stomp' }
-            { name: 'BRIDGE_SINK', value: 'eventstream' }
+            { name: 'BRIDGE_SINK', value: bridgeTarget }
             { name: 'NROD_TOPICS', value: nrodTopics }
             { name: 'NROD_SUBSCRIPTION_PREFIX', value: subscriptionPrefix }
             { name: 'NROD_DURABLE', value: 'true' }
@@ -220,33 +264,86 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
             { name: 'LOG_LEVEL', value: 'INFO' }
             { name: 'NROD_USERNAME', secretRef: 'nrod-username' }
             { name: 'NROD_PASSWORD', secretRef: 'nrod-password' }
-            { name: 'EVENTSTREAM_CONNECTION_STRING', secretRef: 'eventstream-connection-string' }
+            { name: bridgeSecretEnv, secretRef: bridgeSecretName }
           ]
-          probes: [
-            {
-              type: 'Liveness'
-              httpGet: {
-                path: '/healthz'
-                port: 8080
-              }
-              initialDelaySeconds: 10
-              periodSeconds: 30
-              failureThreshold: 3
-            }
-            {
-              type: 'Startup'
-              httpGet: {
-                path: '/healthz'
-                port: 8080
-              }
-              initialDelaySeconds: 3
-              periodSeconds: 5
-              failureThreshold: 12
-            }
-          ]
+          probes: healthProbes
         }
       ]
       // Exactly one replica: NROD allows one connection per durable client-id.
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+  dependsOn: [
+    kvSecretsUser
+    acrPull
+  ]
+}
+
+// Optional RDM Kafka -> Event Hub relay (Lab 05c): same image, BRIDGE_SOURCE=kafka, BRIDGE_SINK=eventhub.
+resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deployRdmRelay) {
+  name: '${namePrefix}-rdm-relay'
+  location: location
+  tags: tags
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${uami.id}': {}
+    }
+  }
+  properties: {
+    environmentId: env.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      registries: createAcr ? [ { server: acr.properties.loginServer, identity: uami.id } ] : []
+      secrets: [
+        {
+          name: 'rdm-kafka-username'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/rdm-kafka-username'
+          identity: uami.id
+        }
+        {
+          name: 'rdm-kafka-password'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/rdm-kafka-password'
+          identity: uami.id
+        }
+        {
+          name: 'eventhub-rdm-connection-string'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/eventhub-rdm-connection-string'
+          identity: uami.id
+        }
+      ]
+    }
+    template: {
+      containers: [
+        {
+          name: 'rdm-relay'
+          image: image
+          resources: {
+            cpu: json('0.25')
+            memory: '0.5Gi'
+          }
+          env: [
+            { name: 'BRIDGE_SOURCE', value: 'kafka' }
+            { name: 'BRIDGE_SINK', value: 'eventhub' }
+            { name: 'RDM_KAFKA_BOOTSTRAP_SERVERS', value: rdmKafkaBootstrapServers }
+            { name: 'RDM_KAFKA_TOPIC', value: rdmKafkaTopic }
+            { name: 'RDM_KAFKA_CONSUMER_GROUP', value: rdmKafkaConsumerGroup }
+            { name: 'RDM_KAFKA_SECURITY_PROTOCOL', value: 'SASL_SSL' }
+            { name: 'RDM_KAFKA_SASL_MECHANISM', value: 'PLAIN' }
+            { name: 'HEALTH_PORT', value: '8080' }
+            { name: 'LOG_LEVEL', value: 'INFO' }
+            { name: 'RDM_KAFKA_USERNAME', secretRef: 'rdm-kafka-username' }
+            { name: 'RDM_KAFKA_PASSWORD', secretRef: 'rdm-kafka-password' }
+            { name: 'EVENTHUB_CONNECTION_STRING', secretRef: 'eventhub-rdm-connection-string' }
+          ]
+          probes: healthProbes
+        }
+      ]
+      // One consumer in the RDM group keeps ordering simple and costs the same as the bridge.
       scale: {
         minReplicas: 1
         maxReplicas: 1
@@ -264,6 +361,8 @@ output keyVaultUri string = kv.properties.vaultUri
 output acrName string = createAcr ? acr.name : ''
 output acrLoginServer string = createAcr ? acr.properties.loginServer : ''
 output containerAppName string = deployApp ? app.name : ''
+output relayAppName string = (deployApp && deployRdmRelay) ? relay.name : ''
+output bridgeTarget string = bridgeTarget
 output environmentName string = env.name
 output logAnalyticsWorkspaceName string = law.name
 output identityPrincipalId string = uami.properties.principalId

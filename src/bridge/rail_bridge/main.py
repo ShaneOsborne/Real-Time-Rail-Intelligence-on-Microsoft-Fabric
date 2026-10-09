@@ -1,4 +1,4 @@
-"""Entry point: ``python -m rail_bridge [--sink console|file|eventstream] [--source stomp|replay]``."""
+"""Entry point: ``python -m rail_bridge [--sink console|file|eventstream|eventhub] [--source stomp|replay|kafka]``."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ from typing import Any
 from . import __version__
 from .config import VALID_SINKS, VALID_SOURCES, BridgeConfig
 from .health import BridgeState, start_health_server
+from .kafka_relay import run_kafka
 from .sinks import build_sink
 from .stomp_client import run_replay, run_stomp
 
@@ -49,7 +50,7 @@ def setup_logging(level: str) -> None:
 
 
 def parse_args(argv: list[str] | None) -> argparse.Namespace:
-    p = argparse.ArgumentParser(prog="rail_bridge", description="NROD STOMP -> Fabric Eventstream bridge")
+    p = argparse.ArgumentParser(prog="rail_bridge", description="NROD STOMP (or RDM Kafka) -> Fabric Eventstream / Azure Event Hub bridge")
     p.add_argument("--sink", choices=VALID_SINKS, help="Override BRIDGE_SINK")
     p.add_argument("--source", choices=VALID_SOURCES, help="Override BRIDGE_SOURCE")
     p.add_argument("--topics", help="Comma-separated NROD topics, e.g. TRAIN_MVT_ALL_TOC,RTPPM_ALL")
@@ -107,10 +108,13 @@ def main(argv: list[str] | None = None) -> int:
 
     state = BridgeState(stale_after_s=cfg.stale_after_s)
     server = start_health_server(state, cfg.health_port)
-    sink = build_sink(cfg.sink, cfg.output_file, cfg.eventstream_connection_string, cfg.eventstream_entity_name)
+    connection_string, entity_name = cfg.sink_target()
+    sink = build_sink(cfg.sink, cfg.output_file, connection_string, entity_name)
     try:
         if cfg.source == "replay":
             run_replay(cfg, sink, state, stop)
+        elif cfg.source == "kafka":
+            run_kafka(cfg, sink, state, stop)
         else:
             run_stomp(cfg, sink, state, stop)
     finally:

@@ -21,6 +21,29 @@ services:
     restart: unless-stopped
     stop_grace_period: 20s
 
+  # Optional RDM Kafka -> Event Hub relay (Lab 05c). Same image, BRIDGE_SOURCE=kafka.
+  #   ./scripts/run-local.sh docker eventhub --kafka      (exports .env, then runs this service)
+  # Needs RDM_KAFKA_* and EVENTHUB_RDM_CONNECTION_STRING (the rdm-trust send connection string) in .env.
+  # Stop it before starting the Azure relay: both would share the RDM consumer group.
+  rdm-relay:
+    profiles: ["relay"]
+    build: .
+    image: rail-fabric-rti/bridge:local
+    container_name: rail-rdm-relay
+    env_file:
+      - path: ../../.env
+        required: false
+    environment:
+      BRIDGE_SOURCE: kafka
+      BRIDGE_SINK: ${RELAY_SINK:-console}
+      # Interpolated from your shell; the relay never falls back to EVENTSTREAM_CONNECTION_STRING.
+      EVENTHUB_CONNECTION_STRING: ${EVENTHUB_RDM_CONNECTION_STRING:-}
+      HEALTH_PORT: "8080"
+    ports:
+      - "8082:8080"
+    restart: unless-stopped
+    stop_grace_period: 20s
+
   # Offline demo: replays bundled fixtures to the console - no NROD or Fabric account needed.
   #   docker compose --profile offline up --build replay
   replay:
