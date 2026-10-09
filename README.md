@@ -44,10 +44,19 @@ flowchart LR
 
   FOUNDRY["Azure AI Foundry agent<br/>+ Fabric data agent tool (preview)"]
 
+  subgraph Shared["Optional shared tier (Lab 05c)"]
+    EHNS[("Azure Event Hubs Standard<br/>nrod-feed · rdm-trust<br/>7-day retention<br/>1 consumer group per student")]
+    RELAY["RDM relay<br/>(same image, BRIDGE_SOURCE=kafka)"]
+  end
+
   RDM --> ESR
   NROD --> LOCAL & ACA
   LOCAL -- Event Hubs protocol --> ESN
   ACA -- Event Hubs protocol --> ESN
+  ACA -. "BRIDGE_TARGET=eventhub" .-> EHNS
+  RDM -.-> RELAY -.-> EHNS
+  EHNS -. "Event Hubs source (per student)" .-> ESN
+  EHNS -. "Event Hubs source (per student)" .-> ESR
   ESR --> EH
   ESN --> EH
   ESN --> ACT
@@ -63,6 +72,7 @@ flowchart LR
 |---|---|---|
 | Kafka ingestion | Eventstream **Apache Kafka** source | Rail Data Marketplace exposes Kafka with SASL_SSL/PLAIN. No code needed |
 | STOMP ingestion | Python bridge → Eventstream **custom endpoint** (Event Hubs protocol) | Eventstream has no STOMP source |
+| Optional shared tier | **Azure Event Hubs Standard** between the sources and Fabric ([Lab 05c](docs/labs/05c-shared-event-hub.md)) | One instructor ingestion feeds many students' workspaces, and data keeps buffering (7 days) while a capacity is paused. Direct paths stay the default |
 | Bridge hosting | **Azure Container Apps**, exactly 1 replica | A long-lived connection that must be single-instance per durable client-id. Costs about $14/month at list price |
 | Storage and query | **Eventhouse** (KQL) and **Lakehouse** | Update policies parse batched TRUST JSON. Materialized views hold the current state |
 | Insight | Real-Time Dashboard, Power BI, Activator | Live tiles, history and alerts |
@@ -79,6 +89,7 @@ flowchart LR
 | [04](docs/labs/04-rdm-kafka-eventstream.md) | Ingest RDM Kafka Train Movements with Eventstream | 30 min | Manual (portal) |
 | [05a](docs/labs/05a-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` |
 | [05b](docs/labs/05b-bridge-azure-container-apps.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` |
+| [05c](docs/labs/05c-shared-event-hub.md) | *Optional:* shared Azure Event Hub for classes and paused capacities (+ RDM Kafka relay) | 45 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1` (instructor); student Eventstream source manual |
 | [06](docs/labs/06-kql-transformations.md) | KQL tables, update policies, materialized views, functions | 40 min | ✅ `apply_kql.py` |
 | [07](docs/labs/07-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) |
 | [08](docs/labs/08-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) |
@@ -117,6 +128,11 @@ python fabric/scripts/load_reference_data.py --to-kql --to-onelake
 
 # 6. Bridge on Azure Container Apps (Lab 05b)
 ./scripts/deploy-bridge.sh
+
+# 7. OPTIONAL shared Event Hub for a class / paused capacities (Lab 05c, instructor)
+./scripts/create-eventhub.sh                                   # namespace, hubs, Key Vault secrets, consumer groups
+BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
+#    Students then add an Azure Event Hubs source with their own consumer group (portal, Lab 05c)
 ```
 
 On Windows, use the matching `.ps1` scripts, for example `./scripts/create-keyvault.ps1`, `./scripts/fabric-setup.ps1` and `./scripts/deploy-bridge.ps1`.
@@ -131,6 +147,7 @@ Then follow Labs 04 and 07–11 for the portal-only parts: the RDM Kafka source,
 | All KQL tables, mappings, update policies, materialized views and functions | Activator rules |
 | Reference data download, Lakehouse load and KQL load | Real-Time Dashboard tiles and the Power BI report |
 | Bridge: local venv/Docker, Azure infrastructure (Bicep), image build, Key Vault secrets | Fabric data agent creation and publishing |
+| *Optional (Lab 05c):* Event Hubs namespace, hubs, SAS rules, consumer groups, Key Vault secrets, RDM relay app | Each student's Eventstream **Azure Event Hubs** source and the overnight pause check |
 | Foundry agent creation and chat (after the Fabric connection exists) | Foundry Fabric tool connection (portal, or an ARM REST call) |
 | CI: lint, tests, Docker build, GHCR push, Bicep lint | Rayfin scaffold and deploy (Rayfin CLI) |
 
@@ -141,9 +158,11 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ```
 ├── README.md · LICENSE · CONTRIBUTING.md · .env.example · .gitignore
 ├── docs/labs/                 00–12 lab guides
-├── src/bridge/                Python STOMP → Eventstream bridge (+ Dockerfile, compose, tests)
-├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app, Log Analytics, ACR, managed identity (main.bicep)
-├── scripts/                   run-local / deploy-bridge / fabric-setup / cleanup (.sh and .ps1)
+├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
+├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
+│                              optional shared Event Hubs namespace (eventhubs.bicep)
+├── scripts/                   run-local / create-keyvault / deploy-bridge / fabric-setup / cleanup, optional create-eventhub /
+│                              add-student-consumer-groups (.sh and .ps1)
 ├── fabric/
 │   ├── kql/                   01–04 schema scripts, 05 shortcut load, 06 sample queries, 07 TOC seed
 │   ├── notebooks/             Reference-data notebook (.ipynb)
@@ -161,6 +180,8 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 | Item | Indicative cost | Notes |
 |---|---|---|
 | Azure Container Apps bridge (0.25 vCPU / 0.5 GiB, always on) | **~$14/month** list-price estimate after the monthly free grant | Size up to 0.5 vCPU / 1 GiB for `TD_ALL_SIG_AREA` (~6,000 msgs/min) |
+| *Optional:* Event Hubs Standard, 1 TU (Lab 05c) | **~$22/month** ($0.03/hour) + ingress $0.028 per million events (≈ $1–4/month for TRUST) | List-price estimates. Basic ($0.015/hour) is unsuitable: 1 consumer group, 1-day retention |
+| *Optional:* RDM relay container app (Lab 05c) | **~$14/month** | Same size as the bridge. Only with `DEPLOY_RDM_RELAY=true` |
 | Log Analytics | Pay per GB ingested | The bridge logs a small amount at INFO. Retention is 30 days by default |
 | Key Vault, ACR Basic | Small | Use GHCR (`CONTAINER_IMAGE=ghcr.io/...`) to skip ACR |
 | Fabric capacity | F2 or higher (trial works for most labs) | Pause pay-as-you-go capacity when you're not using it. The Foundry Fabric tool needs **paid F2+** |
@@ -180,7 +201,7 @@ Use the [Azure pricing calculator](https://azure.microsoft.com/pricing/calculato
 
 * Code: [MIT](LICENSE).
 * Data: Network Rail open data (Network Rail Infrastructure Limited, Open Government Licence). Rail Data Marketplace products are under the licence shown on each product page. NaPTAN is © Crown copyright (OGL v3.0). You must **attribute** the source wherever you show the data. Don't describe anything as "official", and don't use Network Rail or National Rail logos.
-* NROD accounts are capped (about 1,000 users). Use **one** connection for each account, and don't run the local and cloud bridges together with the same client-id.
+* NROD accounts are capped (about 1,000 users). Use **one** connection for each account, and don't run the local and cloud bridges together with the same client-id. For a class, use the optional shared Event Hub ([Lab 05c](docs/labs/05c-shared-event-hub.md)) so one connection feeds everyone; check that sharing the data with your students fits the licence terms of each feed.
 
 ## Contributing
 
