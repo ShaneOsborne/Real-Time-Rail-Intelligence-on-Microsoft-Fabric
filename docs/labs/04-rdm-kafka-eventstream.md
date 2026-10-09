@@ -24,6 +24,15 @@
 
   If it says the table doesn't exist, run `01_tables.kql` and `02_update_policies.kql` first (see Lab 02). **Don't** let the
   Eventstream wizard create the table: it builds its own columns, and the parsing in Lab 06 expects one `payload` column.
+* The table **`RdmTrustRaw`** and mapping **`RdmTrustRawMapping`** exist ([Lab 02, "Create the raw tables and mappings now"](02-fabric-workspace.md#create-the-raw-tables-and-mappings-now)).
+  Check before you start. In a KQL queryset on `RailKQL`, run:
+
+  ```kusto
+  .show table RdmTrustRaw ingestion json mappings
+  ```
+
+  If it says the table doesn't exist, run `01_tables.kql` and `02_update_policies.kql` first (see Lab 02). **Don't** let the
+  Eventstream wizard create the table: it builds its own columns, and the parsing in Lab 06 expects one `payload` column.
 * The Kafka details from your RDM subscription page.
 
 ## Option A – automated
@@ -56,12 +65,24 @@ doesn't generate Eventstream definition payloads. Follow Option B.
    * Leave **TLS/mTLS settings** off. RDM's brokers use a publicly trusted certificate.
 4. **Next** → **Add** → **Publish**. In **Data preview**, you should see JSON TRUST messages appear (if preview stays empty, see Troubleshooting – check the Eventhouse table instead).
 5. **Add destination** → **Eventhouse**:
-   * **Data ingestion mode**: *Direct ingestion* (simplest; the Eventhouse does the parsing) or
-     *Event processing before ingestion* (if you want to add Eventstream operators).
-   * Workspace `RaintIntelligence`, Eventhouse `RailEventhouse`, KQL database `RailKQL`.
-   * **Destination table**: Create new table **`RdmTrustRaw`**.
-   * **Input data format**: JSON. Choose the existing mapping **`RdmTrustRawMapping`**, which maps the whole record (`$`) to `payload`. If the wizard proposes its own column mapping instead, edit it so that only `payload` (dynamic) is populated from the full record.
-6. **Publish**.
+   * **Data ingestion mode**: **Direct ingestion**. Use this mode – it's the one that lets you pick an existing table and
+     an existing mapping. (*Event processing before ingestion* derives its own columns from the JSON and doesn't offer
+     existing mappings.)
+   * **Destination name** (for example `to-RdmTrustRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
+     **KQL Database** `RailKQL` → **Save**.
+   * Make sure the destination card is connected to the stream, then **Publish**.
+6. Switch to **Live view**. On the Eventhouse destination node, select **Configure**. The Eventhouse **Get data** wizard opens:
+   1. **Destination table**: choose the **existing** table **`RdmTrustRaw`**. *Don't* choose **New table** – if `RdmTrustRaw`
+      isn't listed, the table hasn't been created yet (see Prerequisites and Troubleshooting).
+   2. Keep the suggested **data connection name** → **Next**. Pulling sample events can take a few minutes.
+   3. On **Inspect the data**, set **Format** to **JSON**.
+   4. Select **Advanced** and choose the option to use an **existing mapping**, then pick **`RdmTrustRawMapping`**. The preview
+      should show a single column, `payload`, containing the whole message.
+   5. **Finish** → **Close**.
+
+   > The exact wording of the mapping option can vary between Fabric releases. If you can't find it, use **Edit columns**
+   > so the table keeps **only** the `payload` column (type `dynamic`) mapped from the **whole record**, and remove any other
+   > columns the wizard proposes. The Lab 06 update policies only read `payload`.
 
 ### Should Eventstream split arrays?
 
@@ -86,5 +107,8 @@ TrustMovements | where source == "rdm" | take 10;
 | Source runs but **Data preview** is empty or errors | Eventstream previews with a consumer group prefixed `preview-`, and the credentials need read access to it. RDM only grants your issued consumer group, so preview may fail even though ingestion works. Check the Eventhouse table (Checkpoint) instead |
 | No data, no errors | Check the topic name and consumer group. Use `Latest` and wait a minute; it's a beta feed with no SLA |
 | Data in `RdmTrustRaw` but none in `TrustMovements` | Look at the payload shape (see TODO above). Run `.show ingestion failures` |
+| No existing `RdmTrustRaw` in the table list, or no "existing mapping" option | The table and mapping weren't created first. Run `01_tables.kql` and `02_update_policies.kql` (Lab 02), then re-open **Configure** on the destination |
+| You already let the wizard create a **new** `RdmTrustRaw` table | Its columns won't match. Delete the Eventhouse destination in the Eventstream, run `.drop table RdmTrustRaw ifexists` in `RailKQL`, run `01_tables.kql` and `02_update_policies.kql`, then redo steps 5–6 |
+| Only *Event processing before ingestion* settings shown (table + JSON, no mapping choice) | You picked that mode. Delete the destination and add it again with **Direct ingestion** |
 | Duplicated movements | You're also ingesting `TRAIN_MVT_ALL_TOC` through the bridge. Filter on `source`, or drop one feed (see Lab 00) |
 | Only part of the data arrives | Another consumer uses the same RDM consumer group, for example the instructor's RDM relay (Lab 05c) or a second Eventstream | Run only one reader per RDM consumer group |
