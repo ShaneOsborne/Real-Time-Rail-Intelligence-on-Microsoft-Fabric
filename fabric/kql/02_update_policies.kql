@@ -1,6 +1,9 @@
 // Lab 06 - step 2: parsing functions + update policies.
 // Batched TRUST payloads (JSON arrays) from either source are expanded and routed by header.msg_type:
 //   0001 activation, 0002 cancellation, 0003 movement, 0004-0008 -> TrustOtherEvents.
+// RdmTrustRaw holds whatever RDM Kafka product you connect (it is unwrapped by UnwrapRdm()):
+//   NWR Train Movements (TRUST)  -> Trust* tables;  Darwin Push Port ("PushPort" topics) -> DarwinLocations.
+// Update policies only process data ingested AFTER they exist. To back-fill, see fabric/kql/08_backfill.kql.
 // NOTE: TRUST timestamps are epoch milliseconds. The Open Rail Data wiki notes they reflect UK local
 // time in some fields - check https://wiki.openraildata.com/index.php/Train_Movements before relying on
 // sub-hour accuracy around BST changes.
@@ -13,11 +16,80 @@
     | project received_utc, source, item
 }
 
-.create-or-alter function with (folder="parsing", docstring="Expand RDM Kafka TRUST events from RdmTrustRaw") ExpandTrustRdm() {
+.create-or-alter function with (folder="parsing", docstring="Unwrap the RDM pub/sub envelope. RDM Kafka messages are an ActiveMQ message serialised as JSON (destination, messageID, bytes/text, properties); the real feed JSON is a string in 'bytes' (or 'text'). Un-wrapped payloads pass through unchanged.") UnwrapRdm() {
     RdmTrustRaw
-    | extend items = iff(gettype(payload) == "array", payload, pack_array(payload))
+    | extend received_utc = ingestion_time()
+    | extend rdm_destination = tostring(payload.destination.name)
+    | extend raw_body = case(isnotempty(tostring(payload.bytes)), tostring(payload.bytes),
+                             isnotempty(tostring(payload.text)), tostring(payload.text),
+                             "")
+    | extend b1 = iff(isempty(raw_body), payload, parse_json(raw_body))
+    | extend b2 = iff(gettype(b1) == "string", parse_json(tostring(b1)), b1)   // tolerate double-encoded JSON
+    | extend body = iff(gettype(b2) == "string", parse_json(replace_string(tostring(b2), @'\"', '"')), b2)   // and literal \" escapes
+    | project received_utc, rdm_destination, body
+}
+
+.create-or-alter function with (folder="parsing", docstring="Expand RDM TRUST (NWR Train Movements) events from RdmTrustRaw; Darwin Push Port messages are excluded") ExpandTrustRdm() {
+    UnwrapRdm()
+    | where rdm_destination !has "PushPort" and isnull(body.uR) and isnull(body.sR)
+    | extend items = iff(gettype(body) == "array", body, pack_array(body))
     | mv-expand item = items
-    | project received_utc = ingestion_time(), source = "rdm", item
+    | project received_utc, source = "rdm", item
+}
+
+.create-or-alter function with (folder="parsing", docstring="'HH:MM' or 'HH:MM:SS' -> minutes after midnight (null if empty)") HhmmToMinutes(t:string) {
+    iff(strlen(t) < 5, int(null), toint(substring(t, 0, 2)) * 60 + toint(substring(t, 3, 2)))
+}
+
+.create-or-alter function with (folder="parsing", docstring="Minutes late (+) / early (-) between two Darwin HH:MM times, allowing for midnight") DarwinDelay(planned:string, actual:string) {
+    let p = HhmmToMinutes(planned);
+    let a = HhmmToMinutes(actual);
+    let d = a - p;
+    iff(isnull(p) or isnull(a), int(null), toint(iff(d < -720, d + 1440, iff(d > 720, d - 1440, d))))
+}
+
+.create-or-alter function with (folder="parsing", docstring="Darwin Push Port uR/sR TS (train status) -> one row per Location. Times are UK local HH:MM on the schedule start date (ssd).") ParseDarwinLocations() {
+    UnwrapRdm()
+    | extend r = iff(isnotnull(body.uR), body.uR, body.sR)
+    | where isnotnull(r) and isnotnull(r.TS)
+    | extend msg_ts = todatetime(tostring(body.ts)), update_origin = tostring(r.updateOrigin)
+    | extend tss = iff(gettype(r.TS) == "array", r.TS, pack_array(r.TS))
+    | mv-expand ts = tss
+    | where isnotnull(ts.Location)
+    | extend locs = iff(gettype(ts.Location) == "array", ts.Location, pack_array(ts.Location))
+    | mv-expand loc = locs
+    | extend plat = loc.plat
+    // <plat platsrc="M" conf="true">1</plat> arrives as {"platsrc":"M","conf":"true","":"1"}; a plain platform is a string
+    | extend platform = iff(gettype(plat) == "string", tostring(plat), extract(@'"":"([^"]*)"', 1, tostring(plat)))
+    | extend pta = tostring(loc.pta), ptd = tostring(loc.ptd),
+             arr_at = tostring(loc.arr.at), arr_et = tostring(loc.arr.et),
+             dep_at = tostring(loc.dep.at), dep_et = tostring(loc.dep.et),
+             pass_at = tostring(loc["pass"].at), pass_et = tostring(loc["pass"].et)
+    | project
+        msg_ts,
+        update_origin,
+        rid = tostring(ts.rid),
+        uid = tostring(ts.uid),
+        ssd = todatetime(tostring(ts.ssd)),
+        tiploc = tostring(loc.tpl),
+        wta = tostring(loc.wta),
+        wtd = tostring(loc.wtd),
+        wtp = tostring(loc.wtp),
+        pta,
+        ptd,
+        arr_at,
+        arr_et,
+        dep_at,
+        dep_et,
+        pass_at,
+        pass_et,
+        arr_delay_minutes = toint(DarwinDelay(pta, iff(isnotempty(arr_at), arr_at, arr_et))),
+        dep_delay_minutes = toint(DarwinDelay(ptd, iff(isnotempty(dep_at), dep_at, dep_et))),
+        platform,
+        platform_confirmed = tobool(tostring(plat.conf)),
+        platform_source = tostring(plat.platsrc),
+        source = "rdm-darwin",
+        received_utc
 }
 
 .create-or-alter function with (folder="parsing", docstring="Epoch-ms string to datetime (null-safe)") EpochMs(v:dynamic) {
@@ -150,3 +222,5 @@
 .alter table TdEvents policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseTd()","IsTransactional":false,"PropagateIngestionProperties":false}]'
 
 .alter table RtppmNational policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseRtppm()","IsTransactional":false,"PropagateIngestionProperties":false}]'
+
+.alter table DarwinLocations policy update @'[{"IsEnabled":true,"Source":"RdmTrustRaw","Query":"ParseDarwinLocations()","IsTransactional":false,"PropagateIngestionProperties":false}]'

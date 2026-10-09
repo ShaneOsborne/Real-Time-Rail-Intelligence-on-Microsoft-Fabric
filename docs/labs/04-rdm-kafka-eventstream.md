@@ -75,10 +75,9 @@ doesn't generate Eventstream definition payloads. Follow Option B.
    1. **Destination table**: choose the **existing** table **`RdmTrustRaw`**. *Don't* choose **New table** – if `RdmTrustRaw`
       isn't listed, the table hasn't been created yet (see Prerequisites and Troubleshooting).
    2. Keep the suggested **data connection name** → **Next**. Pulling sample events can take a few minutes.
-   3. On **Inspect the data**, set **Format** to **JSON**.
-   4. Select **Advanced** and choose the option to use an **existing mapping**, then pick **`RdmTrustRawMapping`**. The preview
+   3. Select **RDMTrustRaw_mapping** dropdown and choose the option to use an **existing mapping**, then pick **`RdmTrustRawMapping`**. The preview
       should show a single column, `payload`, containing the whole message.
-   5. **Finish** → **Close**.
+   4. **Finish** → **Close**.
 
    > The exact wording of the mapping option can vary between Fabric releases. If you can't find it, use **Edit columns**
    > so the table keeps **only** the `payload` column (type `dynamic`) mapped from the **whole record**, and remove any other

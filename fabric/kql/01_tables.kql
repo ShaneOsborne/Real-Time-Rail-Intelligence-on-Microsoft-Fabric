@@ -2,6 +2,7 @@
 // Run the WHOLE file at once: select all (Ctrl+A) in a KQL queryset and press Run,
 // or run `python fabric/scripts/apply_kql.py`. Commands inside a database script
 // must be separated by a blank line and must not contain blank lines themselves.
+// DarwinLocations = Darwin Push Port (RDM 'Darwin Real Time Train Information'), one row per location update.
 .execute database script with (ContinueOnErrors=false) <|
 .create-merge table RawFeed (source:string, topic:string, feed:string, msg_type:string, message_id:string, batch_index:int, received_utc:datetime, payload:dynamic)
 
@@ -27,9 +28,13 @@
 
 .create-merge table TocCodes (toc_id:string, toc_name:string)
 
+.create-merge table DarwinLocations (msg_ts:datetime, update_origin:string, rid:string, uid:string, ssd:datetime, tiploc:string, wta:string, wtd:string, wtp:string, pta:string, ptd:string, arr_at:string, arr_et:string, dep_at:string, dep_et:string, pass_at:string, pass_et:string, arr_delay_minutes:int, dep_delay_minutes:int, platform:string, platform_confirmed:bool, platform_source:string, source:string, received_utc:datetime)
+
 .alter-merge table RawFeed policy retention softdelete = 7d recoverability = disabled
 
 .alter-merge table RdmTrustRaw policy retention softdelete = 7d recoverability = disabled
+
+.alter-merge table DarwinLocations policy retention softdelete = 30d
 
 .alter-merge table TdEvents policy retention softdelete = 7d
 

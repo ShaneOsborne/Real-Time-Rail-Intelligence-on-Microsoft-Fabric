@@ -1,0 +1,14 @@
+// Back-fill the parsed tables from rows that reached RdmTrustRaw BEFORE the update policies existed
+// (update policies only process data ingested after they're created).
+// Run ONCE: select the whole file (Ctrl+A) and Run, or: python fabric/scripts/apply_kql.py --file fabric/kql/08_backfill.kql
+// Each command appends, so running it twice creates duplicates. Commands that find no matching rows just append nothing.
+.execute database script with (ContinueOnErrors=true) <|
+.set-or-append DarwinLocations <| ParseDarwinLocations()
+
+.set-or-append TrustMovements <| ParseMovements(ExpandTrustRdm())
+
+.set-or-append TrustActivations <| ParseActivations(ExpandTrustRdm())
+
+.set-or-append TrustCancellations <| ParseCancellations(ExpandTrustRdm())
+
+.set-or-append TrustOtherEvents <| ParseOtherTrust(ExpandTrustRdm())

@@ -26,7 +26,7 @@ Locations, TocCodes (reference)  ─► LocationByStanox(), MovementsEnriched(),
 | Script | Contents |
 |---|---|
 | `fabric/kql/01_tables.kql` | Tables, `RawFeedMapping` and `RdmTrustRawMapping`, and retention (raw 7 days, movements 365 days) |
-| `fabric/kql/02_update_policies.kql` | Parsing functions and update policies |
+| `fabric/kql/02_update_policies.kql` | Parsing functions and update policies (TRUST from both sources; `UnwrapRdm()` for the RDM envelope; Darwin Push Port → `DarwinLocations`) |
 | `fabric/kql/03_materialized_views.kql` | `TrainLatest`, `DelaysBy15Min`, `CancellationsBy15Min`, `DailyTocPerformance` |
 | `fabric/kql/04_query_functions.kql` | Query functions |
 | `fabric/kql/06_sample_queries.kql` | Sample queries for exploring the data |
@@ -54,6 +54,7 @@ The script authenticates with the Azure CLI through `azure-kusto-data` and runs 
 2. Paste the **whole** of `01_tables.kql`, select all (**Ctrl+A**), then **Run**. The script must run as one selection, because commands inside it are separated by blank lines.
 3. Repeat for `02_update_policies.kql`, `03_materialized_views.kql` and `04_query_functions.kql`, in that order.
 4. Optionally, fill in and run `07_toc_codes_seed.kql`.
+5. If raw data arrived before the update policies existed, run `08_backfill.kql` **once** (see Lab 04).
 
 ### Key ideas
 

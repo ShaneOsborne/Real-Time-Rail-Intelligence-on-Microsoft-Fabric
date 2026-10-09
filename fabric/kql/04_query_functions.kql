@@ -44,3 +44,12 @@
     | project event_time, train_id, toc_id, event_type, platform, variation_status, delay_minutes
     | order by event_time desc
 }
+
+.create-or-alter function with (folder="query", docstring="Darwin: latest forecast/actual per service and location, with station names and coordinates (TIPLOC join)") DarwinLatest(lookback:timespan = 2h) {
+    DarwinLocations
+    | where received_utc > ago(lookback)
+    | summarize arg_max(received_utc, *) by rid, tiploc
+    | join kind=leftouter (Locations | where isnotempty(tiploc) | summarize arg_max(iff(isnotnull(lat), 1, 0), name, crs, lat, lon) by tiploc) on tiploc
+    | project received_utc, rid, uid, ssd, tiploc, name, crs, pta, ptd, arr_at, arr_et, dep_at, dep_et,
+              arr_delay_minutes, dep_delay_minutes, platform, platform_confirmed, lat, lon
+}

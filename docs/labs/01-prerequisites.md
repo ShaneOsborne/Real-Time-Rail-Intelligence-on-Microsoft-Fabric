@@ -21,9 +21,9 @@ Get every account, subscription, tenant setting and tool in place before you bui
 ## 2. Rail Data Marketplace (RDM)
 
 1. Create an account at <https://raildata.org.uk>.
-2. Subscribe to **NWR Train Movements**:
+2. Subscribe to **NWR Train Movements** (this is the TRUST feed that fills `TrustMovements`, used by the dashboards and data agent):
    <https://raildata.org.uk/dataProduct/P-826477b8-3789-45e7-85bd-22c4ae9bcfae/overview> (beta).
-3. Optionally, subscribe to **Darwin Real Time Train Information (Push)**:
+3. Optionally, subscribe to **Darwin Real Time Train Information (Push)** (forecasts, platforms and reasons; parsed into `DarwinLocations`). Each product has its **own** topic and consumer group:
    <https://raildata.org.uk/dataProduct/P-3f10bf96-d8e8-4041-aa5e-d75d82c45c4e/overview>.
 4. Open the subscription page and note the **Kafka bootstrap server(s)**, **topic**, **consumer group**,
    **username** and **password**. The security protocol is `SASL_SSL` and the mechanism is `PLAIN`.
