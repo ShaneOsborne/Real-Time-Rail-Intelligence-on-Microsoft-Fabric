@@ -83,18 +83,65 @@ doesn't generate Eventstream definition payloads. Follow Option B.
    > so the table keeps **only** the `payload` column (type `dynamic`) mapped from the **whole record**, and remove any other
    > columns the wizard proposes. The Lab 06 update policies only read `payload`.
 
+## How data moves from `RdmTrustRaw` to the parsed tables
+
+There's no extra Eventstream step. The **update policies** you created with `02_update_policies.kql` (Lab 02) run
+inside the Eventhouse every time a batch lands in `RdmTrustRaw`:
+
+```mermaid
+flowchart LR
+  K[RDM Kafka] --> ES[Eventstream] --> RAW[(RdmTrustRaw\npayload)]
+  RAW -- "UnwrapRdm()" --> U{Which RDM product?}
+  U -- "NWR Train Movements (TRUST)" --> T[(TrustMovements\nTrustActivations\nTrustCancellations\nTrustOtherEvents)]
+  U -- "Darwin Push Port\n(topic contains PushPort)" --> D[(DarwinLocations)]
+```
+
+1. **`UnwrapRdm()`** removes the RDM envelope. RDM delivers each message as a serialised ActiveMQ message
+   (`destination`, `messageID`, `properties`, …) with the real feed JSON as a **string** in `bytes` (or `text`).
+2. **TRUST** messages (NWR Train Movements) are expanded by `msg_type` into the `Trust*` tables, the same as the NROD bridge data.
+3. **Darwin Push Port** messages (destination name contains `PushPort`, body has `uR`/`sR`) are parsed into **`DarwinLocations`**:
+   one row per service (`rid`) and location (`tiploc`), with public times (`pta`/`ptd`), actual/estimated times, platform and a
+   computed `arr_delay_minutes` / `dep_delay_minutes`.
+
+**Which product are you receiving?** The RDM product you subscribe to decides which tables fill:
+
+```kusto
+RdmTrustRaw
+| summarize messages = count(), last = max(ingestion_time()) by destination = tostring(payload.destination.name)
+```
+
+* `...PushPort-v18` (or similar) → **Darwin**. `DarwinLocations` fills; `TrustMovements` stays empty.
+* Anything else carrying TRUST `header.msg_type` records → **NWR Train Movements**. The `Trust*` tables fill.
+
+Labs 06–11 (views, dashboards, data agent, Rayfin map) are built on **`TrustMovements`**. To get it, either subscribe to
+**NWR Train Movements** on RDM and add it as a second Apache Kafka source (its own topic and consumer group, same
+`RdmTrustRaw` destination), or run the NROD bridge (Lab 05a/05b). Darwin is still worth keeping: it adds forecasts and platforms.
+`DarwinLatest()` (in `04_query_functions.kql`) gives the latest Darwin state per service and location with station names and coordinates.
+
+**Update policies only process data ingested after they exist.** If messages reached `RdmTrustRaw` before you ran
+`02_update_policies.kql` (or before you re-ran it with this version), back-fill them **once**:
+
+```bash
+python fabric/scripts/apply_kql.py --file fabric/kql/02_update_policies.kql   # make sure the latest functions/policies are in place
+python fabric/scripts/apply_kql.py --file fabric/kql/01_tables.kql           # adds DarwinLocations if missing (safe to re-run)
+python fabric/scripts/apply_kql.py --file fabric/kql/08_backfill.kql         # run once only
+```
+
+(Or paste each whole file into a KQL queryset and run it. Run `01_tables.kql` before `02_update_policies.kql`.)
+
 ### Should Eventstream split arrays?
 
-The update policies handle **both** shapes: a single TRUST message object, or a JSON array (batch) of them, which they expand with `mv-expand`. You don't need an Eventstream operator.
-
-> TODO(verify): The exact RDM message envelope for *NWR Train Movements* may differ from the NROD STOMP body (for example, extra wrapper fields). Check a message in **Data preview**. If TRUST items sit under a wrapper property, change `ExpandTrustRdm()` in `fabric/kql/02_update_policies.kql` to point at that property.
+No. The update policies handle a single message object or a JSON array (batch), using `mv-expand`. You don't need an Eventstream operator.
 
 ## Checkpoint
 
 ```kusto
-RdmTrustRaw | take 5;
-RdmTrustRaw | summarize n = count() by t = bin(ingestion_time(), 1m) | order by t desc;
-TrustMovements | where source == "rdm" | take 10;
+RdmTrustRaw | take 5
+RdmTrustRaw | summarize n = count() by t = bin(ingestion_time(), 1m) | order by t desc
+TrustMovements | where source == "rdm" | take 10          // NWR Train Movements
+DarwinLocations | take 10                                  // Darwin Push Port
+DarwinLocations | summarize n = count(), avg_arr_delay = avg(arr_delay_minutes) by bin(received_utc, 5m) | order by received_utc desc
+.show table DarwinLocations policy update                  // should list ParseDarwinLocations()
 ```
 
 ## Troubleshooting
@@ -105,7 +152,9 @@ TrustMovements | where source == "rdm" | take 10;
 | Can't find a username/password option | Expected. Use **Authentication kind = API Key**: Key = username, Secret = password |
 | Source runs but **Data preview** is empty or errors | Eventstream previews with a consumer group prefixed `preview-`, and the credentials need read access to it. RDM only grants your issued consumer group, so preview may fail even though ingestion works. Check the Eventhouse table (Checkpoint) instead |
 | No data, no errors | Check the topic name and consumer group. Use `Latest` and wait a minute; it's a beta feed with no SLA |
-| Data in `RdmTrustRaw` but none in `TrustMovements` | Look at the payload shape (see TODO above). Run `.show ingestion failures` |
+| Data in `RdmTrustRaw` but none in `TrustMovements` | Check which product you're receiving (query above). Darwin (`PushPort`) goes to `DarwinLocations`, not `TrustMovements`. For TRUST, subscribe to **NWR Train Movements** |
+| `DarwinLocations` (or `TrustMovements`) empty although new data arrives | Re-run `01_tables.kql` then `02_update_policies.kql` (this version adds `UnwrapRdm()`), check `.show table DarwinLocations policy update`, and look at `.show ingestion failures` |
+| Older rows never parsed | Expected: update policies only see new data. Run `08_backfill.kql` once |
 | No existing `RdmTrustRaw` in the table list, or no "existing mapping" option | The table and mapping weren't created first. Run `01_tables.kql` and `02_update_policies.kql` (Lab 02), then re-open **Configure** on the destination |
 | You already let the wizard create a **new** `RdmTrustRaw` table | Its columns won't match. Delete the Eventhouse destination in the Eventstream, run `.drop table RdmTrustRaw ifexists` in `RailKQL`, run `01_tables.kql` and `02_update_policies.kql`, then redo steps 5–6 |
 | Only *Event processing before ingestion* settings shown (table + JSON, no mapping choice) | You picked that mode. Delete the destination and add it again with **Direct ingestion** |
