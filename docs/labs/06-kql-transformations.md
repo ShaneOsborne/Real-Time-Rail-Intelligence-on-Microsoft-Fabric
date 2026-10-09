@@ -34,6 +34,9 @@ Locations, TocCodes (reference)  ─► LocationByStanox(), MovementsEnriched(),
 
 Each schema script is a single `.execute database script` command, so it either runs completely or stops at the first error (`ContinueOnErrors=false`).
 
+> If you followed Lab 02, `01_tables.kql` and `02_update_policies.kql` have already run. Re-running them is safe
+> (they use `create-merge` / `create-or-alter`), so you can still run everything below.
+
 ## Option A – automated
 
 ```bash

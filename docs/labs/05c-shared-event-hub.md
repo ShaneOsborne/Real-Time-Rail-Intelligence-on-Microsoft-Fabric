@@ -281,7 +281,7 @@ You need the namespace name, the key name `students-listen`, the key and **your 
 
 Repeat S1 in **RailEventstreamRdm** with **Event Hub** `rdm-trust` (re-use the same connection if offered, otherwise create
 one for `rdm-trust`), **the same consumer group name**, data format **JSON**, and destination table **`RdmTrustRaw`** with mapping
-**`RdmTrustRawMapping`** (as in [Lab 04](04-rdm-kafka-eventstream.md), step 5). You don't add the Apache Kafka source in this mode.
+**`RdmTrustRawMapping`** (as in [Lab 04](04-rdm-kafka-eventstream.md), steps 5–6: *Direct ingestion*, then **Configure** in Live view). You don't add the Apache Kafka source in this mode.
 
 ### Student checkpoint
 

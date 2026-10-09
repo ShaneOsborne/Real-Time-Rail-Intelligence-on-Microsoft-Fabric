@@ -47,9 +47,28 @@ idempotent: it reuses items with the same display name. When it finishes, it pri
 6. Open `RailKQL` → **Overview**, copy the **Query URI** into `KUSTO_QUERY_URI` in `.env`, and note the
    workspace ID and item IDs from the browser URL (`/groups/<workspaceId>/...`).
 
+## Create the raw tables and mappings now
+
+Labs 04 and 05 point Eventstream at **existing** tables (`RdmTrustRaw`, `RawFeed`) and **existing** JSON mappings
+(`RdmTrustRawMapping`, `RawFeedMapping`). The Eventstream wizard can't pick a mapping that doesn't exist yet, so create
+them before you leave this lab. (These are steps 1–2 of Lab 06. The scripts are safe to re-run later.)
+
+**Option A – automated**
+
+```bash
+pip install -r fabric/scripts/requirements.txt
+python fabric/scripts/apply_kql.py --file fabric/kql/01_tables.kql
+python fabric/scripts/apply_kql.py --file fabric/kql/02_update_policies.kql
+```
+
+**Option B – manual:** open `RailKQL` → **Explore your data** (or a KQL queryset). Paste the **whole** of
+`fabric/kql/01_tables.kql`, select all (**Ctrl+A**) and **Run**. Repeat for `fabric/kql/02_update_policies.kql`.
+
 ## Checkpoint
 
 - [ ] The workspace shows the Eventhouse, KQL database, Lakehouse and two Eventstreams
+- [ ] `.show tables` lists `RawFeed` and `RdmTrustRaw`
+- [ ] `.show table RdmTrustRaw ingestion json mappings` returns `RdmTrustRawMapping` (and the same for `RawFeed` / `RawFeedMapping`)
 - [ ] `KUSTO_QUERY_URI`, `FABRIC_WORKSPACE_ID`, `FABRIC_LAKEHOUSE_ID` and `FABRIC_KQL_DATABASE_ID` are set in `.env`
 - [ ] In a KQL queryset on `RailKQL`, `.show database` returns one row
 

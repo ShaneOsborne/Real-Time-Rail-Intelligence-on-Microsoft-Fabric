@@ -79,8 +79,11 @@ curl -s localhost:8080/metrics             # frames_received, events_sent, frame
    `Endpoint=sb://…servicebus.windows.net/;SharedAccessKeyName=…;SharedAccessKey=…;EntityPath=…`.
    (The **Kafka** tab gives the equivalent Kafka settings. The bridge uses the Event Hub protocol.)
 3. Put it in `.env` as `EVENTSTREAM_CONNECTION_STRING=…`. **Never commit it.**
-4. **Add destination** → **Eventhouse** → *Direct ingestion* → `RailEventhouse` / `RailKQL` → existing table **`RawFeed`** →
-   format **JSON** → mapping **`RawFeedMapping`** → **Publish**.
+4. **Add destination** → **Eventhouse** → **Direct ingestion** → `RailEventhouse` / `RailKQL` → **Save** → **Publish**.
+   Then in **Live view**, select **Configure** on the Eventhouse node. In the **Get data** wizard choose the **existing** table
+   **`RawFeed`** (not *New table*), format **JSON**, and under **Advanced** use the **existing mapping** **`RawFeedMapping`** →
+   **Finish**. This is the same flow as [Lab 04, steps 5–6](04-rdm-kafka-eventstream.md); the table and mapping must already
+   exist (Lab 02, "Create the raw tables and mappings now").
 5. Run the bridge with the eventstream sink:
 
 ```bash
