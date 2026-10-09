@@ -40,8 +40,14 @@ python fabric/scripts/load_reference_data.py --to-kql --to-onelake
 
 1. In the workspace: **Import** → **Notebook** → **From this computer** → `fabric/notebooks/01_load_reference_data.ipynb`.
 2. Attach **RailLakehouse** as the default lakehouse.
-3. Recommended: set `KEY_VAULT_URL` to the vault from Lab 05b. The notebook reads `nrod-username` and `nrod-password` through `notebookutils.credentials.getSecret`. Your user needs *Key Vault Secrets User* on that vault.
-   Otherwise, type the credentials into the parameters cell **for this session only** and don't save them.
+3. In the parameters cell, give the notebook your NROD credentials in one of two ways:
+   * **Recommended – Key Vault.** Set `KEY_VAULT_URL` to the vault you created in
+     [Lab 01, step 8](01-prerequisites.md#8-shared-key-vault-for-credentials-needed-from-lab-03) (the `KEY_VAULT_URL` value in `.env`).
+     The notebook reads `nrod-username` and `nrod-password` with `notebookutils.credentials.getSecret`, using **your** identity.
+     You already have *Key Vault Secrets Officer* if you created the vault; anyone else running the notebook needs at least
+     *Key Vault Secrets User* on it.
+   * **No Key Vault yet.** Leave `KEY_VAULT_URL` empty and type `NROD_USERNAME` / `NROD_PASSWORD` into the parameters cell
+     **for this session only**. Clear them before you save or schedule the notebook. (A scheduled run needs the Key Vault option.)
 4. **Run all**. Then load KQL `Locations` from the Lakehouse table:
    * In `RailKQL`: **+ New** → **OneLake shortcut** → *Microsoft OneLake* → `RailLakehouse` → *Tables* → `locations`.
    * Run `fabric/kql/05_reference_from_shortcut.kql`, which uses `.set-or-replace Locations <| external_table("locations") ...`.
@@ -75,3 +81,5 @@ You should see tens of thousands of rows, and a few thousand with coordinates (s
 | Few or no coordinates | NaPTAN covers passenger stations only. Junctions and yards have no lat/lon. That's expected |
 | `.ingest inline` throttled | Re-run. Lower `chunk` in `to_kql()` |
 | Load Table API error | It's a preview API. Use the notebook path instead |
+| `getSecret` fails with *Forbidden* / 403 | Your user lacks a Key Vault data role. Add *Key Vault Secrets User* (or *Officer*) on the vault and wait a few minutes |
+| `getSecret` fails with a name/URL error | `KEY_VAULT_URL` must be the full Vault URI, e.g. `https://<name>.vault.azure.net/` |

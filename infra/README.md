@@ -6,7 +6,7 @@
 |---|---|
 | User-assigned managed identity | Pulls images from ACR and reads Key Vault secrets |
 | Log Analytics workspace | Container Apps console logs. Retention is 30 days by default |
-| Key Vault (RBAC mode) | Secrets `nrod-username`, `nrod-password` and `eventstream-connection-string`. The deployer gets *Key Vault Secrets Officer* and the identity gets *Key Vault Secrets User* |
+| Key Vault (RBAC mode) | Usually created earlier by `keyvault.bicep` (Lab 01, step 8) and re-used here: same resource group + `namePrefix` gives the same name, or pass `keyVaultName`. Secrets `nrod-username`, `nrod-password` and `eventstream-connection-string`. The deployer gets *Key Vault Secrets Officer* and the identity gets *Key Vault Secrets User* |
 | Azure Container Registry (Basic, optional) | `createAcr=false` together with `containerImage=ghcr.io/...` uses a public image instead |
 | Container Apps environment | Consumption workload profile |
 | Container app (phase 2) | **minReplicas = maxReplicas = 1** with **0.25 vCPU / 0.5 GiB**, no ingress, liveness and startup probes on `/healthz`, and secrets as Key Vault references |
@@ -33,3 +33,7 @@ az deployment group create -g rg-rail-fabric-rti -f infra/main.bicep -p @infra/m
 ```
 
 Validate without deploying: `az bicep build --file infra/main.bicep` or `./scripts/deploy-bridge.sh --what-if`.
+
+## `keyvault.bicep` (Lab 01)
+
+Deploys only the shared Key Vault (RBAC mode, 7-day soft delete) and grants the deployer *Key Vault Secrets Officer*. Its name, properties and role-assignment names match `main.bicep`, so the Lab 05b deployment updates the same vault rather than creating another. Run it with `scripts/create-keyvault.sh` / `.ps1`.

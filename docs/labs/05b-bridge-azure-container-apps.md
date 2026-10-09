@@ -15,6 +15,9 @@ Cost: about **$14/month** list-price estimate after the free grant, plus small L
 * The bridge works locally with the eventstream sink (Lab 05a), and `EVENTSTREAM_CONNECTION_STRING` is in `.env`.
 * `AZ_RESOURCE_GROUP`, `AZ_LOCATION` (for example `uksouth`, close to your Fabric capacity) and `NAME_PREFIX` are set in `.env`.
 * **Stop the local bridge** (one connection per NROD account / client-id).
+* If you created the shared Key Vault in [Lab 01, step 8](01-prerequisites.md#8-shared-key-vault-for-credentials-needed-from-lab-03), keep the
+  same `AZ_RESOURCE_GROUP` and `NAME_PREFIX` (and `KEY_VAULT_NAME`, if you set it). This lab then **re-uses that vault** and just adds the
+  `eventstream-connection-string` secret. If you skipped that step, the vault is created here.
 
 ## Option A – automated
 
@@ -25,7 +28,7 @@ az login
 ```
 
 What it does:
-1. Phase 1 Bicep (`deployApp=false`) creates the identity, Log Analytics, Key Vault, ACR (unless `CONTAINER_IMAGE` is set) and the Container Apps environment.
+1. Phase 1 Bicep (`deployApp=false`) creates the identity, Log Analytics, Key Vault (or re-uses the one from Lab 01), ACR (unless `CONTAINER_IMAGE` is set) and the Container Apps environment.
 2. Writes `nrod-username`, `nrod-password` and `eventstream-connection-string` to Key Vault, retrying while RBAC propagates.
 3. Runs `az acr build`, so you don't need Docker locally.
 4. Phase 2 Bicep (`deployApp=true`) deploys the container app with Key Vault secret references, probes on `/healthz` and 1 replica.
@@ -45,18 +48,19 @@ RG=rg-rail-fabric-rti; LOC=uksouth
 az group create -n $RG -l $LOC
 ME=$(az ad signed-in-user show --query id -o tsv)
 az deployment group create -g $RG -n bridge-phase1 -f infra/main.bicep -p @infra/main.parameters.json \
-  -p deployApp=false deployerPrincipalId=$ME
+  -p deployApp=false deployerPrincipalId=$ME   # add keyVaultName=<name> if you created the vault by hand in Lab 01
 KV=$(az deployment group show -g $RG -n bridge-phase1 --query properties.outputs.keyVaultName.value -o tsv)
 ACR=$(az deployment group show -g $RG -n bridge-phase1 --query properties.outputs.acrName.value -o tsv)
 ```
 
 To do it in the portal instead, create the same resources: a *Managed identity*, a *Log Analytics workspace*, a *Key Vault* (RBAC mode; grant yourself
-*Key Vault Secrets Officer* and the identity *Key Vault Secrets User*), a *Container registry* (Basic; grant the identity *AcrPull*) and a
+*Key Vault Secrets Officer* and the identity *Key Vault Secrets User* – if you already created the vault in Lab 01, just add the identity's role), a *Container registry* (Basic; grant the identity *AcrPull*) and a
 *Container Apps environment* (Consumption) linked to Log Analytics.
 
 ### B2. Secrets
 
 ```bash
+# Skip these two if you already stored them in Lab 01:
 az keyvault secret set --vault-name $KV -n nrod-username --value "<NROD email>"
 az keyvault secret set --vault-name $KV -n nrod-password --value "<NROD password>"
 az keyvault secret set --vault-name $KV -n eventstream-connection-string --value "<Endpoint=sb://...>"

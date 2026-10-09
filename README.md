@@ -98,25 +98,28 @@ cp .env.example .env            # fill in NROD_*, AZ_*, FABRIC_CAPACITY_ID ...
 # 0. Try the bridge offline. No accounts needed: it replays the bundled sample messages
 ./scripts/run-local.sh venv console --replay
 
-# 1. Fabric items (Lab 02). Copy the IDs it prints into .env
+# 1. Shared Key Vault with your NROD credentials (Lab 01, step 8). Copy KEY_VAULT_* into .env
+./scripts/create-keyvault.sh
+
+# 2. Fabric items (Lab 02). Copy the IDs it prints into .env
 ./scripts/fabric-setup.sh
 
-# 2. KQL schema, update policies and views (Lab 06; run before you send any data)
+# 3. KQL schema, update policies and views (Lab 06; run before you send any data)
 python -m pip install -r fabric/scripts/requirements.txt
 python fabric/scripts/apply_kql.py
 
-# 3. Reference data (Lab 03)
+# 4. Reference data (Lab 03)
 python fabric/scripts/load_reference_data.py --to-kql --to-onelake
 
-# 4. Portal step: add the custom endpoint source to RailEventstreamNrod and the
+# 5. Portal step: add the custom endpoint source to RailEventstreamNrod and the
 #    Eventhouse destination (RawFeed table, RawFeedMapping). Copy the Event Hub connection
 #    string into EVENTSTREAM_CONNECTION_STRING (Lab 05a, section "Wire to Eventstream")
 
-# 5. Bridge on Azure Container Apps (Lab 05b)
+# 6. Bridge on Azure Container Apps (Lab 05b)
 ./scripts/deploy-bridge.sh
 ```
 
-On Windows, use the matching `.ps1` scripts, for example `./scripts/fabric-setup.ps1` and `./scripts/deploy-bridge.ps1`.
+On Windows, use the matching `.ps1` scripts, for example `./scripts/create-keyvault.ps1`, `./scripts/fabric-setup.ps1` and `./scripts/deploy-bridge.ps1`.
 
 Then follow Labs 04 and 07–11 for the portal-only parts: the RDM Kafka source, Activator, dashboards, the data agent, Foundry and Rayfin.
 
@@ -139,7 +142,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ├── README.md · LICENSE · CONTRIBUTING.md · .env.example · .gitignore
 ├── docs/labs/                 00–12 lab guides
 ├── src/bridge/                Python STOMP → Eventstream bridge (+ Dockerfile, compose, tests)
-├── infra/                     Bicep: Container Apps env + app, Log Analytics, Key Vault, ACR, managed identity
+├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app, Log Analytics, ACR, managed identity (main.bicep)
 ├── scripts/                   run-local / deploy-bridge / fabric-setup / cleanup (.sh and .ps1)
 ├── fabric/
 │   ├── kql/                   01–04 schema scripts, 05 shortcut load, 06 sample queries, 07 TOC seed

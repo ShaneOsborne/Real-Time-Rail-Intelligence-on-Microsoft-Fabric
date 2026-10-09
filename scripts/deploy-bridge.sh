@@ -38,6 +38,7 @@ common_params=(
   --parameters location="$AZ_LOCATION" namePrefix="$NAME_PREFIX" createAcr="$CREATE_ACR"
                containerImage="${CONTAINER_IMAGE:-}" imageTag="$IMAGE_TAG" cpu="$CPU" memory="$MEMORY"
                nrodTopics="$TOPICS" deployerPrincipalId="$DEPLOYER_ID" deployerPrincipalType="$DEPLOYER_TYPE"
+               keyVaultName="${KEY_VAULT_NAME:-}"
 )
 
 if [[ "$WHAT_IF" == "--what-if" ]]; then
@@ -45,7 +46,7 @@ if [[ "$WHAT_IF" == "--what-if" ]]; then
   exit 0
 fi
 
-log "Phase 1: identity, Log Analytics, Key Vault, ACR, Container Apps environment"
+log "Phase 1: identity, Log Analytics, Key Vault (re-used if created in Lab 01), ACR, Container Apps environment"
 az deployment group create -n bridge-phase1 "${common_params[@]}" --parameters deployApp=false -o none
 KV_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase1 --query properties.outputs.keyVaultName.value -o tsv)"
 ACR_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase1 --query properties.outputs.acrName.value -o tsv)"

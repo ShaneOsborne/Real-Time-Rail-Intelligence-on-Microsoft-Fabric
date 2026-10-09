@@ -21,6 +21,8 @@ jobs:
           az bicep install
           az bicep build --file infra/main.bicep --stdout > /dev/null
           az bicep lint --file infra/main.bicep
+          az bicep build --file infra/keyvault.bicep --stdout > /dev/null
+          az bicep lint --file infra/keyvault.bicep
 
   scripts:
     runs-on: ubuntu-latest

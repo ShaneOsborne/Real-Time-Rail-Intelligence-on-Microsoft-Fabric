@@ -112,3 +112,50 @@ Section : Rail Data Marketplace (RDM) Kafka
 | NROD account "pending" | Approval can take time. Do Lab 05a with `--replay` in the meantime |
 | Can't see the Fabric Apps workload | A Fabric admin must enable it under *Govern > Configurations > Workloads* |
 | `az provider register` permission error | Ask a subscription Owner |
+
+## 8. Shared Key Vault for credentials (needed from Lab 03)
+
+Lab 03 runs a Fabric notebook that downloads reference data with your NROD login. Rather than typing
+the password into the notebook, store it in a Key Vault **now**. Lab 05b later re-uses the **same vault**
+for the bridge, so you only ever create one.
+
+> This step is optional. If you skip it, Lab 03 lets you type the credentials into the notebook for that
+> session only, and Lab 05b creates the vault for you.
+
+### Option A – automated
+
+```bash
+# .env must contain AZ_RESOURCE_GROUP, AZ_LOCATION, NAME_PREFIX, NROD_USERNAME, NROD_PASSWORD
+./scripts/create-keyvault.sh        # or: ./scripts/create-keyvault.ps1
+```
+
+The script:
+1. Creates the resource group (if needed).
+2. Deploys `infra/keyvault.bicep`: a Key Vault in **RBAC mode** with 7-day soft delete, and grants you
+   **Key Vault Secrets Officer** (read and write secrets).
+3. Writes the secrets `nrod-username` and `nrod-password`.
+4. Prints `KEY_VAULT_NAME` and `KEY_VAULT_URL`. **Copy both into `.env`.**
+
+The vault name is generated from the resource group and `NAME_PREFIX`, and matches the name `infra/main.bicep`
+uses in Lab 05b. **Keep `AZ_RESOURCE_GROUP` and `NAME_PREFIX` unchanged between labs**, otherwise Lab 05b
+creates a second vault.
+
+### Option B – manual (portal)
+
+1. Create a resource group, for example `rg-rail-fabric-rti` in `uksouth`.
+2. **Create a resource → Key Vault**:
+   * **Access configuration:** *Azure role-based access control* (not access policies).
+   * **Days to retain deleted vaults:** `7` (this can't be changed later, and Lab 05b's template expects 7).
+   * **Networking:** public access *enabled* (Fabric notebooks reach it over the public endpoint).
+3. In the vault, **Access control (IAM) → Add role assignment → Key Vault Secrets Officer** → yourself.
+4. **Secrets → Generate/Import**: create `nrod-username` (your NROD email) and `nrod-password`.
+5. In `.env`, set `KEY_VAULT_NAME` to the vault's name and `KEY_VAULT_URL` to its **Vault URI**
+   (for example `https://<name>.vault.azure.net/`). Setting `KEY_VAULT_NAME` makes Lab 05b re-use your vault.
+
+### Checkpoint
+
+```bash
+az keyvault secret show --vault-name <KEY_VAULT_NAME> -n nrod-username --query value -o tsv
+```
+
+You should see your NROD email. If you get *Forbidden*, wait a few minutes for the role assignment to apply.

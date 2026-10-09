@@ -38,12 +38,13 @@ $common = @(
     '--parameters', ('@' + (Join-Path $script:RepoRoot 'infra/main.parameters.json')),
     '--parameters', "location=$($env:AZ_LOCATION)", "namePrefix=$prefix", "createAcr=$createAcr",
     "containerImage=$($env:CONTAINER_IMAGE)", "imageTag=$tag", "cpu=$cpu", "memory=$memory",
-    "nrodTopics=$topics", "deployerPrincipalId=$deployerId", "deployerPrincipalType=$deployerType"
+    "nrodTopics=$topics", "deployerPrincipalId=$deployerId", "deployerPrincipalType=$deployerType",
+    "keyVaultName=$($env:KEY_VAULT_NAME)"
 )
 
 if ($WhatIf) { Invoke-Az deployment group what-if @common --parameters deployApp=false; return }
 
-Write-Step 'Phase 1: identity, Log Analytics, Key Vault, ACR, Container Apps environment'
+Write-Step 'Phase 1: identity, Log Analytics, Key Vault (re-used if created in Lab 01), ACR, Container Apps environment'
 Invoke-Az deployment group create -n bridge-phase1 @common --parameters deployApp=false -o none
 $kv = az deployment group show -g $rg -n bridge-phase1 --query properties.outputs.keyVaultName.value -o tsv
 $acr = az deployment group show -g $rg -n bridge-phase1 --query properties.outputs.acrName.value -o tsv

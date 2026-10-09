@@ -53,8 +53,11 @@ param tags object = {
   project: 'rail-fabric-rti'
 }
 
+@description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Lab 01). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
+param keyVaultName string = ''
+
 var suffix = uniqueString(resourceGroup().id, namePrefix)
-var kvName = take('${namePrefix}kv${suffix}', 24)
+var kvName = !empty(keyVaultName) ? keyVaultName : take('${namePrefix}kv${suffix}', 24)
 var acrName = take('${namePrefix}acr${suffix}', 50)
 var acrImage = createAcr ? '${acr.properties.loginServer}/rail-bridge:${imageTag}' : ''
 var image = !empty(containerImage) ? containerImage : acrImage
