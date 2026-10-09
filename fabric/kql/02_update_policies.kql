@@ -44,7 +44,7 @@
         line_ind = tostring(b.line_ind),
         variation_status = vs,
         timetable_variation = tv,
-        delay_minutes = case(vs == "LATE", tv, vs == "EARLY", -tv, 0),
+        delay_minutes = toint(case(vs == "LATE", tv, vs == "EARLY", -tv, 0)),
         train_terminated = tobool(b.train_terminated),
         correction_ind = tobool(b.correction_ind),
         offroute_ind = tobool(b.offroute_ind),
@@ -114,11 +114,11 @@
     | extend k = tostring(bag_keys(payload)[0])
     | extend m = payload[k]
     | project
-        event_time = EpochMs(m.time),
+        event_time = EpochMs(m.['time']),
         msg_type = tostring(m.msg_type),
         area_id = tostring(m.area_id),
         from_berth = tostring(m.from),
-        to_berth = tostring(m.to),
+        to_berth = tostring(m.['to']),
         descr = tostring(m.descr),
         received_utc
 }
