@@ -113,7 +113,7 @@ Section : Rail Data Marketplace (RDM) Kafka
 | Can't see the Fabric Apps workload | A Fabric admin must enable it under *Govern > Configurations > Workloads* |
 | `az provider register` permission error | Ask a subscription Owner |
 
-## 8. Shared Key Vault for credentials (needed from Lab 03)
+## 8. Shared Key Vault for credentials (needed for Lab 03)
 
 Lab 03 runs a Fabric notebook that downloads reference data with your NROD login. Rather than typing
 the password into the notebook, store it in a Key Vault **now**. Lab 05b later re-uses the **same vault**
