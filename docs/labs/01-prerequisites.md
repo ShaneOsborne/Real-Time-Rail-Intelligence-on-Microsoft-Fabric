@@ -27,6 +27,7 @@ Get every account, subscription, tenant setting and tool in place before you bui
    <https://raildata.org.uk/dataProduct/P-3f10bf96-d8e8-4041-aa5e-d75d82c45c4e/overview>.
 4. Open the subscription page and note the **Kafka bootstrap server(s)**, **topic**, **consumer group**,
    **username** and **password**. The security protocol is `SASL_SSL` and the mechanism is `PLAIN`.
+   In Fabric (Lab 04) these go into a connection of type **API Key**: **Key** = username, **Secret** = password.
 
 ## 3. Azure
 

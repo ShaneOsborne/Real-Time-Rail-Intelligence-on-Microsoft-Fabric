@@ -30,14 +30,23 @@ doesn't generate Eventstream definition payloads. Follow Option B.
 1. Open **RailEventstreamRdm** → **Add source** → **Connect data sources** → **Apache Kafka** → **Connect**.
 2. Create a **new connection**:
    * **Bootstrap server**: from RDM (`host:port`; comma-separate multiple brokers)
-   * **Authentication**: username and password from RDM (stored as a Fabric cloud connection)
+   * **Connection name**: for example `rdm-kafka`
+   * **Authentication kind**: **API Key**. This is the only option offered, and it's how Fabric stores SASL
+     username/password credentials:
+     * **Key** = your RDM Kafka **consumer username**
+     * **Secret** = your RDM Kafka **consumer password**
+   * Select **Connect**.
+
+   > There's no separate "username/password" option in the Eventstream Kafka connection. The **Key** and **Secret**
+   > are sent as the SASL username and password once you choose `SASL_SSL` / `PLAIN` in the next step.
 3. Configure the source:
    * **Topic**: from RDM
    * **Consumer group**: from RDM. Use the exact value RDM issued
    * **Reset auto offset**: `Latest` for live demos, `Earliest` to backfill whatever the broker retains
    * **Security protocol**: `SASL_SSL`
-   * **SASL mechanism**: `PLAIN`
-4. **Next** → **Add** → **Publish**. In **Data preview**, you should see JSON TRUST messages appear.
+   * **SASL mechanism**: `PLAIN` (not SCRAM)
+   * Leave **TLS/mTLS settings** off. RDM's brokers use a publicly trusted certificate.
+4. **Next** → **Add** → **Publish**. In **Data preview**, you should see JSON TRUST messages appear (if preview stays empty, see Troubleshooting – check the Eventhouse table instead).
 5. **Add destination** → **Eventhouse**:
    * **Data ingestion mode**: *Direct ingestion* (simplest; the Eventhouse does the parsing) or
      *Event processing before ingestion* (if you want to add Eventstream operators).
@@ -64,7 +73,9 @@ TrustMovements | where source == "rdm" | take 10
 
 | Symptom | Fix |
 |---|---|
-| Source shows authentication errors | Re-check the username and password. Check the mechanism is `PLAIN` and the protocol is `SASL_SSL` |
+| Source shows authentication errors | Check the connection's **Key** is the RDM consumer username and **Secret** is the RDM consumer password (no spaces). Check the mechanism is `PLAIN` and the protocol is `SASL_SSL`. To change them, edit the connection under **Settings → Manage connections and gateways** |
+| Can't find a username/password option | Expected. Use **Authentication kind = API Key**: Key = username, Secret = password |
+| Source runs but **Data preview** is empty or errors | Eventstream previews with a consumer group prefixed `preview-`, and the credentials need read access to it. RDM only grants your issued consumer group, so preview may fail even though ingestion works. Check the Eventhouse table (Checkpoint) instead |
 | No data, no errors | Check the topic name and consumer group. Use `Latest` and wait a minute; it's a beta feed with no SLA |
 | Data in `RdmTrustRaw` but none in `TrustMovements` | Look at the payload shape (see TODO above). Run `.show ingestion failures` |
 | Duplicated movements | You're also ingesting `TRAIN_MVT_ALL_TOC` through the bridge. Filter on `source`, or drop one feed (see Lab 00) |
