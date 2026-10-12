@@ -153,7 +153,7 @@ DarwinLocations | take 10
 | Symptom | Fix |
 |---|---|
 | Source shows authentication errors | **Authentication kind** is **API Key**: Key = the Darwin consumer username, Secret = the Darwin consumer password. Check `SASL_SSL` / `PLAIN` |
-| **Data preview** is empty or errors | Eventstream previews with a consumer group prefixed `preview-`, which RDM doesn't grant. Ingestion can still work: check `RdmDarwinRaw` (Checkpoint) |
+| **Data preview** is empty or errors, or `E0080010: Permission check for the consumer group 'preview-…' failed` | Eventstream previews with a consumer group prefixed `preview-`, which RDM doesn't grant. If it blocks an edit, delete the source, **Publish** and add it again. Ingestion can still work: check `RdmDarwinRaw` (Checkpoint) |
 | Darwin rows are in `RdmTrustRaw` (from before this lab) | They're not moved or back-filled. Point Lab 04 at the NWR Train Movements topic, then run `.clear table RdmTrustRaw data` and `.clear table DarwinLocations data` (each on its own). New Darwin data arrives through this lab |
 | `DarwinLocations` empty although `RdmDarwinRaw` fills | Run `.show table DarwinLocations policy update`: `Source` must be `RdmDarwinRaw`. If not, re-run `01_tables.kql` then `02_update_policies.kql`. Check `.show ingestion failures`. Data that arrived before the policy existed needs `08_backfill.kql` (once) |
 | No `RdmDarwinRaw` in the table list, or no "existing mapping" option | Run `01_tables.kql` and `02_update_policies.kql`, then re-open **Configure** on the destination |

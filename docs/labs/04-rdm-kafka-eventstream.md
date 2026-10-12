@@ -95,23 +95,31 @@ flowchart LR
   X -- "by header.msg_type" --> T[("TrustMovements · TrustActivations<br/>TrustCancellations · TrustOtherEvents")]
 ```
 
-1. **`UnwrapRdmTrust()`** removes the RDM envelope (through the shared `UnwrapRdmBody()` function). RDM delivers each message
-   as a serialised ActiveMQ message (`destination`, `messageID`, `properties`, …) with the real feed JSON as a **string** in
-   `bytes` (or `text`).
+1. **`UnwrapRdmTrust()`** removes the RDM envelope when there is one (through the shared `UnwrapRdmBody()` function). Some RDM
+   products (Darwin) deliver each message as a serialised ActiveMQ message (`destination`, `messageID`, `properties`, …) with the
+   real feed JSON as a **string** in `bytes` (or `text`). **NWR Train Movements arrives without an envelope** – plain TRUST JSON –
+   and passes straight through.
 2. **`ExpandTrustRdm()`** expands batches (`mv-expand`), and the `Parse*()` functions route each TRUST message by `msg_type`
    into the `Trust*` tables, the same as the NROD bridge data. As a safety net it skips anything that looks like Darwin
    (destination contains `PushPort`, or the body has `uR`/`sR`).
 3. Darwin Push Port has its own raw table (`RdmDarwinRaw`) and parsing; see the optional [Lab 04b](04b-darwin-push-port.md).
 
-**Which product are you receiving?** Check the RDM destination name:
+**Which product are you receiving?** This query labels each message by its content:
 
 ```kusto
 RdmTrustRaw
-| summarize messages = count(), ['last'] = max(ingestion_time()) by destination = tostring(payload.destination.name)
+| extend dest = tostring(payload.destination.name)
+| extend feed = case(dest has "PushPort", "Darwin Push Port (wrong topic - see Lab 04b)",
+                     isnotempty(tostring(payload.header.msg_type)), "NWR Train Movements (TRUST)",
+                     isnotempty(dest), "Wrapped RDM message - check the topic",
+                     "Unknown - inspect payload")
+| summarize messages = count(), latest = max(ingestion_time())
+    by feed, destination = iff(isempty(dest), "(none - normal for TRUST)", dest)
 ```
 
-* Anything carrying TRUST `header.msg_type` records → **NWR Train Movements**. The `Trust*` tables fill. This is what you want.
-* `...PushPort...` (for example `...PushPort-v18`) → you connected the **Darwin** topic by mistake. To fix it:
+* **NWR Train Movements (TRUST)** with destination **`(none - normal for TRUST)`** → this is what you want. RDM delivers
+  Train Movements as plain TRUST JSON (`header` + `body`) with **no** envelope, so there's no destination name. The `Trust*` tables fill.
+* **Darwin Push Port** (destination like `...PushPort-v18`) → you connected the **Darwin** topic by mistake. To fix it:
   1. Edit the Apache Kafka source in **RailEventstreamRdm** and change the **topic** and **consumer group** (and the connection,
      if RDM gave different credentials) to the **NWR Train Movements** values → **Publish**.
   2. Clear the Darwin rows in `RailKQL` (run each command on its own):
@@ -152,11 +160,17 @@ No. The update policies handle a single message object or a JSON array (batch), 
    RdmTrustRaw | summarize n = count() by t = bin(ingestion_time(), 1m) | order by t desc
    ```
 
-2. It's the right product. The destination must **not** contain `PushPort` (see "Which product are you receiving?" above):
+2. It's the right product. `feed` should be **NWR Train Movements (TRUST)**, and a blank destination (`(none - normal for TRUST)`) is expected:
 
    ```kusto
    RdmTrustRaw
-   | summarize messages = count(), last = max(ingestion_time()) by destination = tostring(payload.destination.name)
+   | extend dest = tostring(payload.destination.name)
+   | extend feed = case(dest has "PushPort", "Darwin Push Port (wrong topic - see Lab 04b)",
+                        isnotempty(tostring(payload.header.msg_type)), "NWR Train Movements (TRUST)",
+                        isnotempty(dest), "Wrapped RDM message - check the topic",
+                        "Unknown - inspect payload")
+   | summarize messages = count(), latest = max(ingestion_time())
+       by feed, destination = iff(isempty(dest), "(none - normal for TRUST)", dest)
    ```
 
 3. Movements are parsed. Expect rows with `train_id`, `loc_stanox` and `delay_minutes` filled in:
@@ -186,7 +200,10 @@ Labs 06–11 rely on **`TrustMovements`**. Darwin (forecasts and platforms) is o
 | No data, no errors | Check the topic name and consumer group. Use `Latest` and wait a minute; it's a beta feed with no SLA |
 | Destination shows `...PushPort...` / data is Darwin | You used the Darwin topic and consumer group. 1) Edit the Apache Kafka source: set the **NWR Train Movements** topic and consumer group (and credentials, if different) → **Publish**. 2) Run `.clear table RdmTrustRaw data`. 3) Run `.clear table DarwinLocations data`. 4) Add Darwin properly in [Lab 04b](04b-darwin-push-port.md) |
 | Data in `RdmTrustRaw` but none in `TrustMovements` | Check which product you're receiving (Checkpoint step 2). If it's TRUST, re-run `01_tables.kql` then `02_update_policies.kql`, check `.show table TrustMovements policy update` lists `ParseMovements(ExpandTrustRdm())`, and look at `.show ingestion failures` |
-| `TrustMovements` empty although new TRUST data arrives | Check the update policy (Checkpoint step 4) and `.show ingestion failures \| where FailedOn > ago(1h)`. If data arrived before the policies existed, run `08_backfill.kql` once |
+| `destination` is blank | Expected for NWR Train Movements: its messages have no RDM envelope. Use the `feed` column from the "Which product" query |
+| `E0080010: Permission check for the consumer group 'preview-…' failed` when adding or editing the source | Fabric's data preview uses its own `preview-` consumer group, which RDM doesn't grant. If the editor lets you continue, **Publish** and check `RdmTrustRaw` instead. If it blocks an **edit**, delete the Kafka source, **Publish**, and add a new Apache Kafka source with the correct topic and consumer group |
+| `Query schema does not match table schema` mentioning `int,long` (for example when back-filling) | Your `ParseMovements()` is from before the `delay_minutes` fix. Re-run `02_update_policies.kql`, then back-fill once |
+| `TrustMovements` empty although new TRUST data arrives | Check the update policy (Checkpoint step 4) and `.show ingestion failures \| where FailedOn > ago(1h)`. Test the parsing by hand with `ParseMovements(ExpandTrustRdm()) \| take 10`, and try a one-off back-fill (`.set-or-append TrustMovements <\| ParseMovements(ExpandTrustRdm())`): its error message shows the real problem. If data arrived before the policies existed, run `08_backfill.kql` once |
 | Older rows never parsed | Expected: update policies only see new data. Run `08_backfill.kql` once |
 | No existing `RdmTrustRaw` in the table list, or no "existing mapping" option | The table and mapping weren't created first. Run `01_tables.kql` and `02_update_policies.kql` (Lab 02), then re-open **Configure** on the destination |
 | You already let the wizard create a **new** `RdmTrustRaw` table | Its columns won't match. Delete the Eventhouse destination in the Eventstream, run `.drop table RdmTrustRaw ifexists` in `RailKQL`, run `01_tables.kql` and `02_update_policies.kql`, then redo steps 5–6 |
