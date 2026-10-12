@@ -138,7 +138,7 @@
         line_ind = tostring(b.line_ind),
         variation_status = vs,
         timetable_variation = tv,
-        delay_minutes = toint(case(vs == "LATE", tv, vs == "EARLY", -tv, 0)),   // toint: unary minus returns long, table column is int
+        delay_minutes = case(vs == "LATE", tv, vs == "EARLY", -tv, 0),
         train_terminated = tobool(b.train_terminated),
         correction_ind = tobool(b.correction_ind),
         offroute_ind = tobool(b.offroute_ind),

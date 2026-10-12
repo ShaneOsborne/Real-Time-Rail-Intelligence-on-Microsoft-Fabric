@@ -107,7 +107,7 @@ flowchart LR
 
 ```kusto
 RdmTrustRaw
-| summarize messages = count(), last = max(ingestion_time()) by destination = tostring(payload.destination.name)
+| summarize messages = count(), ['last'] = max(ingestion_time()) by destination = tostring(payload.destination.name)
 ```
 
 * Anything carrying TRUST `header.msg_type` records → **NWR Train Movements**. The `Trust*` tables fill. This is what you want.
