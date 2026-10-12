@@ -208,11 +208,11 @@
     | extend k = tostring(bag_keys(payload)[0])
     | extend m = payload[k]
     | project
-        event_time = EpochMs(m.time),
+        event_time = EpochMs(m.['time']),
         msg_type = tostring(m.msg_type),
         area_id = tostring(m.area_id),
         from_berth = tostring(m.from),
-        to_berth = tostring(m.to),
+        to_berth = tostring(m.['to']),
         descr = tostring(m.descr),
         received_utc
 }
