@@ -283,6 +283,10 @@ Repeat S1 in **RailEventstreamRdm** with **Event Hub** `rdm-trust` (re-use the s
 one for `rdm-trust`), **the same consumer group name**, data format **JSON**, and destination table **`RdmTrustRaw`** with mapping
 **`RdmTrustRawMapping`** (as in [Lab 04](04-rdm-kafka-eventstream.md), steps 5–6: *Direct ingestion*, then **Configure** in Live view). You don't add the Apache Kafka source in this mode.
 
+> **Darwin isn't relayed.** The RDM relay forwards one topic (NWR Train Movements) only. For the optional Darwin feed, see
+> [Lab 04b](04b-darwin-push-port.md#shared-event-hub-mode-lab-05c): each student uses their own Darwin subscription, or the
+> instructor runs a second relay for the Darwin topic (not scripted).
+
 ### Student checkpoint
 
 ```kusto

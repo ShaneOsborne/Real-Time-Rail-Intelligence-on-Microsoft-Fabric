@@ -38,3 +38,18 @@ Key tables and views:
 
 Joins: `TrustMovements.loc_stanox == Locations.stanox`. Use `LocationByStanox()` to get one row per STANOX.
 Time columns are `datetime`; filter with `ago()` for relative windows.
+
+## Optional: Darwin addendum (only if you did Lab 04b)
+
+Add this to the data source instructions **only** if `DarwinLocations` is filling (Lab 04b). Otherwise leave it out, and
+leave out the example queries marked *(Optional – Darwin, Lab 04b)*.
+
+| Object | Grain | Important columns |
+|---|---|---|
+| `DarwinLocations` | one row per Darwin update for a service (`rid`) at a location (`tiploc`) | `received_utc`, `rid`, `uid`, `ssd`, `tiploc`, `pta`, `ptd`, `arr_et`, `arr_at`, `dep_et`, `dep_at`, `arr_delay_minutes`, `dep_delay_minutes`, `platform`, `platform_confirmed` |
+
+- Use Darwin for **forecasts, expected times and platforms**; use `TrustMovements` for what actually happened on the network.
+- Darwin keeps several updates per service and location: use `DarwinLatest()` (or `summarize arg_max(received_utc, *) by rid, tiploc`) for the current state.
+- Prefer `DarwinUnconfirmedPlatforms(crs)` and `DarwinBiggestDelays()` for platform and delay questions.
+- Darwin times (`pta`, `ptd`, `*_at`, `*_et`) are UK local `HH:MM` strings on the schedule start date `ssd`, not datetimes.
+- Join on `DarwinLocations.tiploc == Locations.tiploc` (not STANOX). Never query `RdmDarwinRaw`.

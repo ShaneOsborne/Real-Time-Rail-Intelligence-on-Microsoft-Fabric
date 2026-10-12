@@ -27,9 +27,13 @@ Not available in this repo. Create the data agent in the portal. All the content
    `TrustMovements`, `TrustCancellations`, `TrustActivations`, `Locations`, `TocCodes`, plus the materialized views
    (`TrainLatest`, `DelaysBy15Min`, `CancellationsBy15Min`, `DailyTocPerformance`). Leave `RawFeed` and `RdmTrustRaw` **out**.
 3. Optionally, add the `Rail Performance` semantic model from Lab 08.
+   *Optional (only if you did [Lab 04b](04b-darwin-push-port.md)):* also select `DarwinLocations` and the functions
+   `DarwinLatest`, `DarwinUnconfirmedPlatforms` and `DarwinBiggestDelays`. Leave `RdmDarwinRaw` **out**.
 4. **Agent instructions**: paste the *Agent instructions* section of `instructions.md`.
 5. **Data source instructions** (on `RailKQL`): paste the *Data source instructions* section.
-6. **Example queries** (on `RailKQL`): add each question and KQL pair from `example-queries.json`.
+6. **Example queries** (on `RailKQL`): add each question and KQL pair from `example-queries.json`. The pairs whose question
+   starts with *(Optional – Darwin, Lab 04b)* need `DarwinLocations`; add them only if you did Lab 04b, and paste the
+   *Optional: Darwin addendum* from `instructions.md` too.
 7. Test it in the chat pane:
    * "Which trains are more than 15 minutes late right now?"
    * "How many cancellations in the last hour, by reason?"

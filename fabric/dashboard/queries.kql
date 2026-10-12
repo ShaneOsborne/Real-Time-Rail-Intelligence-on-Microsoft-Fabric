@@ -43,3 +43,11 @@ CancellationsBy15Min
 TrustMovements
 | where received_utc > ago(1h)
 | summarize p50 = percentile((received_utc - event_time) / 1s, 50), p95 = percentile((received_utc - event_time) / 1s, 95) by bin(received_utc, 5m)
+
+// ---- Optional: Darwin tiles (only if you did Lab 04b and DarwinLocations is filling) ----
+
+// Tile: "Unconfirmed platforms at Leeds (Darwin)"  (Table) - change the CRS code, or use a string parameter
+DarwinUnconfirmedPlatforms("LDS", 2h)
+
+// Tile: "Biggest predicted delays (Darwin)"  (Table, or Map with lat/lon)
+DarwinBiggestDelays(1h, 20)

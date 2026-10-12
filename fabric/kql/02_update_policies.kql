@@ -1,8 +1,10 @@
 // Lab 06 - step 2: parsing functions + update policies.
 // Batched TRUST payloads (JSON arrays) from either source are expanded and routed by header.msg_type:
 //   0001 activation, 0002 cancellation, 0003 movement, 0004-0008 -> TrustOtherEvents.
-// RdmTrustRaw holds whatever RDM Kafka product you connect (it is unwrapped by UnwrapRdm()):
-//   NWR Train Movements (TRUST)  -> Trust* tables;  Darwin Push Port ("PushPort" topics) -> DarwinLocations.
+// Each RDM Kafka product lands in its own raw table; UnwrapRdmBody() removes the RDM envelope for both:
+//   RdmTrustRaw  = NWR Train Movements (TRUST) only (Lab 04)  -> UnwrapRdmTrust()  -> ExpandTrustRdm() -> Trust* tables.
+//   RdmDarwinRaw = Darwin Push Port (optional, Lab 04b)        -> UnwrapRdmDarwin() -> ParseDarwinBody() -> DarwinLocations.
+// Run 01_tables.kql first: this script references RdmTrustRaw and RdmDarwinRaw.
 // Update policies only process data ingested AFTER they exist. To back-fill, see fabric/kql/08_backfill.kql.
 // NOTE: TRUST timestamps are epoch milliseconds. The Open Rail Data wiki notes they reflect UK local
 // time in some fields - check https://wiki.openraildata.com/index.php/Train_Movements before relying on
@@ -16,9 +18,8 @@
     | project received_utc, source, item
 }
 
-.create-or-alter function with (folder="parsing", docstring="Unwrap the RDM pub/sub envelope. RDM Kafka messages are an ActiveMQ message serialised as JSON (destination, messageID, bytes/text, properties); the real feed JSON is a string in 'bytes' (or 'text'). Un-wrapped payloads pass through unchanged.") UnwrapRdm() {
-    RdmTrustRaw
-    | extend received_utc = ingestion_time()
+.create-or-alter function with (folder="parsing", docstring="Unwrap the RDM pub/sub envelope. RDM Kafka messages are an ActiveMQ message serialised as JSON (destination, messageID, bytes/text, properties); the real feed JSON is a string in 'bytes' (or 'text'). Un-wrapped payloads pass through unchanged.") UnwrapRdmBody(T:(received_utc:datetime, payload:dynamic)) {
+    T
     | extend rdm_destination = tostring(payload.destination.name)
     | extend raw_body = case(isnotempty(tostring(payload.bytes)), tostring(payload.bytes),
                              isnotempty(tostring(payload.text)), tostring(payload.text),
@@ -29,8 +30,24 @@
     | project received_utc, rdm_destination, body
 }
 
-.create-or-alter function with (folder="parsing", docstring="Expand RDM TRUST (NWR Train Movements) events from RdmTrustRaw; Darwin Push Port messages are excluded") ExpandTrustRdm() {
-    UnwrapRdm()
+.create-or-alter function with (folder="parsing", docstring="RDM NWR Train Movements (TRUST) messages from RdmTrustRaw, envelope removed") UnwrapRdmTrust() {
+    RdmTrustRaw
+    | project received_utc = ingestion_time(), payload
+    | invoke UnwrapRdmBody()
+}
+
+.create-or-alter function with (folder="parsing", docstring="RDM Darwin Push Port messages from RdmDarwinRaw (Lab 04b), envelope removed") UnwrapRdmDarwin() {
+    RdmDarwinRaw
+    | project received_utc = ingestion_time(), payload
+    | invoke UnwrapRdmBody()
+}
+
+.create-or-alter function with (folder="parsing", docstring="Deprecated alias of UnwrapRdmTrust(), kept for backward compatibility") UnwrapRdm() {
+    UnwrapRdmTrust()
+}
+
+.create-or-alter function with (folder="parsing", docstring="Expand RDM TRUST (NWR Train Movements) events from RdmTrustRaw; any Darwin Push Port messages that reach it by mistake are excluded") ExpandTrustRdm() {
+    UnwrapRdmTrust()
     | where rdm_destination !has "PushPort" and isnull(body.uR) and isnull(body.sR)
     | extend items = iff(gettype(body) == "array", body, pack_array(body))
     | mv-expand item = items
@@ -48,8 +65,8 @@
     iff(isnull(p) or isnull(a), int(null), toint(iff(d < -720, d + 1440, iff(d > 720, d - 1440, d))))
 }
 
-.create-or-alter function with (folder="parsing", docstring="Darwin Push Port uR/sR TS (train status) -> one row per Location. Times are UK local HH:MM on the schedule start date (ssd).") ParseDarwinLocations() {
-    UnwrapRdm()
+.create-or-alter function with (folder="parsing", docstring="Darwin Push Port uR/sR TS (train status) -> one row per Location. Times are UK local HH:MM on the schedule start date (ssd).") ParseDarwinBody(T:(received_utc:datetime, rdm_destination:string, body:dynamic)) {
+    T
     | extend r = iff(isnotnull(body.uR), body.uR, body.sR)
     | where isnotnull(r) and isnotnull(r.TS)
     | extend msg_ts = todatetime(tostring(body.ts)), update_origin = tostring(r.updateOrigin)
@@ -92,6 +109,11 @@
         received_utc
 }
 
+.create-or-alter function with (folder="parsing", docstring="Darwin Push Port from RdmDarwinRaw (Lab 04b) -> DarwinLocations rows") ParseDarwinLocations() {
+    UnwrapRdmDarwin()
+    | invoke ParseDarwinBody()
+}
+
 .create-or-alter function with (folder="parsing", docstring="Epoch-ms string to datetime (null-safe)") EpochMs(v:dynamic) {
     iff(isempty(tostring(v)), datetime(null), unixtime_milliseconds_todatetime(tolong(v)))
 }
@@ -116,7 +138,7 @@
         line_ind = tostring(b.line_ind),
         variation_status = vs,
         timetable_variation = tv,
-        delay_minutes = toint(case(vs == "LATE", tv, vs == "EARLY", -tv, 0)),
+        delay_minutes = case(vs == "LATE", tv, vs == "EARLY", -tv, 0),
         train_terminated = tobool(b.train_terminated),
         correction_ind = tobool(b.correction_ind),
         offroute_ind = tobool(b.offroute_ind),
@@ -186,11 +208,11 @@
     | extend k = tostring(bag_keys(payload)[0])
     | extend m = payload[k]
     | project
-        event_time = EpochMs(m.['time']),
+        event_time = EpochMs(m.time),
         msg_type = tostring(m.msg_type),
         area_id = tostring(m.area_id),
         from_berth = tostring(m.from),
-        to_berth = tostring(m.['to']),
+        to_berth = tostring(m.to),
         descr = tostring(m.descr),
         received_utc
 }
@@ -223,4 +245,4 @@
 
 .alter table RtppmNational policy update @'[{"IsEnabled":true,"Source":"RawFeed","Query":"ParseRtppm()","IsTransactional":false,"PropagateIngestionProperties":false}]'
 
-.alter table DarwinLocations policy update @'[{"IsEnabled":true,"Source":"RdmTrustRaw","Query":"ParseDarwinLocations()","IsTransactional":false,"PropagateIngestionProperties":false}]'
+.alter table DarwinLocations policy update @'[{"IsEnabled":true,"Source":"RdmDarwinRaw","Query":"ParseDarwinLocations()","IsTransactional":false,"PropagateIngestionProperties":false}]'

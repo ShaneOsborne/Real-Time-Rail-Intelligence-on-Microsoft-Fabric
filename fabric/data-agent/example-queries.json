@@ -30,5 +30,17 @@
   {
     "question": "Where is train 1A21 now?",
     "query": "TrainLatest\n| where train_id contains '1A21'\n| lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox\n| project event_time, train_id, event_type, location_name, variation_status, delay_minutes"
+  },
+  {
+    "question": "(Optional – Darwin, Lab 04b) Which services at Leeds don't have a confirmed platform yet?",
+    "query": "DarwinUnconfirmedPlatforms('LDS', 2h)\n| project ssd, ptd, pta, rid, platform, platform_source, dep_delay_minutes\n| take 10"
+  },
+  {
+    "question": "(Optional – Darwin, Lab 04b) Which trains have the biggest predicted delays right now?",
+    "query": "DarwinBiggestDelays(1h, 10)\n| project name, crs, rid, pta, ptd, arr_et, dep_et, delay_minutes, platform"
+  },
+  {
+    "question": "(Optional – Darwin, Lab 04b) What is the expected departure time and platform of trains at York?",
+    "query": "DarwinLatest(2h)\n| where crs =~ 'YRK' and isnotempty(ptd)\n| project ssd, ptd, dep_et, dep_at, platform, platform_confirmed, dep_delay_minutes, rid\n| order by ssd asc, ptd asc\n| take 10"
   }
 ]

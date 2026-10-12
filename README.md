@@ -31,7 +31,7 @@ flowchart LR
   end
 
   subgraph Fabric["Microsoft Fabric workspace"]
-    ESR["Eventstream (RDM)<br/>Apache Kafka source"]
+    ESR["Eventstream (RDM)<br/>Apache Kafka source<br/>+ optional Darwin Eventstream (Lab 04b)"]
     ESN["Eventstream (NROD)<br/>Custom endpoint source"]
     EH[("Eventhouse / KQL DB<br/>RawFeed → update policies →<br/>TrustMovements · Cancellations<br/>materialized views")]
     LH[("Lakehouse<br/>locations · smart_berths")]
@@ -87,6 +87,7 @@ flowchart LR
 | [02](docs/labs/02-fabric-workspace.md) | Fabric workspace, Eventhouse, KQL database, Lakehouse, Eventstreams | 20 min | ✅ `fabric-setup.sh/.ps1` |
 | [03](docs/labs/03-reference-data.md) | Reference data (CORPUS, SMART, NaPTAN) → Lakehouse and KQL | 30 min | ✅ `load_reference_data.py` / notebook |
 | [04](docs/labs/04-rdm-kafka-eventstream.md) | Ingest RDM Kafka Train Movements with Eventstream | 30 min | Manual (portal) |
+| [04b](docs/labs/04b-darwin-push-port.md) | *Optional:* Darwin Push Port: forecasts, platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` |
 | [05a](docs/labs/05a-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` |
 | [05b](docs/labs/05b-bridge-azure-container-apps.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` |
 | [05c](docs/labs/05c-shared-event-hub.md) | *Optional:* shared Azure Event Hub for classes and paused capacities (+ RDM Kafka relay) | 45 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1` (instructor); student Eventstream source manual |
@@ -138,6 +139,7 @@ BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
 On Windows, use the matching `.ps1` scripts, for example `./scripts/create-keyvault.ps1`, `./scripts/fabric-setup.ps1` and `./scripts/deploy-bridge.ps1`.
 
 Then follow Labs 04 and 07–11 for the portal-only parts: the RDM Kafka source, Activator, dashboards, the data agent, Foundry and Rayfin.
+For Darwin forecasts and platforms, add the optional [Lab 04b](docs/labs/04b-darwin-push-port.md): its own Eventstream (`RailEventstreamDarwin`, created empty by `fabric-setup`) and raw table (`RdmDarwinRaw`).
 
 ### What is automated and what is manual
 
@@ -157,14 +159,14 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 
 ```
 ├── README.md · LICENSE · CONTRIBUTING.md · .env.example · .gitignore
-├── docs/labs/                 00–12 lab guides
+├── docs/labs/                 00–12 lab guides (+ optional 04b Darwin, 05c shared Event Hub)
 ├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
 │                              optional shared Event Hubs namespace (eventhubs.bicep)
 ├── scripts/                   run-local / create-keyvault / deploy-bridge / fabric-setup / cleanup, optional create-eventhub /
 │                              add-student-consumer-groups (.sh and .ps1)
 ├── fabric/
-│   ├── kql/                   01–04 schema scripts, 05 shortcut load, 06 sample queries, 07 TOC seed
+│   ├── kql/                   01–04 schema scripts, 05 shortcut load, 06 sample queries, 07 TOC seed, 08 one-off back-fill
 │   ├── notebooks/             Reference-data notebook (.ipynb)
 │   ├── scripts/               apply_kql.py, load_reference_data.py
 │   ├── data-agent/            Instructions + example question/KQL pairs

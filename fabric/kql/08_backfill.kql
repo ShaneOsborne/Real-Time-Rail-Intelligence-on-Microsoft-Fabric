@@ -1,5 +1,9 @@
-// Back-fill the parsed tables from rows that reached RdmTrustRaw BEFORE the update policies existed
-// (update policies only process data ingested after they're created).
+// Back-fill the parsed tables from rows that reached the raw tables BEFORE the update policies existed
+// (update policies only process data ingested after they're created):
+//   RdmTrustRaw  -> Trust* tables (Lab 04);  RdmDarwinRaw -> DarwinLocations via ParseDarwinLocations() (Lab 04b).
+// Legacy Darwin rows in RdmTrustRaw (from before Lab 04b, when Darwin shared that table) are NOT back-filled
+// and shouldn't be moved. Clear them instead: `.clear table RdmTrustRaw data` and `.clear table DarwinLocations data`,
+// then point Lab 04 at the NWR Train Movements topic and add Darwin in Lab 04b (see the Lab 04b troubleshooting table).
 // Run ONCE: select the whole file (Ctrl+A) and Run, or: python fabric/scripts/apply_kql.py --file fabric/kql/08_backfill.kql
 // Each command appends, so running it twice creates duplicates. Commands that find no matching rows just append nothing.
 .execute database script with (ContinueOnErrors=true) <|

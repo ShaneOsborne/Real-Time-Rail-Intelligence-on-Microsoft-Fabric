@@ -1,7 +1,8 @@
 <#
 .SYNOPSIS
   Lab 02 Option A: create Fabric workspace items via the Fabric REST API (az rest).
-  Eventstream sources/destinations are configured manually (Labs 04/05).
+  Also creates the optional, empty Darwin Eventstream (Lab 04b).
+  Eventstream sources/destinations are configured manually (Labs 04/04b/05).
 #>
 . "$PSScriptRoot/_common.ps1"
 Import-DotEnv
@@ -14,6 +15,7 @@ $db = if ($env:FABRIC_KQL_DATABASE_NAME) { $env:FABRIC_KQL_DATABASE_NAME } else 
 $lh = if ($env:FABRIC_LAKEHOUSE_NAME) { $env:FABRIC_LAKEHOUSE_NAME } else { 'RailLakehouse' }
 $esNrod = if ($env:FABRIC_EVENTSTREAM_NROD_NAME) { $env:FABRIC_EVENTSTREAM_NROD_NAME } else { 'RailEventstreamNrod' }
 $esRdm = if ($env:FABRIC_EVENTSTREAM_RDM_NAME) { $env:FABRIC_EVENTSTREAM_RDM_NAME } else { 'RailEventstreamRdm' }
+$esDarwin = if ($env:FABRIC_EVENTSTREAM_DARWIN_NAME) { $env:FABRIC_EVENTSTREAM_DARWIN_NAME } else { 'RailEventstreamDarwin' }
 
 function Invoke-Fabric([string]$Method, [string]$Url, [string]$Body, [string]$Query) {
     $a = @('rest', '--method', $Method, '--resource', $res, '--url', $Url)
@@ -65,6 +67,7 @@ Write-Step 'Lakehouse';    $lhId = New-FabricItem 'lakehouses' $lh @{ displayNam
 Write-Step 'Eventstreams (empty)'
 $esRdmId = New-FabricItem 'eventstreams' $esRdm @{ displayName = $esRdm }
 $esNrodId = New-FabricItem 'eventstreams' $esNrod @{ displayName = $esNrod }
+$esDarwinId = New-FabricItem 'eventstreams' $esDarwin @{ displayName = $esDarwin }
 $queryUri = Invoke-Fabric get "$wsUrl/kqlDatabases/$dbId" '' 'properties.queryServiceUri'
 
 Write-Host @"
@@ -76,6 +79,7 @@ FABRIC_KQL_DATABASE_ID=$dbId
 FABRIC_LAKEHOUSE_ID=$lhId
 FABRIC_EVENTSTREAM_RDM_ID=$esRdmId
 FABRIC_EVENTSTREAM_NROD_ID=$esNrodId
+FABRIC_EVENTSTREAM_DARWIN_ID=$esDarwinId
 KUSTO_QUERY_URI=$queryUri
 
 Next: python fabric/scripts/apply_kql.py   (Lab 06)

@@ -23,6 +23,15 @@ This repo doesn't generate the dashboard JSON definition.
 5. Map tile: choose the **Map** visual, with latitude `lat`, longitude `lon`, and size or colour `delay_minutes`.
 6. Add a text tile with the attribution: *"Contains data from Network Rail Open Data / Rail Data Marketplace. Not an official service."*
 
+### Darwin tiles (if you did Lab 04b)
+
+*Optional.* Only if `DarwinLocations` is filling ([Lab 04b](04b-darwin-push-port.md)). The queries are at the end of `queries.kql`:
+
+| Tile | Query | Visual |
+|---|---|---|
+| Unconfirmed platforms at a station | `DarwinUnconfirmedPlatforms("LDS", 2h)` (change the CRS code, or use a dashboard parameter) | Table |
+| Biggest predicted delays (Darwin) | `DarwinBiggestDelays(1h, 20)` | Table (or Map with `lat` / `lon`) |
+
 ### Power BI – live page (DirectQuery)
 
 1. In Power BI Desktop: **Get data** → **KQL Database** (or *Azure Data Explorer (Kusto)*) → paste the `RailKQL` **Query URI**, database `RailKQL`.

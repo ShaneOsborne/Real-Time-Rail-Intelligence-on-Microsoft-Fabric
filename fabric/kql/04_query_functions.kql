@@ -53,3 +53,26 @@
     | project received_utc, rid, uid, ssd, tiploc, name, crs, pta, ptd, arr_at, arr_et, dep_at, dep_et,
               arr_delay_minutes, dep_delay_minutes, platform, platform_confirmed, lat, lon
 }
+
+.create-or-alter function with (folder="query", docstring="Darwin (Lab 04b): services at a CRS code whose latest platform isn't confirmed yet, e.g. DarwinUnconfirmedPlatforms('LDS')") DarwinUnconfirmedPlatforms(crs:string, lookback:timespan = 2h) {
+    let crs_code = crs;
+    let tiplocs = Locations | where crs =~ crs_code and isnotempty(tiploc) | summarize arg_max(iff(isnotnull(lat), 1, 0), name, crs, lat, lon) by tiploc;
+    DarwinLocations
+    | where received_utc > ago(lookback)
+    | summarize arg_max(received_utc, *) by rid, tiploc
+    | join kind=inner tiplocs on tiploc
+    | where isnotempty(platform) and coalesce(platform_confirmed, false) == false
+    | project received_utc, rid, uid, ssd, tiploc, name, crs, pta, ptd, arr_et, dep_et, platform, platform_source, arr_delay_minutes, dep_delay_minutes
+    | order by ssd asc, coalesce(ptd, pta) asc
+}
+
+.create-or-alter function with (folder="query", docstring="Darwin (Lab 04b): biggest predicted or actual delays per service and location, with station names (TIPLOC join)") DarwinBiggestDelays(lookback:timespan = 1h, top_n:int = 20) {
+    DarwinLocations
+    | where received_utc > ago(lookback)
+    | summarize arg_max(received_utc, *) by rid, tiploc
+    | extend delay_minutes = max_of(coalesce(arr_delay_minutes, -1440), coalesce(dep_delay_minutes, -1440))
+    | where delay_minutes > 0
+    | join kind=leftouter (Locations | where isnotempty(tiploc) | summarize arg_max(iff(isnotnull(lat), 1, 0), name, crs, lat, lon) by tiploc) on tiploc
+    | top top_n by delay_minutes desc
+    | project received_utc, rid, uid, ssd, tiploc, name, crs, pta, ptd, arr_at, arr_et, dep_at, dep_et, delay_minutes, arr_delay_minutes, dep_delay_minutes, platform, lat, lon
+}

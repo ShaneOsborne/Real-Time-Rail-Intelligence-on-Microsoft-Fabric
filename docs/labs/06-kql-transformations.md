@@ -20,17 +20,19 @@ RawFeed (bridge envelope) ──┐                       ┌─► TrustMovemen
 RdmTrustRaw (Kafka raw) ────┘   (mv-expand batches) ├─► TrustCancellations (0002) ─► CancellationsBy15Min
                                                     └─► TrustOtherEvents (0004–0008)
 RawFeed ─► ParseTd() ─► TdEvents          RawFeed ─► ParseRtppm() ─► RtppmNational
+RdmDarwinRaw (optional, Lab 04b) ─► UnwrapRdmDarwin() ─► ParseDarwinBody() ─► DarwinLocations ─► DarwinLatest(), DarwinUnconfirmedPlatforms(), DarwinBiggestDelays()
 Locations, TocCodes (reference)  ─► LocationByStanox(), MovementsEnriched(), LateTrains(), NetworkSnapshot(), StationBoard(), CancellationSpike()
 ```
 
 | Script | Contents |
 |---|---|
-| `fabric/kql/01_tables.kql` | Tables, `RawFeedMapping` and `RdmTrustRawMapping`, and retention (raw 7 days, movements 365 days) |
-| `fabric/kql/02_update_policies.kql` | Parsing functions and update policies (TRUST from both sources; `UnwrapRdm()` for the RDM envelope; Darwin Push Port → `DarwinLocations`) |
+| `fabric/kql/01_tables.kql` | Tables, `RawFeedMapping`, `RdmTrustRawMapping` and `RdmDarwinRawMapping` (`RdmDarwinRaw` is the optional Lab 04b Darwin raw table), and retention (raw 7 days, Darwin parsed 30 days, movements 365 days) |
+| `fabric/kql/02_update_policies.kql` | Parsing functions and update policies: TRUST from both sources; `UnwrapRdmBody()` removes the RDM envelope, via `UnwrapRdmTrust()` (`RdmTrustRaw`) and `UnwrapRdmDarwin()` (`RdmDarwinRaw`); `UnwrapRdm()` is a deprecated alias of `UnwrapRdmTrust()`; Darwin Push Port → `DarwinLocations` through `ParseDarwinLocations()` / `ParseDarwinBody()` |
 | `fabric/kql/03_materialized_views.kql` | `TrainLatest`, `DelaysBy15Min`, `CancellationsBy15Min`, `DailyTocPerformance` |
-| `fabric/kql/04_query_functions.kql` | Query functions |
+| `fabric/kql/04_query_functions.kql` | Query functions, including the optional Darwin ones (`DarwinLatest()`, `DarwinUnconfirmedPlatforms()`, `DarwinBiggestDelays()`) |
 | `fabric/kql/06_sample_queries.kql` | Sample queries for exploring the data |
 | `fabric/kql/07_toc_codes_seed.kql` | Template for filling `TocCodes` (TODO: fill it from the wiki) |
+| `fabric/kql/08_backfill.kql` | Run **once** to back-fill the parsed tables from `RdmTrustRaw` (TRUST) and `RdmDarwinRaw` (Darwin) rows that arrived before the update policies existed |
 
 Each schema script is a single `.execute database script` command, so it either runs completely or stops at the first error (`ContinueOnErrors=false`).
 

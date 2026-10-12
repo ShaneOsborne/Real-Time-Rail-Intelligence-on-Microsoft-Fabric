@@ -2,7 +2,9 @@
 // Run the WHOLE file at once: select all (Ctrl+A) in a KQL queryset and press Run,
 // or run `python fabric/scripts/apply_kql.py`. Commands inside a database script
 // must be separated by a blank line and must not contain blank lines themselves.
-// DarwinLocations = Darwin Push Port (RDM 'Darwin Real Time Train Information'), one row per location update.
+// RdmTrustRaw   = RDM 'NWR Train Movements' (TRUST) Kafka messages only (Lab 04).
+// RdmDarwinRaw  = RDM 'Darwin Real Time Train Information (Push)' Kafka messages (optional, Lab 04b).
+// DarwinLocations = parsed Darwin Push Port, one row per location update (filled from RdmDarwinRaw).
 .execute database script with (ContinueOnErrors=false) <|
 .create-merge table RawFeed (source:string, topic:string, feed:string, msg_type:string, message_id:string, batch_index:int, received_utc:datetime, payload:dynamic)
 
@@ -11,6 +13,10 @@
 .create-merge table RdmTrustRaw (payload:dynamic)
 
 .create-or-alter table RdmTrustRaw ingestion json mapping "RdmTrustRawMapping" '[{"column":"payload","Properties":{"Path":"$"}}]'
+
+.create-merge table RdmDarwinRaw (payload:dynamic)
+
+.create-or-alter table RdmDarwinRaw ingestion json mapping "RdmDarwinRawMapping" '[{"column":"payload","Properties":{"Path":"$"}}]'
 
 .create-merge table TrustMovements (event_time:datetime, planned_time:datetime, gbtt_time:datetime, train_id:string, train_service_code:string, toc_id:string, event_type:string, planned_event_type:string, loc_stanox:string, next_report_stanox:string, platform:string, line_ind:string, variation_status:string, timetable_variation:int, delay_minutes:int, train_terminated:bool, correction_ind:bool, offroute_ind:bool, direction_ind:string, event_source:string, source:string, received_utc:datetime)
 
@@ -33,6 +39,8 @@
 .alter-merge table RawFeed policy retention softdelete = 7d recoverability = disabled
 
 .alter-merge table RdmTrustRaw policy retention softdelete = 7d recoverability = disabled
+
+.alter-merge table RdmDarwinRaw policy retention softdelete = 7d recoverability = disabled
 
 .alter-merge table DarwinLocations policy retention softdelete = 30d
 

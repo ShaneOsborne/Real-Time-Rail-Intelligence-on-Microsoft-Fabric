@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Lab 02 Option A: create the Fabric workspace items with the Fabric REST API (via `az rest`).
-# Creates (idempotently): workspace (optional), Eventhouse, KQL database, Lakehouse, empty Eventstream.
-# The Eventstream SOURCES/DESTINATIONS are configured manually in the portal (Labs 04/05).
+# Creates (idempotently): workspace (optional), Eventhouse, KQL database, Lakehouse, empty Eventstreams
+# (RDM, NROD and the optional Darwin one for Lab 04b).
+# The Eventstream SOURCES/DESTINATIONS are configured manually in the portal (Labs 04/04b/05).
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
@@ -13,6 +14,7 @@ DB_NAME="${FABRIC_KQL_DATABASE_NAME:-RailKQL}"
 LH_NAME="${FABRIC_LAKEHOUSE_NAME:-RailLakehouse}"
 ES_NROD="${FABRIC_EVENTSTREAM_NROD_NAME:-RailEventstreamNrod}"
 ES_RDM="${FABRIC_EVENTSTREAM_RDM_NAME:-RailEventstreamRdm}"
+ES_DARWIN="${FABRIC_EVENTSTREAM_DARWIN_NAME:-RailEventstreamDarwin}"
 
 fabric() { az rest --resource "$RES" "$@"; }
 
@@ -61,9 +63,10 @@ DB_ID="$(ensure_item kqlDatabases "$DB_NAME" \
   "{\"displayName\":\"$DB_NAME\",\"creationPayload\":{\"databaseType\":\"ReadWrite\",\"parentEventhouseItemId\":\"$EH_ID\"}}")"
 log "Lakehouse"
 LH_ID="$(ensure_item lakehouses "$LH_NAME" "{\"displayName\":\"$LH_NAME\"}")"
-log "Eventstreams (empty - configure sources/destinations in the portal, Labs 04/05)"
+log "Eventstreams (empty - configure sources/destinations in the portal, Labs 04/04b/05)"
 ES_RDM_ID="$(ensure_item eventstreams "$ES_RDM" "{\"displayName\":\"$ES_RDM\"}")"
 ES_NROD_ID="$(ensure_item eventstreams "$ES_NROD" "{\"displayName\":\"$ES_NROD\"}")"
+ES_DARWIN_ID="$(ensure_item eventstreams "$ES_DARWIN" "{\"displayName\":\"$ES_DARWIN\"}")"
 
 QUERY_URI="$(fabric --method get --url "$WS/kqlDatabases/$DB_ID" --query properties.queryServiceUri -o tsv)"
 
@@ -76,6 +79,7 @@ FABRIC_KQL_DATABASE_ID=$DB_ID
 FABRIC_LAKEHOUSE_ID=$LH_ID
 FABRIC_EVENTSTREAM_RDM_ID=$ES_RDM_ID
 FABRIC_EVENTSTREAM_NROD_ID=$ES_NROD_ID
+FABRIC_EVENTSTREAM_DARWIN_ID=$ES_DARWIN_ID
 KUSTO_QUERY_URI=$QUERY_URI
 
 Next: python fabric/scripts/apply_kql.py   (Lab 06 - creates tables, mappings, policies, views)
