@@ -130,7 +130,7 @@ python fabric/scripts/load_reference_data.py --to-kql --to-onelake
 
 # 5. Portal step: add the custom endpoint source to RailEventstreamNrod and the
 #    Eventhouse destination (RawFeed table, RawFeedMapping). Copy the Event Hub connection
-#    string into EVENTSTREAM_CONNECTION_STRING (Lab 05a, section "Wire to Eventstream")
+#    string into EVENTSTREAM_CONNECTION_STRING (Lab 05a, section A2 "Connect to Fabric")
 
 # 6. Bridge on Azure Container Apps (Lab 05b)
 ./scripts/deploy-bridge.sh

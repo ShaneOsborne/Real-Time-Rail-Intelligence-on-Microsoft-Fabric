@@ -288,7 +288,7 @@ You need the namespace name, the key name `students-listen`, the key and **your 
 3. **Consumer group**: **your own** (for example `student07`). Never `$Default` and never a classmate's.
 4. **Data format**: **JSON** → **Next** → **Add**.
 5. **Add destination** → **Eventhouse** → `RailEventhouse` / `RailKQL` → existing table **`RawFeed`** → format **JSON** →
-   mapping **`RawFeedMapping`** (exactly as in [Lab 05a, B3 step 4](05a-bridge-local.md#b3-wire-to-eventstream-custom-endpoint)) → **Publish**.
+   mapping **`RawFeedMapping`** (exactly as in [Lab 05a, A2 step 4](05a-bridge-local.md#a2-connect-to-fabric-portal-set-up-then-run)) → **Publish**.
 
    *Direct ingestion* works. If you want to be able to rewind the destination too, choose *Event processing before ingestion*:
    that destination supports pause/resume with **Custom time**, whereas *Direct ingestion* doesn't (same Microsoft Learn page as above).

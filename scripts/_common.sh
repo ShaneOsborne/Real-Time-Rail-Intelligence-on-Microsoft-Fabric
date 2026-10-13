@@ -5,12 +5,25 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
 load_env() {
-  if [[ -f "$REPO_ROOT/.env" ]]; then
-    set -a
-    # shellcheck disable=SC1091
-    source "$REPO_ROOT/.env"
-    set +a
-  fi
+  # Reads KEY=VALUE lines from the repo-root .env without executing them as shell code, so values
+  # containing ';' (Event Hubs / Eventstream connection strings) work with or without quotes.
+  # Windows (CRLF) line endings, blank lines and # comments are ignored; surrounding quotes are removed.
+  local file="$REPO_ROOT/.env" line key val
+  [[ -f "$file" ]] || return 0
+  while IFS= read -r line || [[ -n "$line" ]]; do
+    line="${line%$'\r'}"
+    [[ -z "${line//[[:space:]]/}" || "$line" =~ ^[[:space:]]*# ]] && continue
+    [[ "$line" == *=* ]] || continue
+    key="${line%%=*}"; key="${key//[[:space:]]/}"; key="${key#export}"
+    val="${line#*=}"
+    val="${val#"${val%%[![:space:]]*}"}"; val="${val%"${val##*[![:space:]]}"}"
+    if [[ ${#val} -ge 2 && ( ( "${val:0:1}" == '"' && "${val: -1}" == '"' ) || ( "${val:0:1}" == "'" && "${val: -1}" == "'" ) ) ]]; then
+      val="${val:1:${#val}-2}"
+    fi
+    [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    # Variables already set in the shell win over .env
+    [[ -n "${!key+x}" ]] || export "$key=$val"
+  done < "$file"
 }
 
 require() {
