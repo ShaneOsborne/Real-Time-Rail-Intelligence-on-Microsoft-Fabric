@@ -12,9 +12,12 @@
 
 ## Prerequisites
 
-* Python 3.11+ and, if you want it, Docker with Compose v2.24+.
-* For live data: an active NROD account with the feeds subscribed (Lab 01).
-* For the eventstream sink: Labs 02 and 06 (tables and mapping) are done.
+* Python 3.11+ on your `PATH` (check with `python --version` or `python3 --version`) and, if you want it, Docker with Compose v2.24+.
+* For live data: an active NROD account with the feeds subscribed (Lab 01), and `NROD_USERNAME` / `NROD_PASSWORD` in the repo-root `.env`.
+* For the eventstream sink: the `RawFeed` table and `RawFeedMapping` exist (Lab 02, "Create the raw tables and mappings now").
+* Run the scripts from the **repo root** (the folder that contains `scripts/` and `.env`).
+* **Avoid duplicates:** Lab 04 already brings in Train Movements. Set `NROD_TOPICS` in `.env` to feeds you don't have yet
+  (for example `RTPPM_ALL,VSTP_ALL`), or filter on `source` (`rdm` / `nrod`) when you query.
 
 > ⚠️ **One connection per NROD account / client-id.** Stop the local bridge before you start the Azure one (Lab 05b), and
 > the other way round. Two consumers with the same durable `client-id` keep kicking each other off.
@@ -30,6 +33,21 @@ NROD ActiveMQ (STOMP :61618)
 ```
 
 ## Option A – automated
+
+Run the steps **in order, top to bottom**. Each one builds on the previous one:
+
+1. **Unit tests** – proves Python and the dependencies work. No accounts or network needed.
+2. **Offline replay** – runs the bridge against bundled sample messages, so you can see the output format without NROD.
+3. **Live → console**, then **live → file** – proves your NROD login and topics work before anything touches Fabric.
+4. **Live → Eventstream** – only once steps 1–3 work and `EVENTSTREAM_CONNECTION_STRING` is set (see [B3](#b3-wire-to-eventstream-custom-endpoint)).
+5. **Docker** rows – the same bridge in a container, if you prefer Docker to a local Python environment (also the image Lab 05b deploys).
+
+You **don't need to create the virtual environment yourself**. The `venv` and `test` modes create `src/bridge/.venv` on the
+first run, install the dependencies and activate it. This works in Linux/macOS shells, **Git Bash on Windows** and PowerShell.
+Stop a running bridge with **Ctrl+C** before you start the next row: only one connection per NROD account is allowed.
+
+> **Windows:** in **Git Bash** use the `.sh` scripts; in **PowerShell** use the `.ps1` scripts. Don't mix a virtual environment
+> created by one with the other – if you switch, delete `src/bridge/.venv` and let the script create it again.
 
 | Step | bash | PowerShell |
 |---|---|---|
@@ -50,8 +68,10 @@ NROD ActiveMQ (STOMP :61618)
 
 ```bash
 cd src/bridge
-python -m venv .venv
-source .venv/bin/activate                  # Windows PowerShell: .venv\Scripts\Activate.ps1
+python -m venv .venv                       # use python3 if 'python' isn't found
+source .venv/bin/activate                  # Linux / macOS
+# source .venv/Scripts/activate            # Windows Git Bash
+# .venv\Scripts\Activate.ps1               # Windows PowerShell
 pip install -r requirements-dev.txt
 python -m pytest -q                        # all tests pass, no network needed
 python -m rail_bridge --source replay --replay-file tests/fixtures/replay_frames.json --sink console
@@ -146,6 +166,8 @@ TrustMovements | where source == "nrod" | take 10
 
 | Symptom | Likely cause | Fix |
 |---|---|---|
+| `.venv/bin/activate: No such file or directory` (Windows Git Bash) | Windows Python puts the activate script in `.venv/Scripts` | Update `scripts/run-local.sh` (this version handles both), or delete `src/bridge/.venv` and re-run. Manually: `source .venv/Scripts/activate` |
+| `Python 3.11+ not found` / `python3` opens the Microsoft Store | The Store alias isn't a real Python | Install Python 3.11+ from python.org (tick *Add to PATH*), or turn off the python *App execution aliases* in Windows Settings |
 | `connection failed … Login failed` | Wrong credentials or account not active | Check them on the NROD portal |
 | Repeated disconnects every few seconds | Another process is using the same `client-id` | Stop the other bridge, or set a unique `NROD_CLIENT_ID` (both still count against one account) |
 | Connected but no messages | Not subscribed to that feed in *My Feeds*, or a quiet period (night) | Check *My Feeds*. Try `RTPPM_ALL` (one message a minute) |

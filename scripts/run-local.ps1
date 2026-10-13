@@ -28,7 +28,7 @@ try {
 
     switch ($Mode) {
         'venv' {
-            if (-not (Test-Path '.venv')) { Write-Step 'Creating virtual environment'; python -m venv .venv }
+            if (-not (Test-Path '.venv/Scripts/python.exe') -and -not (Test-Path '.venv/bin/python')) { if (Test-Path '.venv') { Remove-Item -Recurse -Force '.venv' }; Write-Step 'Creating virtual environment'; python -m venv .venv }
             $py = if ($IsWindows -or $env:OS -eq 'Windows_NT') { '.venv/Scripts/python.exe' } else { '.venv/bin/python' }
             & $py -m pip install --quiet -r requirements.txt
             Write-Step "Starting bridge (sink=$Sink) - Ctrl+C to stop"
@@ -49,7 +49,7 @@ try {
             docker compose up --build bridge
         }
         'test' {
-            if (-not (Test-Path '.venv')) { python -m venv .venv }
+            if (-not (Test-Path '.venv/Scripts/python.exe') -and -not (Test-Path '.venv/bin/python')) { if (Test-Path '.venv') { Remove-Item -Recurse -Force '.venv' }; Write-Step 'Creating virtual environment'; python -m venv .venv }
             $py = if ($IsWindows -or $env:OS -eq 'Windows_NT') { '.venv/Scripts/python.exe' } else { '.venv/bin/python' }
             & $py -m pip install --quiet -r requirements-dev.txt
             & $py -m pytest -q

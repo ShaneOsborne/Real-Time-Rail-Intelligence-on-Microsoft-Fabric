@@ -12,6 +12,40 @@ SINK="${2:-${BRIDGE_SINK:-console}}"
 REPLAY="${3:-}"   # --replay or --kafka
 BRIDGE_DIR="$REPO_ROOT/src/bridge"
 
+# --- Python virtual environment (works on Linux, macOS and Windows Git Bash) ---------------
+# Windows Python puts the activate script in .venv/Scripts, Linux/macOS in .venv/bin.
+pick_python() {
+  local c
+  for c in python3 python py; do
+    # Skip the Windows Store "python3" stub, which exists but doesn't run.
+    if command -v "$c" >/dev/null 2>&1 && "$c" -c "import sys; sys.exit(0 if sys.version_info >= (3, 11) else 1)" >/dev/null 2>&1; then
+      PYTHON="$c"; return 0
+    fi
+  done
+  echo "ERROR: Python 3.11+ not found. Install it (Lab 01, step 6) and make sure 'python' or 'python3' is on PATH." >&2
+  exit 1
+}
+
+activate_venv() {
+  local requirements="$1"
+  pick_python
+  # Re-create a missing or half-created venv (for example after an earlier failed run)
+  if [[ ! -f .venv/bin/activate && ! -f .venv/Scripts/activate ]]; then
+    [[ -d .venv ]] && { log "Removing incomplete virtual environment"; rm -rf .venv; }
+    log "Creating virtual environment in src/bridge/.venv (using $PYTHON)"
+    "$PYTHON" -m venv .venv
+  fi
+  if [[ -f .venv/bin/activate ]]; then
+    # shellcheck disable=SC1091
+    source .venv/bin/activate
+  else
+    # shellcheck disable=SC1091
+    source .venv/Scripts/activate
+  fi
+  log "Installing dependencies from $requirements"
+  python -m pip install --quiet --disable-pip-version-check -r "$requirements"
+}
+
 extra_args=(--sink "$SINK")
 if [[ "$REPLAY" == "--replay" ]]; then
   extra_args+=(--source replay --replay-file "$BRIDGE_DIR/tests/fixtures/replay_frames.json")
@@ -23,15 +57,8 @@ fi
 
 case "$MODE" in
   venv)
-    need_cmd python3
     cd "$BRIDGE_DIR"
-    if [[ ! -d .venv ]]; then
-      log "Creating virtual environment in src/bridge/.venv"
-      python3 -m venv .venv
-    fi
-    # shellcheck disable=SC1091
-    source .venv/bin/activate
-    pip install --quiet -r requirements.txt
+    activate_venv requirements.txt
     log "Starting bridge (sink=$SINK) - Ctrl+C to stop"
     exec python -m rail_bridge "${extra_args[@]}"
     ;;
@@ -53,12 +80,8 @@ case "$MODE" in
     exec docker compose up --build bridge
     ;;
   test)
-    need_cmd python3
     cd "$BRIDGE_DIR"
-    [[ -d .venv ]] || python3 -m venv .venv
-    # shellcheck disable=SC1091
-    source .venv/bin/activate
-    pip install --quiet -r requirements-dev.txt
+    activate_venv requirements-dev.txt
     exec python -m pytest -q
     ;;
   *)
