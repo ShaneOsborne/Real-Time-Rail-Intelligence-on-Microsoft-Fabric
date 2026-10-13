@@ -69,7 +69,7 @@ and destination.
 5. **Next** → **Add** → **Publish**. (If **Data preview** stays empty, see Troubleshooting – check the Eventhouse table instead.)
 6. **Add destination** → **Eventhouse**:
    * **Data ingestion mode**: **Direct ingestion** (so you can pick an existing table and mapping).
-   * **Destination name** (for example `to-RdmDarwinRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
+   * **Destination name** (for example `RdmDarwinRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
      **KQL Database** `RailKQL` → **Save**.
    * Make sure the destination card is connected to the stream, then **Publish**.
 7. Switch to **Live view**. On the Eventhouse destination node, select **Configure**. The Eventhouse **Get data** wizard opens:

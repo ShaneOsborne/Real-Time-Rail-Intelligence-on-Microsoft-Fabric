@@ -68,7 +68,7 @@ doesn't generate Eventstream definition payloads. Follow Option B.
    * **Data ingestion mode**: **Direct ingestion**. Use this mode – it's the one that lets you pick an existing table and
      an existing mapping. (*Event processing before ingestion* derives its own columns from the JSON and doesn't offer
      existing mappings.)
-   * **Destination name** (for example `to-RdmTrustRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
+   * **Destination name** (for example `RdmTrustRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
      **KQL Database** `RailKQL` → **Save**.
    * Make sure the destination card is connected to the stream, then **Publish**.
 6. Switch to **Live view**. On the Eventhouse destination node, select **Configure**. The Eventhouse **Get data** wizard opens:
