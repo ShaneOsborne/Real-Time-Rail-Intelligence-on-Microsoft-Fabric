@@ -55,7 +55,7 @@ The repo-root scripts `scripts/run-local.sh` and `scripts/run-local.ps1` wrap al
 | `BRIDGE_SINK` | `console` | `console`, `file`, `eventstream` or `eventhub` |
 | `NROD_HOST` / `NROD_STOMP_PORT` | `publicdatafeeds.networkrail.co.uk` / `61618` | |
 | `NROD_USERNAME` / `NROD_PASSWORD` | – | Your NROD login (email and password) |
-| `NROD_TOPICS` | `TRAIN_MVT_ALL_TOC` | Comma-separated, e.g. `TRAIN_MVT_ALL_TOC,RTPPM_ALL,VSTP_ALL,TSR_ALL_ROUTE,TD_ALL_SIG_AREA` |
+| `NROD_TOPICS` | `RTPPM_ALL` | Comma-separated, e.g. `RTPPM_ALL,VSTP_ALL,TSR_ALL_ROUTE,TD_ALL_SIG_AREA`. Add `TRAIN_MVT_ALL_TOC` only if Train Movements isn't already coming from RDM (Lab 04) |
 | `NROD_DURABLE` | `true` | |
 | `NROD_CLIENT_ID` | = username | Only **one** live connection may use a given client-id |
 | `NROD_SUBSCRIPTION_PREFIX` | `rail-fabric-rti` | |

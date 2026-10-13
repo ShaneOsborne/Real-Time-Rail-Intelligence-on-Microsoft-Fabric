@@ -48,7 +48,7 @@ See the Mermaid diagram in the [README](../../README.md#architecture).
 
 Volumes: TRUST peaks at about 600 messages a minute (in batches), TD at about 6,000 a minute, and RTPPM at 1 a minute.
 
-> **Avoid double counting.** RDM *NWR Train Movements* and NROD `TRAIN_MVT_ALL_TOC` carry the same TRUST events.
+> **Avoid double counting.** RDM *NWR Train Movements* and NROD `TRAIN_MVT_ALL_TOC` carry the same TRUST events. In these labs Train Movements comes from RDM (Lab 04), and the bridge (Lab 05) brings in **RTPPM** by default (`NROD_TOPICS=RTPPM_ALL`).
 > Either use one of them for TRUST, or keep both and filter on the `source` column (`rdm` or `nrod`) in queries.
 > A good split: RDM for TRUST, and the bridge for `RTPPM_ALL`, `VSTP_ALL`, `TSR_ALL_ROUTE` (and `TD_ALL_SIG_AREA` if you want it).
 

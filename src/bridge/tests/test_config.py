@@ -5,7 +5,7 @@ def test_defaults_from_empty_env():
     cfg = BridgeConfig.from_env({})
     assert cfg.nrod_host == "publicdatafeeds.networkrail.co.uk"
     assert cfg.nrod_port == 61618
-    assert cfg.topics == ["TRAIN_MVT_ALL_TOC"]
+    assert cfg.topics == ["RTPPM_ALL"]
     assert cfg.durable is True and cfg.sink == "console"
 
 

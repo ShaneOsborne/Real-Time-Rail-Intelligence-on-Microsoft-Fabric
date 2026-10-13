@@ -37,7 +37,7 @@ param cpu string = '0.25'
 param memory string = '0.5Gi'
 
 @description('Comma-separated NROD topics.')
-param nrodTopics string = 'TRAIN_MVT_ALL_TOC'
+param nrodTopics string = 'RTPPM_ALL'
 
 @description('Durable subscription name prefix (activemq.subscriptionName = <prefix>-<topic>).')
 param subscriptionPrefix string = 'rail-fabric-rti'
@@ -108,7 +108,7 @@ var healthProbes = [
 // Built-in role definition IDs
 var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var roleKvSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
-var roleKvSecretsOfficer = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
+var roleKvSecretsOfficer = 'b86a8fe4-95b2-4a9a-9c4d-7de2ae5e7b32'
 
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${namePrefix}-bridge-id'

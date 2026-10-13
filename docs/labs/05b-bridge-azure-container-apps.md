@@ -16,6 +16,7 @@ Cost: about **$14/month** list-price estimate after the free grant, plus small L
 * The bridge works locally with the eventstream sink (Lab 05a), and `EVENTSTREAM_CONNECTION_STRING` is in `.env`.
 * `AZ_RESOURCE_GROUP`, `AZ_LOCATION` (for example `uksouth`, close to your Fabric capacity) and `NAME_PREFIX` are set in `.env`.
 * **Stop the local bridge** (one connection per NROD account / client-id).
+* `NROD_TOPICS=RTPPM_ALL` in `.env` (the same feeds as Lab 05a). The deployment copies it into the container app. Don't add `TRAIN_MVT_ALL_TOC` if Lab 04 already brings in Train Movements.
 * If you created the shared Key Vault in [Lab 01, step 8](01-prerequisites.md#8-shared-key-vault-for-credentials-needed-from-lab-03), keep the
   same `AZ_RESOURCE_GROUP` and `NAME_PREFIX` (and `KEY_VAULT_NAME`, if you set it). This lab then **re-uses that vault** and just adds the
   `eventstream-connection-string` secret. If you skipped that step, the vault is created here.

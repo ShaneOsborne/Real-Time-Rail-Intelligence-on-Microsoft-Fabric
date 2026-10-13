@@ -16,19 +16,52 @@
 * For live data: an active NROD account with the feeds subscribed (Lab 01), and `NROD_USERNAME` / `NROD_PASSWORD` in the repo-root `.env`.
 * For the eventstream sink: the `RawFeed` table and `RawFeedMapping` exist (Lab 02, "Create the raw tables and mappings now").
 * Run the scripts from the **repo root** (the folder that contains `scripts/` and `.env`).
-* **Avoid duplicates:** Lab 04 already brings in Train Movements. Set `NROD_TOPICS` in `.env` to feeds you don't have yet
-  (for example `RTPPM_ALL,VSTP_ALL`), or filter on `source` (`rdm` / `nrod`) when you query.
+* Your NROD account is subscribed to **RTPPM** (*My Feeds*, see "What this lab brings in" below).
 
 > ⚠️ **One connection per NROD account / client-id.** Stop the local bridge before you start the Azure one (Lab 05b), and
 > the other way round. Two consumers with the same durable `client-id` keep kicking each other off.
+
+## What this lab brings in
+
+You already have **Train Movements** from the Rail Data Marketplace (Lab 04). This lab adds a feed that's **only** available
+from Network Rail Open Data: **RTPPM**, the national public performance measure (one message a minute). It's parsed into
+**`RtppmNational`** and used by the PPM alert in Lab 07. Bringing Train Movements in again would duplicate every movement in
+`TrustMovements`.
+
+**Do this before you run anything:**
+
+1. Sign in at <https://publicdatafeeds.networkrail.co.uk> → **My Feeds** → tick **RTPPM** → **Save**. (It can take a few
+   minutes to become active.)
+2. Open the repo-root `.env` and make sure the topics line reads exactly:
+
+   ```
+   NROD_TOPICS=RTPPM_ALL
+   ```
+
+   If you created `.env` from an older `.env.example`, it may say `TRAIN_MVT_ALL_TOC`. Change it.
+3. Check it (from the repo root). You should see only `NROD_TOPICS=RTPPM_ALL`:
+
+   ```bash
+   grep NROD_TOPICS .env          # PowerShell: Select-String NROD_TOPICS .env
+   ```
+
+   When you run step 3 of Option A (live → console), the first log lines show `subscribed` with `RTPPM_ALL`.
+
+**Other choices** (not needed for the labs):
+
+| If you… | Set `NROD_TOPICS` to | Notes |
+|---|---|---|
+| Skipped Lab 04 (no Rail Data Marketplace) | `TRAIN_MVT_ALL_TOC,RTPPM_ALL` | Train Movements then comes from NROD. Also subscribe to *Train Movements – All TOCs* |
+| Want berth-level train positions | `RTPPM_ALL,TD_ALL_SIG_AREA` | About **10×** the Train Movements volume. Parsed into `TdEvents`. Check capacity ([capacity planning](../capacity-planning.md)) |
+| Want late-notice schedules or speed restrictions | add `VSTP_ALL` and/or `TSR_ALL_ROUTE` | These land in `RawFeed` only. The labs don't parse them |
 
 ## How it works
 
 ```
 NROD ActiveMQ (STOMP :61618)
   └─ CONNECT  client-id=<username>, heart-beat 15000,15000
-  └─ SUBSCRIBE /topic/TRAIN_MVT_ALL_TOC  ack=client-individual  activemq.subscriptionName=rail-fabric-rti-TRAIN_MVT_ALL_TOC
-       └─ MESSAGE (JSON array batch) ─► split into envelope events ─► sink.send() ─► ACK (only on success)
+  └─ SUBSCRIBE /topic/RTPPM_ALL  ack=client-individual  activemq.subscriptionName=rail-fabric-rti-RTPPM_ALL
+       └─ MESSAGE (JSON; TRUST/TD arrive as batches) ─► split into envelope events ─► sink.send() ─► ACK (only on success)
                                                                      └─ failure ─► no ACK ─► reconnect with backoff 1,2,4,8,16…s
 ```
 
@@ -49,7 +82,7 @@ first run, install the dependencies and activate it. This works in Linux/macOS s
 |---|---|---|---|---|
 | 1 | Unit tests | Python and dependencies work (no network) | `./scripts/run-local.sh test` | `./scripts/run-local.ps1 -Mode test` |
 | 2 | Offline replay → console | Output format, using bundled samples (no NROD) | `./scripts/run-local.sh venv console --replay` | `./scripts/run-local.ps1 -Mode venv -Sink console -Replay` |
-| 3 | Live → console | Your NROD login and topics work | `./scripts/run-local.sh venv console` | `./scripts/run-local.ps1 -Mode venv -Sink console` |
+| 3 | Live → console | Your NROD login and topics work. RTPPM sends **one message a minute** – wait at least 60–90 seconds | `./scripts/run-local.sh venv console` | `./scripts/run-local.ps1 -Mode venv -Sink console` |
 | 4 | Live → file | Messages are written to `src/bridge/out/messages.jsonl` | `./scripts/run-local.sh venv file` | `./scripts/run-local.ps1 -Mode venv -Sink file` |
 
 ### A2. Connect to Fabric (portal set-up, then run)
@@ -115,7 +148,7 @@ You'll see seven JSON lines: four TRUST events (types 0001, 0003, 0003 and 0002)
 
 ### B2. Live NROD → console → file
 
-Set `NROD_USERNAME`, `NROD_PASSWORD` and `NROD_TOPICS` in the repo-root `.env`, then load them into your shell
+Set `NROD_USERNAME`, `NROD_PASSWORD` and `NROD_TOPICS=RTPPM_ALL` (see "What this lab brings in") in the repo-root `.env`, then load them into your shell
 (`set -a; source ../../.env; set +a`). In PowerShell, run `./scripts/run-local.ps1` instead, which loads `.env` for you.
 
 ```bash
@@ -186,9 +219,14 @@ docker run --rm --env-file .env -e BRIDGE_SINK=eventstream -p 8080:8080 rail-bri
 * In Fabric:
 
 ```kusto
-RawFeed | summarize events = count(), last = max(received_utc) by feed, topic
-TrustMovements | where source == "nrod" | take 10
+RawFeed | summarize events = count(), last = max(received_utc) by feed, topic      // expect feed = rtppm, topic = RTPPM_ALL
+RtppmNational | top 5 by snapshot_time desc                                         // national PPM, one row a minute
+TrustMovements | summarize rows = count() by source                                 // only "rdm" – no "nrod" rows means no duplicates
 ```
+
+> If `RawFeed` has `rtppm` rows but `RtppmNational` stays empty, the RTPPM field names may differ from what `ParseRtppm()`
+> expects (they're marked *verify* in `02_update_policies.kql`). Run `RawFeed | where feed == "rtppm" | take 1 | project payload`
+> and compare it with the function.
 
 ## Troubleshooting
 
@@ -200,10 +238,38 @@ TrustMovements | where source == "nrod" | take 10
 | Eventstream sink fails to connect or authenticate although the string is set | Only part of the string was loaded (for example `source .env` without quotes cut it at the first `;`), or it was split over two lines | Keep it on one line. Use the repo scripts (they read `.env` safely), or quote the value if you `source` it yourself |
 | `connection failed … Login failed` | Wrong credentials or account not active | Check them on the NROD portal |
 | Repeated disconnects every few seconds | Another process is using the same `client-id` | Stop the other bridge, or set a unique `NROD_CLIENT_ID` (both still count against one account) |
-| Connected but no messages | Not subscribed to that feed in *My Feeds*, or a quiet period (night) | Check *My Feeds*. Try `RTPPM_ALL` (one message a minute) |
+| Connected but no messages | Not subscribed to that feed in *My Feeds*, or you haven't waited a full minute (RTPPM sends once a minute) | Check *My Feeds* → **RTPPM**. Wait 60–90 seconds |
+| `TrustMovements` has `source == "nrod"` rows as well as `rdm` | An earlier run used `NROD_TOPICS=TRAIN_MVT_ALL_TOC` (the old default) | Set `NROD_TOPICS=RTPPM_ALL`, restart the bridge, then remove the duplicates (below) |
 | Gap after downtime | NROD buffers durable messages for only about 5 minutes | Keep the bridge running. Use Container Apps (05b) for 24×7 |
 | `Eventstream send failed … Unauthorized` | Wrong or rotated SAS key, or `EntityPath` missing | Copy the connection string again. Set `EVENTSTREAM_ENTITY_NAME` if there's no `EntityPath` |
 | `Event Hub send failed …` (sink `eventhub`) | Same causes, for the shared Event Hub | Use the hub-level `bridge-send` connection string. Set `EVENTHUB_NAME` if there's no `EntityPath` |
 | Relay: `EVENTHUB_CONNECTION_STRING is required` | `EVENTHUB_RDM_CONNECTION_STRING` isn't set (the relay doesn't fall back to the Eventstream string) | Set it in `.env`, or export `EVENTHUB_CONNECTION_STRING` before running `python -m rail_bridge --source kafka` |
 | `PermissionError` writing `out/` in Docker | Host directory isn't writable by uid 10001 | `chmod a+rwx out` |
 | Events in `RawFeed` but parsed tables empty | Update policies aren't applied | Run Lab 06 (`apply_kql.py`), then `.show ingestion failures` |
+
+### Removing duplicate Train Movements from an earlier run
+
+If you ran the bridge with `TRAIN_MVT_ALL_TOC` before, delete the NROD copies so only the Lab 04 (RDM) data remains. Run each
+command on its own in a KQL queryset on `RailKQL`:
+
+```kusto
+.delete table TrustMovements records <| TrustMovements | where source == "nrod"
+```
+
+```kusto
+.delete table TrustActivations records <| TrustActivations | where source == "nrod"
+```
+
+```kusto
+.delete table TrustCancellations records <| TrustCancellations | where source == "nrod"
+```
+
+```kusto
+.delete table TrustOtherEvents records <| TrustOtherEvents | where source == "nrod"
+```
+
+```kusto
+.delete table RawFeed records <| RawFeed | where feed == "trust"
+```
+
+Materialized views built on `TrustMovements` (Lab 06) pick up the change automatically.

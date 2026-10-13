@@ -46,7 +46,7 @@ Query `CancellationSpike(15m, 6h)` every 5 minutes. Condition: `ratio >= 2` **an
 
 Query `RawFeed | where received_utc > ago(10m) | count` every 5 minutes. Condition: `Count == 0` → email.
 
-### Rule 4 – PPM (optional, RTPPM)
+### Rule 4 – PPM (RTPPM, from the bridge in Lab 05a/05b)
 
 Query `RtppmNational | top 1 by snapshot_time desc`. Condition: `rag` changes to `A` or `R`.
 

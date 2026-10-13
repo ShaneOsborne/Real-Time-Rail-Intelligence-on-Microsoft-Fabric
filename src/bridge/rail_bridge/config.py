@@ -25,7 +25,7 @@ def _list(value: str | None) -> list[str]:
 
 
 def _topics(value: str | None) -> list[str]:
-    return _list(value) or ["TRAIN_MVT_ALL_TOC"]
+    return _list(value) or ["RTPPM_ALL"]
 
 
 @dataclass
@@ -36,7 +36,7 @@ class BridgeConfig:
     nrod_port: int = 61618
     nrod_username: str = ""
     nrod_password: str = field(default="", repr=False)
-    topics: list[str] = field(default_factory=lambda: ["TRAIN_MVT_ALL_TOC"])
+    topics: list[str] = field(default_factory=lambda: ["RTPPM_ALL"])  # Train Movements comes from RDM in Lab 04
     durable: bool = True
     client_id: str = ""
     subscription_prefix: str = "rail-fabric-rti"

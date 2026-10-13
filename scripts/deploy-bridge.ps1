@@ -27,7 +27,7 @@ $prefix = if ($env:NAME_PREFIX) { $env:NAME_PREFIX } else { 'railrti' }
 $tag = if ($env:IMAGE_TAG) { $env:IMAGE_TAG } else { (Get-Date).ToUniversalTime().ToString('yyyyMMddHHmmss') }
 $cpu = if ($env:BRIDGE_CPU) { $env:BRIDGE_CPU } else { '0.25' }
 $memory = if ($env:BRIDGE_MEMORY) { $env:BRIDGE_MEMORY } else { '0.5Gi' }
-$topics = if ($env:NROD_TOPICS) { $env:NROD_TOPICS } else { 'TRAIN_MVT_ALL_TOC' }
+$topics = if ($env:NROD_TOPICS) { $env:NROD_TOPICS } else { 'RTPPM_ALL' }
 $createAcr = if ($env:CONTAINER_IMAGE) { 'false' } else { 'true' }
 $rg = $env:AZ_RESOURCE_GROUP
 

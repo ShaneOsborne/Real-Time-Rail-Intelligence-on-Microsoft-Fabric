@@ -9,7 +9,7 @@
     "imageTag": { "value": "latest" },
     "cpu": { "value": "0.25" },
     "memory": { "value": "0.5Gi" },
-    "nrodTopics": { "value": "TRAIN_MVT_ALL_TOC" },
+    "nrodTopics": { "value": "RTPPM_ALL" },
     "subscriptionPrefix": { "value": "rail-fabric-rti" },
     "logRetentionDays": { "value": 30 },
     "bridgeTarget": { "value": "eventstream" },

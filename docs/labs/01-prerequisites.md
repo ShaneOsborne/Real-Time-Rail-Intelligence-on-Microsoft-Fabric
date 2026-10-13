@@ -10,12 +10,15 @@ Get every account, subscription, tenant setting and tool in place before you bui
 
 1. Register at <https://publicdatafeeds.networkrail.co.uk/>. Accounts are limited (about 1,000 users), so register early.
 2. Wait for the account to become **active**. You'll get an email.
-3. ~~In **My Feeds**, subscribe to:~~
-  * ~~**Train Movements**: *All TOCs* (`TRAIN_MVT_ALL_TOC`)~~
-  * ~~**RTPPM** (`RTPPM_ALL`), **VSTP** (`VSTP_ALL`) and **TSR** (`TSR_ALL_ROUTE`) – optional~~
-  * ~~**TD**: *All signalling areas* (`TD_ALL_SIG_AREA`) – optional and high volume~~
-  * ~~**All Reference Data** – required for CORPUS and SMART downloads (Lab 03)~~
-  * ~~**SCHEDULE** – optional~~
+3. In **My Feeds**, subscribe to:
+   * **RTPPM** (`RTPPM_ALL`) – **required for Lab 05a/05b**. It's the feed the bridge brings in by default (national
+     performance, one message a minute) and the one Lab 07's PPM alert uses
+   * **Train Movements**: *All TOCs* (`TRAIN_MVT_ALL_TOC`) – only if you'll skip Lab 04 (Train Movements from the Rail Data
+     Marketplace). Don't bring Train Movements in from both
+   * **VSTP** (`VSTP_ALL`) and **TSR** (`TSR_ALL_ROUTE`) – optional
+   * **TD**: *All signalling areas* (`TD_ALL_SIG_AREA`) – optional and high volume
+   * **All Reference Data** – required for CORPUS and SMART downloads (Lab 03)
+   * **SCHEDULE** – optional
 4. Make a note of your login email and password. These are `NROD_USERNAME` and `NROD_PASSWORD`.
 
 ## 2. Rail Data Marketplace (RDM)
