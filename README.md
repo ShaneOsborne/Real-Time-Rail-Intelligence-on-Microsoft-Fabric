@@ -9,6 +9,9 @@ You can use it in two ways:
 * **Deploy as-is.** Run the scripts in each lab (Option A) to get a working end-to-end solution quickly.
 * **Learn step by step.** Follow the manual portal instructions (Option B) in each lab as a training course.
 
+> **Size your Fabric capacity first.** Always-on Eventstreams use capacity all day, every day. F2 is the minimum for one
+> live feed; two Kafka feeds can throttle an F2. See [Capacity planning and sizing](docs/capacity-planning.md), especially for classes.
+
 > **Not an official service.** The repo uses open data from Network Rail and the Rail Data Marketplace.
 > Credit the data source. Don't call your app "official" and don't use Network Rail or National Rail logos.
 > See [Licensing and attribution](#licensing-and-attribution).
@@ -83,6 +86,7 @@ flowchart LR
 | Lab | Title | Time | Automated? |
 |---|---|---|---|
 | [00](docs/labs/00-overview.md) | Overview, architecture, costs, licensing, preview caveats | 20 min | – |
+| [Ref](docs/capacity-planning.md) | *Reference:* Fabric capacity planning and sizing (single builder and classrooms) | 15 min | – |
 | [01](docs/labs/01-prerequisites.md) | Prerequisites and accounts (NROD, RDM, Azure, Fabric, tenant settings, tools) | 45 min (+ approval wait) | Manual |
 | [02](docs/labs/02-fabric-workspace.md) | Fabric workspace, Eventhouse, KQL database, Lakehouse, Eventstreams | 20 min | ✅ `fabric-setup.sh/.ps1` |
 | [03](docs/labs/03-reference-data.md) | Reference data (CORPUS, SMART, NaPTAN) → Lakehouse and KQL | 30 min | ✅ `load_reference_data.py` / notebook |
@@ -101,7 +105,8 @@ flowchart LR
 
 ## Quick start: deploy as-is
 
-You need the accounts and tenant settings from [Lab 01](docs/labs/01-prerequisites.md). You also need the Azure CLI (`az login`), Python 3.11+ and, if you want it, Docker.
+You need the accounts and tenant settings from [Lab 01](docs/labs/01-prerequisites.md), and a Fabric capacity sized for
+the feeds you'll run ([Capacity planning and sizing](docs/capacity-planning.md)). You also need the Azure CLI (`az login`), Python 3.11+ and, if you want it, Docker.
 
 ```bash
 git clone https://github.com/<you>/rail-fabric-rti.git && cd rail-fabric-rti
@@ -159,6 +164,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 
 ```
 ├── README.md · LICENSE · CONTRIBUTING.md · .env.example · .gitignore
+├── docs/capacity-planning.md  Fabric capacity sizing, classroom guidance and throttling recovery
 ├── docs/labs/                 00–12 lab guides (+ optional 04b Darwin, 05c shared Event Hub)
 ├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
@@ -186,11 +192,13 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 | *Optional:* RDM relay container app (Lab 05c) | **~$14/month** | Same size as the bridge. Only with `DEPLOY_RDM_RELAY=true` |
 | Log Analytics | Pay per GB ingested | The bridge logs a small amount at INFO. Retention is 30 days by default |
 | Key Vault, ACR Basic | Small | Use GHCR (`CONTAINER_IMAGE=ghcr.io/...`) to skip ACR |
-| Fabric capacity | F2 or higher (trial works for most labs) | Pause pay-as-you-go capacity when you're not using it. The Foundry Fabric tool needs **paid F2+** |
+| Fabric capacity | **F2 minimum for one live feed**; F4 recommended with Darwin (Lab 04b) or the bridge; classes need more (trial works for most labs) | Always-on Eventstreams use capacity continuously. See [Capacity planning and sizing](docs/capacity-planning.md). Pause pay-as-you-go capacity when you're not using it. The Foundry Fabric tool needs **paid F2+** |
 | Azure AI Foundry | Model tokens | The Fabric tool adds a data agent query for each question |
 | *Alternative rejected:* Azure Functions Premium/Flex always-ready | ~$80–150+/month | Functions only suit the daily reference-file pull |
 
 Use the [Azure pricing calculator](https://azure.microsoft.com/pricing/calculator/) and the [Fabric pricing page](https://azure.microsoft.com/pricing/details/microsoft-fabric/) for your region.
+For Fabric capacity sizing (estimates per Eventstream, sizing by scenario, classrooms and what to do if you're throttled), see
+[Capacity planning and sizing](docs/capacity-planning.md).
 
 ## Preview and experimental features
 

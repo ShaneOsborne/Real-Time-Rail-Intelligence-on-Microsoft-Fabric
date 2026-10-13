@@ -2,6 +2,12 @@
 
 **Time:** 25 minutes · **Previous:** [Lab 04](04-rdm-kafka-eventstream.md) · **Next:** [Lab 05a](05a-bridge-local.md)
 
+> ⚠️ **Capacity warning.** This lab adds a **second always-on Kafka Eventstream**, which roughly **doubles** the streaming
+> load. As an **estimate**, two Kafka Eventstreams use about 1.67 CU continuously (≈ 83% of an F2) before the Eventhouse does
+> anything, and on an F2 this has been seen to **throttle the capacity overnight**. Use **F4 or larger**, or deactivate
+> `RailEventstreamDarwin` when you're not using it (open the Eventstream → **Deactivate all**, or switch off the Darwin
+> source; **Activate all** to turn it back on). See [Capacity planning and sizing](../capacity-planning.md).
+
 > **Optional.** Labs 05–11 work without Darwin: they're built on `TrustMovements` from Lab 04. Do this lab if you want
 > passenger-facing forecasts, actual times and platforms as well.
 
@@ -69,7 +75,7 @@ and destination.
 5. **Next** → **Add** → **Publish**. (If **Data preview** stays empty, see Troubleshooting – check the Eventhouse table instead.)
 6. **Add destination** → **Eventhouse**:
    * **Data ingestion mode**: **Direct ingestion** (so you can pick an existing table and mapping).
-   * **Destination name** (for example `RdmDarwinRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
+   * **Destination name** (for example `to-RdmDarwinRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
      **KQL Database** `RailKQL` → **Save**.
    * Make sure the destination card is connected to the stream, then **Publish**.
 7. Switch to **Live view**. On the Eventhouse destination node, select **Configure**. The Eventhouse **Get data** wizard opens:
@@ -119,7 +125,8 @@ DarwinBiggestDelays()                             // biggest predicted or actual
 ### Volume and retention
 
 `RdmDarwinRaw` keeps 7 days and `DarwinLocations` 30 days (`01_tables.kql`). Darwin is much busier than TRUST, so keep an eye
-on the Eventstream's throughput and on your capacity (Fabric Capacity Metrics app). Delete the Darwin source when you don't need it.
+on the Eventstream's throughput and on your capacity (Fabric Capacity Metrics app). Deactivate `RailEventstreamDarwin` (or
+delete the Darwin source) when you don't need it – see the capacity warning at the top of this lab.
 
 ### Shared Event Hub mode (Lab 05c)
 

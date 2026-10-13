@@ -8,6 +8,11 @@
 * Land the raw messages in the Eventhouse table **`RdmTrustRaw`** (one dynamic `payload` column), where update policies (Lab 06) parse them.
 * This lab is **TRUST only**. Darwin Push Port (forecasts and platforms) is a separate, optional lab: [Lab 04b](04b-darwin-push-port.md).
 
+> **Capacity tip.** Once published, this Eventstream runs **continuously**. As an **estimate** from published rates, an
+> Apache Kafka source uses about **0.83 CU** all the time (≈ **42% of an F2**), plus data traffic. About an hour after you
+> publish, check the [Capacity Metrics app](https://learn.microsoft.com/en-us/fabric/enterprise/metrics-app) to see what
+> the Eventstream and Eventhouse really use. See [Capacity planning and sizing](../capacity-planning.md).
+
 > **Shared Event Hub mode (optional, [Lab 05c](05c-shared-event-hub.md)).** If your instructor runs the shared Event Hub,
 > **don't** add the Apache Kafka source below and you don't need your own RDM account. Instead, add an **Azure Event Hubs** source
 > for the `rdm-trust` hub with your own consumer group (Lab 05c, step S2). The destination (`RdmTrustRaw`, `RdmTrustRawMapping`)
@@ -68,9 +73,10 @@ doesn't generate Eventstream definition payloads. Follow Option B.
    * **Data ingestion mode**: **Direct ingestion**. Use this mode – it's the one that lets you pick an existing table and
      an existing mapping. (*Event processing before ingestion* derives its own columns from the JSON and doesn't offer
      existing mappings.)
-   * **Destination name** (for example `RdmTrustRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
+   * **Destination name** (for example `to-RdmTrustRaw`), **Workspace** `rail-fabric-rti`, **Eventhouse** `RailEventhouse`,
      **KQL Database** `RailKQL` → **Save**.
-   * Make sure the destination card is connected to the stream, then **Publish**.
+   * Make sure the destination card is connected to the stream, then **Publish**. The Eventstream now runs continuously
+     and uses capacity all day (see the capacity tip under Objectives).
 6. Switch to **Live view**. On the Eventhouse destination node, select **Configure**. The Eventhouse **Get data** wizard opens:
    1. **Destination table**: choose the **existing** table **`RdmTrustRaw`**. *Don't* choose **New table** – if `RdmTrustRaw`
       isn't listed, the table hasn't been created yet (see Prerequisites and Troubleshooting).

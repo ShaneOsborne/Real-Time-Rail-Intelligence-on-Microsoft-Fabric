@@ -11,7 +11,7 @@
 
 * **User identity only** (On-Behalf-Of / identity passthrough). **Service principals are not supported**. Every end user needs access to the data agent and its sources.
 * **One Fabric data agent per Foundry agent** in this design.
-* Paid **F2+** capacity (or P1+). The same tenant for Fabric and Foundry. Data agent and sources on capacities in the same region.
+* Paid **F2+** capacity (or P1+); F2 is the minimum SKU – size it for your load with [Capacity planning and sizing](../capacity-planning.md). The same tenant for Fabric and Foundry. Data agent and sources on capacities in the same region.
 * Configure Fabric **cross-geo** AI tenant settings if your regions require them.
 * Users need the **Foundry User** RBAC role on the Foundry project.
 

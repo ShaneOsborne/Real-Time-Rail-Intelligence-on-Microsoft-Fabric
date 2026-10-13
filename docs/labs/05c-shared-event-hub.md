@@ -103,6 +103,22 @@ writing. They're **estimates**: check the [Azure pricing calculator](https://azu
 share 2 MB/s (4,096 events/s) of egress per TU. As a rough estimate, catching up can take tens of minutes to about an hour
 in the morning. Raise to 2 TUs for the catch-up window if that's too slow (`EVENTHUB_THROUGHPUT_UNITS=2` and re-run the script).
 
+### Classroom sizing: Fabric capacity
+
+The shared Event Hub solves the **connection** problem (one NROD connection and one RDM subscription for the class) and
+buffers data overnight. It does **not** reduce the **Fabric capacity** each student uses. Every student still runs their own
+Eventstream with an Azure Event Hubs source (≈ **1 CU** continuously, as an **estimate** from published rates: 0.222 flat +
+processor from 0.778 at *Low*) and their own Eventhouse.
+
+* On one shared capacity, plan roughly **1.5–2 CU per student** (estimate): 5 students ≈ F8–F16, 10 ≈ F16–F32,
+  19 ≈ F32–F64. Validate with the Capacity Metrics app before the course.
+* Set **workspace-level surge protection** limits on each student workspace, so one student can't starve the others.
+* Scale the capacity up for the session and back down (or pause it) afterwards. Remember that catching up after a pause
+  adds load.
+* For larger classes, consider the shared instructor Eventhouse below, or a separate capacity per student.
+
+See [Capacity planning and sizing](../capacity-planning.md#classrooms-and-shared-capacities).
+
 ### The alternative: one shared instructor Eventhouse
 
 Instead of N Eventhouses, the instructor runs the direct pipeline once and students **query** the instructor's Eventhouse

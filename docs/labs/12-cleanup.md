@@ -24,7 +24,10 @@ docker compose -f src/bridge/docker-compose.yml down     # if the bridge is runn
    Key Vault is soft-deleted for 7 days. Purge it with `az keyvault purge -n <name>` if you want to reuse the name.
 2. **Fabric**: delete the Rayfin app, data agent, Activator `RailAlerts`, dashboards, Eventstreams (stopping the Kafka consumer),
    Eventhouse, Lakehouse and notebook. Or delete the whole workspace.
-3. **Capacity**: **pause** pay-as-you-go F-SKU capacity, or delete it if you created it only for these labs.
+3. **Capacity**: first **deactivate** any Eventstreams you're keeping (Eventstream → **Deactivate all**), so they stop
+   consuming capacity. If you scaled the capacity up for a class or a back-fill, **scale it back down**. Then **pause**
+   pay-as-you-go F-SKU capacity, or delete it if you created it only for these labs. See
+   [Capacity planning and sizing](../capacity-planning.md).
 4. **Foundry**: delete the agent (`python foundry/agent_client.py --create --delete-after` cleans up automatically) and the Fabric connection.
 5. **Subscriptions**: unsubscribe from the RDM products and NROD feeds you no longer need. Durable subscriptions expire on the broker.
 6. **Secrets**: delete `.env`, or rotate the NROD password, the Eventstream keys and (Lab 05c) the Event Hubs and RDM keys if you shared them anywhere.
@@ -34,5 +37,6 @@ docker compose -f src/bridge/docker-compose.yml down     # if the bridge is runn
 
 - [ ] `az group exists -n rg-rail-fabric-rti` returns `false`
 - [ ] The Fabric workspace is gone, or the capacity is paused
+- [ ] Any Eventstreams you kept are deactivated, and the capacity is back to its normal size
 - [ ] No bridge or RDM relay process is running anywhere
 - [ ] (Lab 05c) `az eventhubs namespace list -g rg-rail-fabric-rti -o table` returns nothing, or the resource group is gone

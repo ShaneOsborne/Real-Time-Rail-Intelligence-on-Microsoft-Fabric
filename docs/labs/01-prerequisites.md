@@ -44,7 +44,15 @@ done
 
 ## 4. Microsoft Fabric
 
-* A **Fabric capacity F2 or higher**, or a Fabric trial. The Foundry Fabric tool (Lab 10) needs a **paid F2+** (or P1+) capacity.
+* A **Fabric capacity** sized for the feeds you'll run (**estimates** – see [Capacity planning and sizing](../capacity-planning.md)):
+  * **Single builder, Train Movements only:** F2 is the minimum and works, but it's tight. F4 is comfortable.
+  * **Adding Darwin (Lab 04b) and/or the NROD bridge (Labs 05a/05b):** F4 recommended. Two always-on Kafka Eventstreams can throttle an F2.
+  * **Classroom:** see [Classrooms and shared capacities](../capacity-planning.md#classrooms-and-shared-capacities). Capacity grows
+    roughly in line with the number of student pipelines.
+  * A Fabric trial works for most labs. The Foundry Fabric tool (Lab 10) needs a **paid F2+** (or P1+) capacity.
+* **Install the [Microsoft Fabric Capacity Metrics app](https://learn.microsoft.com/en-us/fabric/enterprise/metrics-app)**
+  (a capacity admin installs it). You'll use it to check how much capacity the Eventstreams and Eventhouse use, and to spot
+  throttling. Consider setting a capacity alert too (Capacity Overview Events in Real-Time hub).
 * A workspace on that capacity (Lab 02 can create one). You need *Contributor* or above.
 * **Tenant settings** (Fabric admin portal). Ask your Fabric admin if you can't change these yourself:
   * Users can create Fabric items (Real-Time Intelligence: Eventhouse, Eventstream, Activator).
@@ -103,7 +111,8 @@ Section : Rail Data Marketplace (RDM) Kafka
 - [ ] NROD account is active and the feeds are subscribed (including *All Reference Data*)
 - [ ] RDM subscription page shows the Kafka connection details
 - [ ] `az account show` returns the right subscription
-- [ ] You can create items in a Fabric workspace on F2+ or trial capacity
+- [ ] You can create items in a Fabric workspace on a capacity sized for your scenario (F2 minimum) or a trial
+- [ ] The Capacity Metrics app is installed and shows your capacity
 - [ ] `python --version` is 3.11+, `node --version` is 20+, and `docker compose version` works (optional)
 
 ## Troubleshooting
@@ -114,7 +123,7 @@ Section : Rail Data Marketplace (RDM) Kafka
 | Can't see the Fabric Apps workload | A Fabric admin must enable it under *Govern > Configurations > Workloads* |
 | `az provider register` permission error | Ask a subscription Owner |
 
-## 8. Shared Key Vault for credentials (needed for Lab 03)
+## 8. Shared Key Vault for credentials (needed from Lab 03)
 
 Lab 03 runs a Fabric notebook that downloads reference data with your NROD login. Rather than typing
 the password into the notebook, store it in a Key Vault **now**. Lab 05b later re-uses the **same vault**

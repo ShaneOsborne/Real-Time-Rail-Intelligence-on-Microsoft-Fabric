@@ -63,6 +63,21 @@ Volumes: TRUST peaks at about 600 messages a minute (in batches), TD at about 6,
 
 For classes or paused capacities, add the optional shared **Azure Event Hubs Standard** tier ([Lab 05c](05c-shared-event-hub.md)): about **$22/month** for 1 throughput unit plus a few dollars of ingress, and **~$14/month** more if you also run the RDM relay app (list-price estimates).
 
+## Fabric capacity requirements
+
+Always-on Eventstreams charge capacity all day, every day, so size the capacity for the feeds you'll run. These are
+**estimates** from Microsoft's published rates; validate them with the Capacity Metrics app.
+
+| Scenario | Suggested capacity |
+|---|---|
+| Single builder, Train Movements only (Labs 01–11) | F2 workable but tight; F4 comfortable |
+| Single builder + Darwin (Lab 04b) and/or the NROD bridge | F4 minimum; F8 with heavy dashboard or agent use |
+| Class on one shared capacity, each student with their own pipeline | ~1.5–2 CU per student (10 students ≈ F16–F32) |
+
+Each Eventstream with an Apache Kafka source uses roughly 0.83 CU (≈ 42% of an F2) continuously. Two of them on an F2 can
+throttle it overnight. For details, classroom patterns and throttling recovery, see
+[Capacity planning and sizing](../capacity-planning.md).
+
 ## Automated and manual parts
 
 See the table in the [README](../../README.md#what-is-automated-and-what-is-manual). In short, everything that can be done reliably with the Fabric REST API, KQL management commands, the Azure CLI or Bicep is scripted. The Eventstream topology, Activator, dashboards, the data agent and Foundry tool connections are manual.

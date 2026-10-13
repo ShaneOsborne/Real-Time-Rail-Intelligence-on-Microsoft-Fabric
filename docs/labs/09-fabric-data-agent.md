@@ -11,7 +11,7 @@
 ## Prerequisites
 
 * The tenant settings for the Fabric data agent are enabled (Lab 01), including cross-geo processing and storage if they apply.
-* The data sources are on F2+ (or trial) capacity, in the same region as the data agent.
+* The data sources are on F2+ (or trial) capacity, in the same region as the data agent. F2 is the minimum SKU, not a size: the data agent adds capacity load on top of the always-on Eventstreams (see [Capacity planning and sizing](../capacity-planning.md)).
 
 ## Option A – automated
 
