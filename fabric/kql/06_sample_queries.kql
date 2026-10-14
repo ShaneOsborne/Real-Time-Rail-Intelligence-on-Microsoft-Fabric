@@ -43,8 +43,10 @@ TrustMovements
 | order by event_time asc
 | project event_time, event_type, loc_stanox, platform, variation_status, delay_minutes
 
-// 9. Network snapshot for a map
+// 9. Network snapshot for a map. The map visual reads the FIRST numeric column as longitude and the second as latitude,
+//    so project lon, lat first (otherwise delay_minutes is plotted as longitude). toc_id colours the points by operator.
 NetworkSnapshot(1h)
+| project lon, lat, toc_id, train_id, location_name, delay_minutes
 | render scatterchart with (kind = map)
 
 // 10. RTPPM national PPM trend
