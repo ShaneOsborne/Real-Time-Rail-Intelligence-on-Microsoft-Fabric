@@ -1,53 +1,73 @@
-// Lab 08 - Real-Time Dashboard tile queries. One tile per query; suggested visual in the comment.
-// Add a dashboard parameter `_lookback` (timespan, default 1h) and `_minDelay` (int, default 15) if you want them.
+// Lab 08 - Real-Time Dashboard tile queries. One tile per query; the suggested visual is in the comment.
+// Visuals: use KPI for single numbers (Stat is legacy), Time chart / Table / Bar chart / Map (generally available).
+// Time series chart and Fabric map are PREVIEW - optional alternatives, see Lab 08.
 
-// Tile: "Events / minute by feed"  (Line chart, auto-refresh 30s)
-RawFeed
-| where received_utc > ago(1h)
-| summarize events = count() by feed, bin(received_utc, 1m)
+// Tile 1: "Events per minute by feed"  (Time chart, auto-refresh 30s)
+// isfuzzy=true lets the query run even if a table you haven't used yet (RawFeed, RdmDarwinRaw) is empty or missing.
+union isfuzzy=true
+    (RdmTrustRaw  | where ingestion_time() > ago(1h) | summarize events = count() by feed = "rdm-trust",  t = bin(ingestion_time(), 1m)),
+    (RdmDarwinRaw | where ingestion_time() > ago(1h) | summarize events = count() by feed = "rdm-darwin", t = bin(ingestion_time(), 1m)),
+    (RawFeed      | where received_utc > ago(1h)    | summarize events = count() by feed,                t = bin(received_utc, 1m))
 
-// Tile: "Trains 15+ min late"  (Stat / card)
+// Tile 2: "Trains 15+ min late"  (KPI - thresholds e.g. green < 20, amber 20-50, red > 50; tune to your data)
 TrainLatest
 | where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false
-| count
+| summarize late_trains = count()
 
-// Tile: "Cancellations last hour"  (Stat / card)
+// Tile 3: "Cancellations in the last hour"  (KPI)
 TrustCancellations
 | where canx_time > ago(1h)
-| count
+| summarize cancellations = count()
 
-// Tile: "National PPM (RTPPM)"  (Stat, if RTPPM_ALL is subscribed)
+// Tile 4: "Movements reported on time (last hour, %)"  (KPI - higher is better)
+TrustMovements
+| where event_time > ago(1h)
+| summarize on_time_pct = round(100.0 * countif(variation_status == "ON TIME") / count(), 1)
+
+// Tile 5 (optional, needs RTPPM from the Lab 05 bridge): "National PPM"  (KPI)
 RtppmNational
 | top 1 by snapshot_time desc
 | project ppm
 
-// Tile: "Most delayed trains"  (Table)
+// Tile 6 (alternative to tiles 2-4 in ONE tile): "Network now"  (Multiple KPI / Multi stat: label = metric, value = value)
+union
+    (TrainLatest | where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false
+                 | summarize value = todouble(count()) | extend metric = "Trains 15+ min late"),
+    (TrustCancellations | where canx_time > ago(1h) | summarize value = todouble(count()) | extend metric = "Cancellations (1h)"),
+    (TrustMovements | where event_time > ago(1h)
+                    | summarize value = round(100.0 * countif(variation_status == "ON TIME") / count(), 1) | extend metric = "On time % (1h)")
+| project metric, value
+
+// Tile 7: "Most delayed trains"  (Table)
 LateTrains(15, 2h)
 | take 20
 
-// Tile: "Average delay by operator (15-min)"  (Time chart)
+// Tile 8: "Average delay by operator (15-min)"  (Time chart; or Time series chart (preview): time = window_start,
+//          measured data = avg_delay, entities = toc_id)
 DelaysBy15Min
 | where window_start > ago(6h)
 | summarize avg_delay = round(avg(avg_delay), 1) by toc_id, window_start
 
-// Tile: "Network map"  (Map visual: latitude = lat, longitude = lon, size/colour = delay_minutes)
+// Tile 9: "Network map"  (Map: Define location by = Latitude and longitude, Latitude = lat, Longitude = lon,
+//          Label = train_id, Size = delay_minutes)
 NetworkSnapshot(1h)
+| project lat, lon, train_id, toc_id, location_name, delay_minutes = max_of(delay_minutes, 0)
 
-// Tile: "Cancellations by reason (24h)"  (Bar chart)
+// Tile 10: "Cancellations by reason (24h)"  (Bar chart)
 CancellationsBy15Min
 | where window_start > ago(24h)
 | summarize cancellations = sum(cancellations) by canx_reason_code
 | top 10 by cancellations desc
 
-// Tile: "Ingestion lag (seconds)"  (Time chart) - received_utc vs actual movement time
+// Tile 11: "Ingestion lag (seconds)"  (Time chart) - received time vs actual movement time
 TrustMovements
 | where received_utc > ago(1h)
 | summarize p50 = percentile((received_utc - event_time) / 1s, 50), p95 = percentile((received_utc - event_time) / 1s, 95) by bin(received_utc, 5m)
 
 // ---- Optional: Darwin tiles (only if you did Lab 04b and DarwinLocations is filling) ----
 
-// Tile: "Unconfirmed platforms at Leeds (Darwin)"  (Table) - change the CRS code, or use a string parameter
+// Tile 12: "Unconfirmed platforms at Leeds (Darwin)"  (Table) - change the CRS code, or use a string parameter
 DarwinUnconfirmedPlatforms("LDS", 2h)
 
-// Tile: "Biggest predicted delays (Darwin)"  (Table, or Map with lat/lon)
+// Tile 13: "Biggest predicted delays (Darwin)"  (Table, or Map with lat/lon)
 DarwinBiggestDelays(1h, 20)
