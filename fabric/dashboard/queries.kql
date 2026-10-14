@@ -9,22 +9,22 @@ union isfuzzy=true
     (RdmDarwinRaw | where ingestion_time() > ago(1h) | summarize events = count() by feed = "rdm-darwin", t = bin(ingestion_time(), 1m)),
     (RawFeed      | where received_utc > ago(1h)    | summarize events = count() by feed,                t = bin(received_utc, 1m))
 
-// Tile 2: "Trains 15+ min late"  (KPI - thresholds e.g. green < 20, amber 20-50, red > 50; tune to your data)
+// Tile 2: "Trains 15+ min late"  (KPI type Number - turn OFF "Show a unit label", it defaults to %; thresholds e.g. green < 20, amber 20-50, red > 50; tune to your data)
 TrainLatest
 | where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false
 | summarize late_trains = count()
 
-// Tile 3: "Cancellations in the last hour"  (KPI)
+// Tile 3: "Cancellations in the last hour"  (KPI type Number - turn OFF "Show a unit label")
 TrustCancellations
 | where canx_time > ago(1h)
 | summarize cancellations = count()
 
-// Tile 4: "Movements reported on time (last hour, %)"  (KPI - higher is better)
+// Tile 4: "Movements reported on time (last hour, %)"  (KPI type Gauge, 0-100 - keep the % unit label; higher is better)
 TrustMovements
 | where event_time > ago(1h)
 | summarize on_time_pct = round(100.0 * countif(variation_status == "ON TIME") / count(), 1)
 
-// Tile 5 (optional, needs RTPPM from the Lab 05 bridge): "National PPM"  (KPI)
+// Tile 5 (optional, needs RTPPM from the Lab 05 bridge): "National PPM"  (KPI type Gauge, 0-100)
 RtppmNational
 | top 1 by snapshot_time desc
 | project ppm
