@@ -1,35 +1,36 @@
 // Lab 08 - Real-Time Dashboard tile queries. One tile per query; the suggested visual is in the comment.
 // Visuals: use KPI for single numbers (Stat is legacy), Time chart / Table / Bar chart / Map (generally available).
 // Time series chart and Fabric map are PREVIEW - optional alternatives, see Lab 08.
+// Pages: 'Network overview' = tiles 2-10 (+ the attribution text box); 'Monitoring' = tiles 1 and 11.
 
-// Tile 1: "Events per minute by feed"  (Time chart, auto-refresh 30s)
+// Tile 1 [Page: Monitoring]: "Events per minute by feed"  (Time chart)
 // isfuzzy=true lets the query run even if a table you haven't used yet (RawFeed, RdmDarwinRaw) is empty or missing.
 union isfuzzy=true
     (RdmTrustRaw  | where ingestion_time() > ago(1h) | summarize events = count() by feed = "rdm-trust",  t = bin(ingestion_time(), 1m)),
     (RdmDarwinRaw | where ingestion_time() > ago(1h) | summarize events = count() by feed = "rdm-darwin", t = bin(ingestion_time(), 1m)),
     (RawFeed      | where received_utc > ago(1h)    | summarize events = count() by feed,                t = bin(received_utc, 1m))
 
-// Tile 2: "Trains 15+ min late"  (KPI type Number - turn OFF "Show a unit label", it defaults to %; thresholds e.g. green < 20, amber 20-50, red > 50; tune to your data)
+// Tile 2 [Page: Network overview]: "Trains 15+ min late"  (KPI type Number - turn OFF "Show a unit label", it defaults to %; thresholds e.g. green < 20, amber 20-50, red > 50; tune to your data)
 TrainLatest
 | where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false
 | summarize late_trains = count()
 
-// Tile 3: "Cancellations in the last hour"  (KPI type Number - turn OFF "Show a unit label")
+// Tile 3 [Page: Network overview]: "Cancellations in the last hour"  (KPI type Number - turn OFF "Show a unit label")
 TrustCancellations
 | where canx_time > ago(1h)
 | summarize cancellations = count()
 
-// Tile 4: "Movements reported on time (last hour, %)"  (KPI type Gauge, 0-100 - keep the % unit label; higher is better)
+// Tile 4 [Page: Network overview]: "Movements reported on time (last hour, %)"  (KPI type Gauge, 0-100 - keep the % unit label; higher is better)
 TrustMovements
 | where event_time > ago(1h)
 | summarize on_time_pct = round(100.0 * countif(variation_status == "ON TIME") / count(), 1)
 
-// Tile 5 (optional, needs RTPPM from the Lab 05 bridge): "National PPM"  (KPI type Gauge, 0-100)
+// Tile 5 [Page: Network overview] (optional, needs RTPPM from the Lab 05 bridge): "National PPM"  (KPI type Gauge, 0-100)
 RtppmNational
 | top 1 by snapshot_time desc
 | project ppm
 
-// Tile 6 (alternative to tiles 2-4 in ONE tile): "Network now"  (Multiple KPI / Multi stat: label = metric, value = value)
+// Tile 6 [Page: Network overview] (alternative to tiles 2-4 in ONE tile): "Network now"  (Multiple KPI / Multi stat: label = metric, value = value)
 union
     (TrainLatest | where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false
                  | summarize value = todouble(count()) | extend metric = "Trains 15+ min late"),
@@ -38,36 +39,36 @@ union
                     | summarize value = round(100.0 * countif(variation_status == "ON TIME") / count(), 1) | extend metric = "On time % (1h)")
 | project metric, value
 
-// Tile 7: "Most delayed trains"  (Table)
+// Tile 7 [Page: Network overview]: "Most delayed trains"  (Table)
 LateTrains(15, 2h)
 | take 20
 
-// Tile 8: "Average delay by operator (15-min)"  (Time chart; or Time series chart (preview): time = window_start,
+// Tile 8 [Page: Network overview]: "Average delay by operator (15-min)"  (Time chart; or Time series chart (preview): time = window_start,
 //          measured data = avg_delay, entities = toc_id)
 DelaysBy15Min
 | where window_start > ago(6h)
 | summarize avg_delay = round(avg(avg_delay), 1) by toc_id, window_start
 
-// Tile 9: "Network map"  (Map: Define location by = Latitude and longitude, Latitude = lat, Longitude = lon,
+// Tile 9 [Page: Network overview]: "Network map"  (Map: Define location by = Latitude and longitude, Latitude = lat, Longitude = lon,
 //          Label = train_id, Size = delay_minutes)
 NetworkSnapshot(1h)
 | project lat, lon, train_id, toc_id, location_name, delay_minutes = max_of(delay_minutes, 0)
 
-// Tile 10: "Cancellations by reason (24h)"  (Bar chart)
+// Tile 10 [Page: Network overview]: "Cancellations by reason (24h)"  (Bar chart)
 CancellationsBy15Min
 | where window_start > ago(24h)
 | summarize cancellations = sum(cancellations) by canx_reason_code
 | top 10 by cancellations desc
 
-// Tile 11: "Ingestion lag (seconds)"  (Time chart) - received time vs actual movement time
+// Tile 11 [Page: Monitoring]: "Ingestion lag (seconds)"  (Time chart) - received time vs actual movement time
 TrustMovements
 | where received_utc > ago(1h)
 | summarize p50 = percentile((received_utc - event_time) / 1s, 50), p95 = percentile((received_utc - event_time) / 1s, 95) by bin(received_utc, 5m)
 
 // ---- Optional: Darwin tiles (only if you did Lab 04b and DarwinLocations is filling) ----
 
-// Tile 12: "Unconfirmed platforms at Leeds (Darwin)"  (Table) - change the CRS code, or use a string parameter
+// Tile 12 [Page: Network overview]: "Unconfirmed platforms at Leeds (Darwin)"  (Table) - change the CRS code, or use a string parameter
 DarwinUnconfirmedPlatforms("LDS", 2h)
 
-// Tile 13: "Biggest predicted delays (Darwin)"  (Table, or Map with lat/lon)
+// Tile 13 [Page: Network overview]: "Biggest predicted delays (Darwin)"  (Table, or Map with lat/lon)
 DarwinBiggestDelays(1h, 20)

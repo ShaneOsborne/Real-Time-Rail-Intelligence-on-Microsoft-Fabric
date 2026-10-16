@@ -26,16 +26,22 @@ This repo doesn't generate the dashboard JSON definition.
 | Locations | **Map** | **Fabric map (preview)** – optional |
 | Detail | **Table** | – |
 
-Steps:
+Steps. The dashboard has **two pages**: **Network overview** for everyone, and **Monitoring** for the technical health of the
+feeds.
 
 1. Workspace → **+ New item** → **Real-Time Dashboard** → `Rail Network Live`.
 2. **+ Add data source** → OneLake catalog → **`RailKQL`** (not the default database named after the Eventhouse).
-3. For each tile in [`fabric/dashboard/queries.kql`](../../fabric/dashboard/queries.kql): **+ Add tile** → paste the query → **Run**
-   → **+ Add visual** → choose the visual below → **Apply changes**.
+3. **Create the pages.** In **Editing** mode, open the **Pages** pane (left side). Rename the first page to `Network overview`,
+   then **+ Add page** and name it `Monitoring`.
+4. **Add the tiles to each page.** Select the page in the Pages pane, then for each tile in
+   [`fabric/dashboard/queries.kql`](../../fabric/dashboard/queries.kql): **+ Add tile** → paste the query → **Run** →
+   **+ Add visual** → choose the visual below → **Apply changes**. (If you've already built the tiles on one page, you can move a
+   tile instead: tile **⋯** menu → **Move to page** → `Monitoring`.)
+
+**Page 1 – Network overview**
 
 | # | Tile | Visual | Settings |
 |---|---|---|---|
-| 1 | Events per minute by feed | Time chart | X = `t`, Y = `events`, series = `feed` |
 | 2 | Trains 15+ min late | **KPI** | Type **Number**. Value = `late_trains`. Turn **off** *Show a unit label* (it defaults to %). Conditional formatting: green below 20, amber 20–50, red above 50 (suggested – adjust to your data) |
 | 3 | Cancellations in the last hour | **KPI** | Type **Number**. Value = `cancellations`. Turn **off** *Show a unit label* |
 | 4 | Movements reported on time (%) | **KPI** | Type **Gauge**, range 0–100. Value = `on_time_pct`. Leave *Show a unit label* **on** – the % is correct here. Higher is better (green 90+, amber 80–90, red below 80 – suggested) |
@@ -45,11 +51,21 @@ Steps:
 | 8 | Average delay by operator | Time chart | X = `window_start`, Y = `avg_delay`, series = `toc_id` |
 | 9 | Network map | **Map** | Define location by **Latitude and longitude**: Latitude = `lat`, Longitude = `lon`; Label = `train_id`; Size = `delay_minutes` |
 | 10 | Cancellations by reason (24h) | Bar chart | – |
-| 11 | Ingestion lag | Time chart | Y = `p50`, `p95` |
 
-4. **Manage → Auto refresh**: turn it on, minimum interval **1 minute** (30 seconds is possible, but on an F2 every refresh
-   runs every tile's query – see [capacity planning](../capacity-planning.md)).
-5. Add the attribution as a **text (markdown) box**, not a query tile:
+Suggested layout: KPIs (2–5) in a row across the top, the map and *Most delayed trains* in the middle, the two charts underneath.
+
+**Page 2 – Monitoring**
+
+| # | Tile | Visual | Settings |
+|---|---|---|---|
+| 1 | Events per minute by feed | Time chart | X = `t`, Y = `events`, series = `feed`. A feed whose line drops to zero has stopped – the same check as Lab 07 Rule 3 |
+| 11 | Ingestion lag | Time chart | Y = `p50`, `p95` (seconds from the train movement to it landing in the Eventhouse) |
+
+The tile numbers match the comments in `queries.kql`, so the gaps in numbering on each page are expected.
+
+5. **Manage → Auto refresh**: turn it on, minimum interval **1 minute** (30 seconds is possible, but on an F2 every refresh
+   runs every tile's query – see [capacity planning](../capacity-planning.md)). The setting applies to the whole dashboard.
+6. Add the attribution to the **Network overview** page as a **text (markdown) box**, not a query tile:
    * On the **Home** tab, use the option to add a **text / markdown box** – the one that has no query.
    * **Don't** use **+ New tile** and pick the **Markdown** *visual type*. That's a query tile that renders markdown returned by
      a KQL query, so it expects a query and won't show typed text.
@@ -60,9 +76,12 @@ Steps:
      *Contains data from Network Rail Open Data / Rail Data Marketplace. Not an official service.*
      ```
 
-   * Resize it to a slim strip along the bottom of the dashboard → **Apply changes**.
-6. **Save**.
+   * Resize it to a slim strip along the bottom of the page → **Apply changes**.
+7. **Save**.
 
+> The labels in the Pages pane (for example **+ Add page** or **Move to page**) can differ slightly between Fabric releases.
+> If they do, pick the closest match.
+>
 > **KPI type:** use **Number** for counts (late trains, cancellations) – they have no natural maximum, so a gauge, bar or donut
 > would need an arbitrary scale and can mislead. Use **Gauge** for percentages (on time %, PPM), which always run 0–100;
 > **Bar** or **Donut** work too if you prefer. If the type settings are named differently in your release, pick the closest match.
@@ -117,7 +136,8 @@ These are **preview** features – they may change, and they aren't needed for t
 
 ## Checkpoint
 
-* The dashboard tiles refresh, the KPI tiles show values (not *No data*), and the map shows dots across GB.
+* The dashboard has two pages, **Network overview** and **Monitoring**. The tiles refresh, the KPI tiles show values (not *No data*),
+  and the map shows dots across GB.
 * The Power BI live page refreshes every 30 seconds. The history page loads quickly from Direct Lake.
 
 ## Troubleshooting
@@ -129,6 +149,7 @@ These are **preview** features – they may change, and they aren't needed for t
 | Map points spread across the world | The location columns weren't set. In the Map settings choose **Latitude and longitude** and set Latitude = `lat`, Longitude = `lon` explicitly |
 | A KPI count shows a % sign (for example `42%` late trains) | The KPI's *Show a unit label* is on by default. Edit the tile → turn off **Show a unit label** |
 | KPI shows *No data* | The query returned no rows in the window (for example no cancellations in the last hour). Widen the window or check the source table |
+| A tile is on the wrong page | Edit mode → tile **⋯** → **Move to page**. Or recreate it on the right page and delete the old one |
 | The attribution tile asks for a query, or shows nothing | You added a query tile with the **Markdown** visual type. Delete it and add a **text / markdown box** from the Home tab instead (step 5) |
 | Tile 5 (PPM) fails or is empty | `RtppmNational` only fills when the Lab 05 bridge brings in RTPPM. Remove the tile until then |
 | Auto page refresh greyed out | Only DirectQuery sources support it. Check the capacity admin's minimum interval |
