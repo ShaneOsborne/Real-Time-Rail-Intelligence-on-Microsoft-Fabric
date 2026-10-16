@@ -5,6 +5,52 @@ import { UserDataFunctions, AudienceType, type RayfinContext } from '@microsoft/
 
 const udf = new UserDataFunctions();
 
+// ---- Eventhouse (KQL database) – values from Lab 02 / your .env, do not leave placeholders ----
+// KUSTO_QUERY_URI: RailKQL > Overview > Query URI, e.g. https://<id>.<region>.kusto.fabric.microsoft.com (also in the repo .env)
+// KQL_DATABASE: the database NAME, e.g. RailKQL
+const KUSTO_QUERY_URI = '<https://<id>.<region>.kusto.fabric.microsoft.com>';
+const KQL_DATABASE = 'RailKQL';
+
+type Row = Record<string, string | number | boolean | null>;
+
+// Map data for the frontend. Runs a FIXED query (only the look-back window comes from the caller, and it's validated),
+// so users can't send arbitrary KQL. Runs as the signed-in user: they need at least Viewer on RailKQL.
+udf.func(
+  'getNetworkSnapshot',
+  async (ctx: RayfinContext, lookbackMinutes: number): Promise<Row[]> => {
+    const minutes = Math.round(Number(lookbackMinutes));
+    if (!Number.isFinite(minutes) || minutes < 5 || minutes > 240) {
+      throw new Error('lookbackMinutes must be between 5 and 240');
+    }
+    const token = ctx.getToken(AudienceType.Kusto);
+    // Kusto REST API v1 query endpoint (returns { Tables: [{ TableName, Columns, Rows }] }).
+    const res = await fetch(`${KUSTO_QUERY_URI}/v1/rest/query`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${token}`,
+        'Content-Type': 'application/json; charset=utf-8',
+        Accept: 'application/json',
+        'x-ms-client-request-id': `rail-app;${crypto.randomUUID()}`,
+      },
+      body: JSON.stringify({ db: KQL_DATABASE, csl: `NetworkSnapshot(${minutes}m) | take 2000` }),
+    });
+    if (!res.ok) {
+      console.error('Kusto query failed', res.status, await res.text());
+      throw new Error(`Eventhouse query failed with HTTP ${res.status}`);
+    }
+    const body = (await res.json()) as {
+      Tables?: Array<{ Columns: Array<{ ColumnName: string }>; Rows: unknown[][] }>;
+    };
+    const table = body.Tables?.[0];
+    if (!table) return [];
+    return table.Rows.map((row) =>
+      Object.fromEntries(table.Columns.map((c, i) => [c.ColumnName, row[i] as Row[string]])),
+    );
+  },
+  [udf.connection({ audienceType: AudienceType.Kusto })],
+);
+
+// ---- Foundry agent (Lab 10) ----
 // Real values from your Foundry project (Lab 10) – do not leave placeholders in a deployed app.
 const FOUNDRY_PROJECT_ENDPOINT = '<https://<resource>.services.ai.azure.com/api/projects/<project>>';
 const FOUNDRY_AGENT_NAME = 'rail-network-agent';
