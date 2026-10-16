@@ -37,11 +37,17 @@
     print recent_cancellations = recent, expected_cancellations = round(expected, 1), ratio = iff(expected == 0, real(null), round(recent / expected, 2))
 }
 
-.create-or-alter function with (folder="query", docstring="Station board: recent movements at a CRS code, e.g. StationBoard('LDS')") StationBoard(crsCode:string, lookback:timespan = 1h) {
-    let stanoxes = Locations | where crs =~ crsCode | distinct stanox;
+.create-or-alter function with (folder="query", docstring="Station board: recent movements at a CRS code with headcode and origin, e.g. StationBoard('LDS'). TRUST has no destination; origin is blank if the activation wasn't captured") StationBoard(crsCode:string, lookback:timespan = 1h) {
+    let stanoxes = Locations | where crs =~ crsCode and isnotempty(stanox) | distinct stanox;
+    let origins = TrustActivations
+        | summarize arg_max(creation_time, sched_origin_stanox) by train_id
+        | join kind=leftouter (Locations | where isnotempty(stanox) | summarize origin = take_any(name) by stanox) on $left.sched_origin_stanox == $right.stanox
+        | project train_id, origin;
     TrustMovements
     | where event_time > ago(lookback) and loc_stanox in (stanoxes)
-    | project event_time, train_id, toc_id, event_type, platform, variation_status, delay_minutes
+    | lookup kind=leftouter origins on train_id
+    | extend headcode = substring(train_id, 2, 4)
+    | project event_time, event_type, headcode, origin, train_id, toc_id, platform, variation_status, delay_minutes, planned_time
     | order by event_time desc
 }
 

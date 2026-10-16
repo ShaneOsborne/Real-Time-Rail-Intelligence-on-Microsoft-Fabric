@@ -1,7 +1,7 @@
 [
   {
     "question": "Which trains are more than 15 minutes late right now?",
-    "query": "LateTrains(15, 2h)\n| project event_time, train_id, toc_id, toc_name, delay_minutes, location_name\n| take 10"
+    "query": "// Latest report per train (TrainLatest), 15+ minutes late, still running, in the last 2 hours.\nTrainLatest\n| where event_time > ago(2h) and delay_minutes >= 15 and coalesce(train_terminated, false) == false\n| join kind=leftouter (Locations | where isnotempty(stanox) | summarize location_name = take_any(name) by stanox) on $left.loc_stanox == $right.stanox\n| extend headcode = substring(train_id, 2, 4)\n| project event_time, headcode, train_id, toc_id, delay_minutes, location_name, event_type\n| order by delay_minutes desc\n| take 10"
   },
   {
     "question": "How many trains were cancelled in the last hour, by reason code?",
@@ -9,38 +9,38 @@
   },
   {
     "question": "What is the average delay by operator over the last 3 hours?",
-    "query": "DelaysBy15Min\n| where window_start > ago(3h)\n| summarize movements = sum(movements), avg_delay = round(avg(avg_delay), 1) by toc_id\n| lookup kind=leftouter TocCodes on toc_id\n| order by avg_delay desc"
+    "query": "DelaysBy15Min\n| where window_start > ago(3h)\n| summarize movements = sum(movements), avg_delay = round(avg(avg_delay), 1) by toc_id\n| join kind=leftouter TocCodes on toc_id\n| project toc_id, toc_name, movements, avg_delay\n| order by avg_delay desc"
   },
   {
     "question": "Show the latest departures and arrivals at Leeds",
-    "query": "StationBoard('LDS', 1h)\n| take 20"
+    "query": "// Station board for Leeds (CRS LDS) - change the CRS code for another station.\n// TRUST has no destination field. Origin comes from the train's activation, so it can be blank.\nlet station_stanox = Locations | where crs =~ \"LDS\" and isnotempty(stanox) | distinct stanox;\nlet station_name = toscalar(Locations | where crs =~ \"LDS\" | take 1 | project name);\nlet origins = TrustActivations\n    | summarize arg_max(creation_time, sched_origin_stanox) by train_id\n    | join kind=leftouter (Locations | where isnotempty(stanox) | summarize origin = take_any(name) by stanox) on $left.sched_origin_stanox == $right.stanox\n    | project train_id, origin;\nTrustMovements\n| where event_time > ago(1h) and loc_stanox in (station_stanox)\n| lookup kind=leftouter origins on train_id\n| extend station = station_name, headcode = substring(train_id, 2, 4)\n| project event_time, station, event_type, headcode, origin, toc_id, platform, variation_status, delay_minutes, planned_time\n| order by event_time desc\n| take 20"
   },
   {
     "question": "Which locations had the most trains 15+ minutes late today?",
-    "query": "TrustMovements\n| where event_time > startofday(now()) and delay_minutes >= 15\n| summarize late_trains = dcount(train_id) by loc_stanox\n| lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox\n| top 10 by late_trains desc\n| project location_name, crs, late_trains"
+    "query": "TrustMovements\n| where event_time > startofday(now()) and delay_minutes >= 15\n| summarize late_trains = dcount(train_id) by loc_stanox\n| join kind=leftouter (Locations | where isnotempty(stanox) | summarize location_name = take_any(name), crs = take_any(crs) by stanox) on $left.loc_stanox == $right.stanox\n| top 10 by late_trains desc\n| project location_name, crs, late_trains"
   },
   {
     "question": "Is there a spike in cancellations at the moment?",
-    "query": "CancellationSpike(15m, 6h)"
+    "query": "// Cancellations in the last 15 minutes compared with the rate over the previous 6 hours.\nlet recent = toscalar(TrustCancellations | where canx_time > ago(15m) | count);\nlet base = toscalar(TrustCancellations | where canx_time between (ago(6h) .. ago(15m)) | count);\nlet expected = todouble(base) * 15.0 / 345.0;\nprint recent_cancellations = recent, expected_cancellations = round(expected, 1), ratio = iff(expected == 0, real(null), round(recent / expected, 2))"
   },
   {
     "question": "What percentage of movements were on time yesterday per operator?",
-    "query": "DailyTocPerformance\n| where day == startofday(ago(1d))\n| extend on_time_pct = round(100.0 * on_time / movements, 1)\n| lookup kind=leftouter TocCodes on toc_id\n| order by on_time_pct asc"
+    "query": "DailyTocPerformance\n| where day == startofday(ago(1d))\n| extend on_time_pct = round(100.0 * on_time / movements, 1)\n| join kind=leftouter TocCodes on toc_id\n| project toc_id, toc_name, movements, on_time_pct\n| order by on_time_pct asc"
   },
   {
     "question": "Where is train 1A21 now?",
-    "query": "TrainLatest\n| where train_id contains '1A21'\n| lookup kind=leftouter LocationByStanox() on $left.loc_stanox == $right.stanox\n| project event_time, train_id, event_type, location_name, variation_status, delay_minutes"
+    "query": "// The 4-character headcode (e.g. 1A21) is characters 3-6 of the 10-character TRUST train_id.\nTrainLatest\n| where substring(train_id, 2, 4) =~ \"1A21\"\n| join kind=leftouter (Locations | where isnotempty(stanox) | summarize location_name = take_any(name) by stanox) on $left.loc_stanox == $right.stanox\n| project event_time, train_id, event_type, location_name, variation_status, delay_minutes\n| order by event_time desc"
   },
   {
     "question": "(Optional – Darwin, Lab 04b) Which services at Leeds don't have a confirmed platform yet?",
-    "query": "DarwinUnconfirmedPlatforms('LDS', 2h)\n| project ssd, ptd, pta, rid, platform, platform_source, dep_delay_minutes\n| take 10"
+    "query": "// Darwin: latest state per service (rid) and location; Leeds = CRS LDS (join on TIPLOC).\nlet leeds = Locations | where crs =~ \"LDS\" and isnotempty(tiploc) | distinct tiploc;\nDarwinLocations\n| where received_utc > ago(2h) and tiploc in (leeds)\n| summarize arg_max(received_utc, *) by rid, tiploc\n| where isnotempty(platform) and coalesce(platform_confirmed, false) == false\n| project ssd, ptd, pta, rid, platform, platform_source, dep_delay_minutes\n| order by ssd asc, ptd asc\n| take 10"
   },
   {
     "question": "(Optional – Darwin, Lab 04b) Which trains have the biggest predicted delays right now?",
-    "query": "DarwinBiggestDelays(1h, 10)\n| project name, crs, rid, pta, ptd, arr_et, dep_et, delay_minutes, platform"
+    "query": "DarwinLocations\n| where received_utc > ago(1h)\n| summarize arg_max(received_utc, *) by rid, tiploc\n| extend delay_minutes = max_of(coalesce(arr_delay_minutes, -1440), coalesce(dep_delay_minutes, -1440))\n| where delay_minutes > 0\n| join kind=leftouter (Locations | where isnotempty(tiploc) | summarize name = take_any(name), crs = take_any(crs) by tiploc) on tiploc\n| top 10 by delay_minutes desc\n| project name, crs, rid, pta, ptd, arr_et, dep_et, delay_minutes, platform"
   },
   {
     "question": "(Optional – Darwin, Lab 04b) What is the expected departure time and platform of trains at York?",
-    "query": "DarwinLatest(2h)\n| where crs =~ 'YRK' and isnotempty(ptd)\n| project ssd, ptd, dep_et, dep_at, platform, platform_confirmed, dep_delay_minutes, rid\n| order by ssd asc, ptd asc\n| take 10"
+    "query": "let york = Locations | where crs =~ \"YRK\" and isnotempty(tiploc) | distinct tiploc;\nDarwinLocations\n| where received_utc > ago(2h) and tiploc in (york) and isnotempty(ptd)\n| summarize arg_max(received_utc, *) by rid, tiploc\n| project ssd, ptd, dep_et, dep_at, platform, platform_confirmed, dep_delay_minutes, rid\n| order by ssd asc, ptd asc\n| take 10"
   }
 ]

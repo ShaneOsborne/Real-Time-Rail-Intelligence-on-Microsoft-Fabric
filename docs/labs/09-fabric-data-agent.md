@@ -18,7 +18,8 @@
 Not available in this repo. Create the data agent in the portal. All the content you need is supplied:
 
 * [`fabric/data-agent/instructions.md`](../../fabric/data-agent/instructions.md)
-* [`fabric/data-agent/example-queries.json`](../../fabric/data-agent/example-queries.json)
+* [`fabric/data-agent/example-queries.md`](../../fabric/data-agent/example-queries.md) – copy-paste ready
+* [`fabric/data-agent/example-queries.json`](../../fabric/data-agent/example-queries.json) – the same pairs, for scripts and the SDK
 
 ## Option B – manual
 
@@ -31,13 +32,20 @@ Not available in this repo. Create the data agent in the portal. All the content
    `DarwinLatest`, `DarwinUnconfirmedPlatforms` and `DarwinBiggestDelays`. Leave `RdmDarwinRaw` **out**.
 4. **Agent instructions**: paste the *Agent instructions* section of `instructions.md`.
 5. **Data source instructions** (on `RailKQL`): paste the *Data source instructions* section.
-6. **Example queries** (on `RailKQL`): add each question and KQL pair from `example-queries.json`. The pairs whose question
-   starts with *(Optional – Darwin, Lab 04b)* need `DarwinLocations`; add them only if you did Lab 04b, and paste the
-   *Optional: Darwin addendum* from `instructions.md` too.
+6. **Example queries** (on `RailKQL`): open [`fabric/data-agent/example-queries.md`](../../fabric/data-agent/example-queries.md)
+   and, for each pair, **+ Add example** → paste the **Question** block into *Question* and the **Query** block into *Query*.
+   * Use the `.md` file, not `example-queries.json`: the JSON stores line breaks as `\n`, which don't paste correctly.
+   * The queries use only the tables and materialized views selected in step 2 (no custom functions), so they pass the data
+     agent's schema validation. Check each example shows as valid after you add it; one that fails validation isn't used.
+   * The Darwin pairs (*Optional – Darwin, Lab 04b*) need `DarwinLocations`; add them only if you did Lab 04b, and paste the
+     *Optional: Darwin addendum* from `instructions.md` too.
+   * **Import from JSON** in the Example queries pane expects the agent's own export format, which `example-queries.json` doesn't
+     match yet. Use copy-paste for now.
 7. Test it in the chat pane:
    * "Which trains are more than 15 minutes late right now?"
    * "How many cancellations in the last hour, by reason?"
-   * "Show the latest movements at Leeds."
+   * "Show the latest departures and arrivals at Leeds." – expect a table with time, arrival/departure, headcode, origin and
+     on-time status. Blank platform or origin values are normal (see Troubleshooting).
 8. **Publish**. Note the URL, `…/groups/<workspace_id>/aiskills/<artifact_id>…`. Lab 10 needs both GUIDs.
 9. **Share** the data agent (Read) with the people who'll use the Foundry agent or Rayfin app. They also need the **Reader** role on the KQL database.
 
@@ -50,6 +58,9 @@ Not available in this repo. Create the data agent in the portal. All the content
 
 | Symptom | Fix |
 |---|---|
+| The agent says the data is "corrupted" or "malformed", or sends you to National Rail | Usually blank fields (no destination, platform or origin in TRUST). Re-paste the latest *Agent instructions* (they explain these fields), and make sure the station-board example query was added and is valid |
+| An example query shows as invalid / isn't used | It references something not selected in step 2. The supplied examples use only tables and views: check `TrustMovements`, `TrustActivations`, `Locations`, `TocCodes` and the materialized views are all selected |
+| Pasting a query from `example-queries.json` gives one long line with `\n` | Use `example-queries.md`, which has paste-ready blocks |
 | The agent queries `RawFeed` | Remove it from the selected tables. Strengthen the instruction |
 | "Not enough data" | Make sure the live feed is flowing (Lab 05/04). The agent filters by time |
 | Users get unauthorised errors | Grant Read on the data agent **and** Reader on the KQL database |
