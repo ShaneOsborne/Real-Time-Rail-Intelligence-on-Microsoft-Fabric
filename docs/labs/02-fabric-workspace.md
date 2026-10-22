@@ -2,6 +2,9 @@
 
 **Time:** 20 minutes · **Previous:** [Lab 01](01-prerequisites.md) · **Next:** [Lab 03](03-reference-data.md)
 
+> **Path:** Solo ✅ · Instructor ✅ (your own workspace) · Classroom student ✅. If the instructor already created your workspace, put its ID in
+> `FABRIC_WORKSPACE_ID` and run Option A anyway: the script reuses the workspace and creates the items in it. You don't need `FABRIC_CAPACITY_ID` then.
+
 ## Objectives
 
 Create the Fabric items that every later lab uses:
@@ -38,7 +41,7 @@ idempotent: it reuses items with the same display name. When it finishes, it pri
 
 ## Option B – manual (portal)
 
-1. Go to <https://app.fabric.microsoft.com> → **Workspaces** → **+ New workspace** → name it `RailIntelligence` →
+1. Go to <https://app.fabric.microsoft.com> → **Workspaces** → **+ New workspace** → name it `rail-fabric-rti` →
    *Advanced* → choose your **Fabric capacity** (or trial) → **Apply**.
 2. **+ New item** → **Eventhouse** → `RailEventhouse`. Fabric also creates a default KQL database with the same name.
 3. In the Eventhouse, **+ Database** → `RailKQL`. You can use the default database instead if you set

@@ -2,6 +2,8 @@
 
 **Time:** 30 minutes · **Previous:** [Lab 06](06-kql-transformations.md) · **Next:** [Lab 08](08-dashboard-powerbi.md)
 
+> **Path:** Everyone.
+
 ## Objectives
 
 Create **Fabric Activator** rules that notify you when:

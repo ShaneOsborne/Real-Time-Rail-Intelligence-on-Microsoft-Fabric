@@ -2,6 +2,8 @@
 
 **Time:** 30 minutes · **Previous:** [Lab 08](08-dashboard-powerbi.md) · **Next:** [Lab 10](10-foundry-agent.md)
 
+> **Path:** Everyone.
+
 ## Objectives
 
 * Create a **Fabric data agent** over the `RailKQL` Eventhouse database, and optionally the `Rail Performance` semantic model. A data agent can have up to five data sources.

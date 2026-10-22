@@ -2,6 +2,8 @@
 
 **Time:** 45 minutes · **Previous:** [Lab 07](07-activator-alerts.md) · **Next:** [Lab 09](09-fabric-data-agent.md)
 
+> **Path:** Everyone.
+
 ## Objectives
 
 * Build a **Real-Time Dashboard** with tiles that refresh automatically.

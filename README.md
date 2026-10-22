@@ -9,6 +9,14 @@ You can use it in two ways:
 * **Deploy as-is.** Run the scripts in each lab (Option A) to get a working end-to-end solution quickly.
 * **Learn step by step.** Follow the manual portal instructions (Option B) in each lab as a training course.
 
+## Choose your path
+
+| You are… | Start here |
+|---|---|
+| **Solo builder** – your own accounts, doing everything yourself | [Lab 00](docs/labs/00-overview.md), then the labs in order |
+| **Instructor** – setting up a class | [Instructor guide](docs/instructor-guide.md) |
+| **Classroom student** – you've been given a handout by your instructor | [Student guide](docs/student-guide.md). You **skip Labs 04, 04b, 05a and 05b** |
+
 > **Size your Fabric capacity first.** Always-on Eventstreams use capacity all day, every day. F2 is the minimum for one
 > live feed; two Kafka feeds can throttle an F2. See [Capacity planning and sizing](docs/capacity-planning.md), especially for classes.
 
@@ -83,25 +91,25 @@ flowchart LR
 
 ## Lab index
 
-| Lab | Title | Time | Automated? |
-|---|---|---|---|
-| [00](docs/labs/00-overview.md) | Overview, architecture, costs, licensing, preview caveats | 20 min | – |
-| [Ref](docs/capacity-planning.md) | *Reference:* Fabric capacity planning and sizing (single builder and classrooms) | 15 min | – |
-| [01](docs/labs/01-prerequisites.md) | Prerequisites and accounts (NROD, RDM, Azure, Fabric, tenant settings, tools) | 45 min (+ approval wait) | Manual |
-| [02](docs/labs/02-fabric-workspace.md) | Fabric workspace, Eventhouse, KQL database, Lakehouse, Eventstreams | 20 min | ✅ `fabric-setup.sh/.ps1` |
-| [03](docs/labs/03-reference-data.md) | Reference data (CORPUS, SMART, NaPTAN) → Lakehouse and KQL | 30 min | ✅ `load_reference_data.py` / notebook |
-| [04](docs/labs/04-rdm-kafka-eventstream.md) | Ingest RDM Kafka Train Movements with Eventstream | 30 min | Manual (portal) |
-| [04b](docs/labs/04b-darwin-push-port.md) | *Optional:* Darwin Push Port: forecasts, platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` |
-| [05a](docs/labs/05a-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` |
-| [05b](docs/labs/05b-bridge-azure-container-apps.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` |
-| [05c](docs/labs/05c-shared-event-hub.md) | *Optional:* shared Azure Event Hub for classes and paused capacities (+ RDM Kafka relay) | 45 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1` (instructor); student Eventstream source manual |
-| [06](docs/labs/06-kql-transformations.md) | KQL tables, update policies, materialized views, functions | 40 min | ✅ `apply_kql.py` |
-| [07](docs/labs/07-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) |
-| [08](docs/labs/08-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) |
-| [09](docs/labs/09-fabric-data-agent.md) | Fabric data agent (instructions and example queries) | 30 min | Manual (content supplied) |
-| [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric data agent tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) |
-| [11](docs/labs/11-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code |
-| [12](docs/labs/12-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` |
+| Lab | Title | Time | Automated? | Classroom student |
+|---|---|---|---|---|
+| [00](docs/labs/00-overview.md) | Overview, architecture, costs, licensing, preview caveats | 20 min | – | ✅ |
+| [Ref](docs/capacity-planning.md) | *Reference:* Fabric capacity planning and sizing (single builder and classrooms) | 15 min | – | – |
+| [01](docs/labs/01-prerequisites.md) | Prerequisites and accounts (NROD, RDM, Azure, Fabric, tenant settings, tools) | 45 min (+ approval wait) | Manual | Student section only |
+| [02](docs/labs/02-fabric-workspace.md) | Fabric workspace, Eventhouse, KQL database, Lakehouse, Eventstreams | 20 min | ✅ `fabric-setup.sh/.ps1` | ✅ |
+| [03](docs/labs/03-reference-data.md) | Reference data (CORPUS, SMART, NaPTAN) → Lakehouse and KQL | 30 min | ✅ `load_reference_data.py` / notebook | Option C only |
+| [04](docs/labs/04-rdm-kafka-eventstream.md) | Ingest RDM Kafka Train Movements with Eventstream | 30 min | Manual (portal) | Skip |
+| [04b](docs/labs/04b-darwin-push-port.md) | *Optional:* Darwin Push Port: forecasts, platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` | Skip |
+| [05a](docs/labs/05a-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` | Skip |
+| [05b](docs/labs/05b-bridge-azure-container-apps.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` | Skip |
+| [05c](docs/labs/05c-shared-event-hub.md) | *Optional:* shared Azure Event Hub for classes and paused capacities (+ RDM Kafka relay) | 45 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1` (instructor); student Eventstream source manual | Student steps only |
+| [06](docs/labs/06-kql-transformations.md) | KQL tables, update policies, materialized views, functions | 40 min | ✅ `apply_kql.py` | ✅ |
+| [07](docs/labs/07-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) | ✅ |
+| [08](docs/labs/08-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) | ✅ |
+| [09](docs/labs/09-fabric-data-agent.md) | Fabric data agent (instructions and example queries) | 30 min | Manual (content supplied) | ✅ |
+| [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric data agent tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) | ✅ (shared project) |
+| [11](docs/labs/11-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code | If region supports it |
+| [12](docs/labs/12-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` | Student section only |
 
 ## Quick start: deploy as-is
 
@@ -164,6 +172,8 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 
 ```
 ├── README.md · LICENSE · CONTRIBUTING.md · .env.example · .gitignore
+├── docs/instructor-guide.md   Classroom set-up: timeline, shared Event Hub, reference data, student handout, clean-up
+├── docs/student-guide.md      Classroom student route through the labs (which to do, which to skip)
 ├── docs/capacity-planning.md  Fabric capacity sizing, classroom guidance and throttling recovery
 ├── docs/labs/                 00–12 lab guides (+ optional 04b Darwin, 05c shared Event Hub)
 ├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)

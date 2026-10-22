@@ -2,6 +2,8 @@
 
 **Time:** 30 minutes · **Previous:** [Lab 02](02-fabric-workspace.md) · **Next:** [Lab 04](04-rdm-kafka-eventstream.md)
 
+> **Path:** Solo – Option A1, A2 or B · Instructor – Option A2, then share the Lakehouse · **Classroom student – [Option C](#option-c--classroom-shortcut-to-the-instructors-reference-data) only, then go to [Lab 05c student steps](05c-shared-event-hub.md#student-steps-each-student-in-their-own-workspace).**
+
 ## Objectives
 
 * Download static reference data with your NROD credentials.
@@ -62,6 +64,20 @@ An Azure Function on a timer is also suitable for this daily pull. A long-runnin
 3. Lakehouse → **Files** → **Upload** the files. Then either run the notebook cells one by one (recommended) or
    use **Load to Tables** on a CSV you produced with `load_reference_data.py --download-only`.
 4. Create the OneLake shortcut and run `05_reference_from_shortcut.kql` as in A2.
+
+## Option C – classroom: shortcut to the instructor's reference data
+
+For classroom students. You don't have an NROD login, so you read the reference data your instructor loaded and shared
+(see the [Instructor guide](../instructor-guide.md#2-the-day-before), step 3).
+
+1. Check the `Locations` table exists in `RailKQL` (Lab 02 created it): `Locations | count`.
+2. In `RailKQL`: **+ New** → **OneLake shortcut** → *Microsoft OneLake* → select the **instructor's** `RailLakehouse` (from the
+   handout, for example in workspace `rail-instructor`) → *Tables* → `locations` → **Create**. The shortcut must be called
+   `locations`; rename it if Fabric adds a suffix.
+3. Run `fabric/kql/05_reference_from_shortcut.kql` in a KQL queryset on `RailKQL`.
+4. Do the checkpoint below, then go to [Lab 05c – Student steps](05c-shared-event-hub.md#student-steps-each-student-in-their-own-workspace).
+
+If the instructor's Lakehouse isn't listed, you haven't been given **Read all OneLake data** on it yet. Ask the instructor.
 
 ## Checkpoint
 

@@ -2,6 +2,8 @@
 
 **Time:** 60 minutes · **Previous:** [Lab 10](10-foundry-agent.md) · **Next:** [Lab 12](12-cleanup.md)
 
+> **Path:** Everyone, **if Fabric Apps is available in your capacity's region** (checked in Lab 01). Classroom students: your instructor will tell you.
+
 ## Objectives
 
 * Scaffold a **Fabric app** with the **Rayfin** CLI, in its **own folder outside this repo**.
@@ -14,7 +16,7 @@
 > connector types are SQL analytics endpoint, Warehouse, SQL database and semantic model. A function with a delegated
 > `AudienceType.Kusto` token queries the KQL database directly instead, so the map stays real-time.
 >
-> **Preview.** Fabric Apps is preview, and functions aren't available in every Fabric region or tenant. Check
+> **Preview.** Fabric Apps is preview. **It isn't available in every Fabric region**, and functions aren't available in every region or tenant. Check
 > <https://rayfin.ai/docs> and <https://learn.microsoft.com/fabric/apps/create-app-with-cli> first.
 
 ## Prerequisites

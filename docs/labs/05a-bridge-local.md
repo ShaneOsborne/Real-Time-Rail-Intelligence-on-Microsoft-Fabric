@@ -2,6 +2,8 @@
 
 **Time:** 40 minutes · **Previous:** [Lab 04](04-rdm-kafka-eventstream.md) · **Next:** [Lab 05b](05b-bridge-azure-container-apps.md)
 
+> **Path:** Solo ✅ · Instructor ✅ (test before the class) · **Classroom student – skip.**
+
 ## Objectives
 
 * Run the bridge offline first (replaying sample messages), then against live NROD, using three sinks in turn:

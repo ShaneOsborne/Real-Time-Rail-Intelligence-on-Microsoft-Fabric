@@ -2,6 +2,8 @@
 
 **Time:** 30 minutes · **Previous:** [Lab 03](03-reference-data.md) · **Next:** [Lab 04b](04b-darwin-push-port.md) (optional) or [Lab 05a](05a-bridge-local.md)
 
+> **Path:** Solo ✅ · Instructor optional (the class gets RDM through the relay in Lab 05c) · **Classroom student – skip** (you get RDM data from the shared Event Hub in Lab 05c).
+
 ## Objectives
 
 * Connect the **Apache Kafka** source connector in Eventstream to the Rail Data Marketplace *NWR Train Movements* product.

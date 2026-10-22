@@ -2,6 +2,8 @@
 
 **Time:** 30 minutes · **Previous:** [Lab 05a](05a-bridge-local.md) · **Next:** [Lab 06](06-kql-transformations.md)
 
+> **Path:** Solo ✅ · Instructor ✅ · **Classroom student – skip.**
+
 ## Objectives
 
 * Host the bridge 24×7 on **Azure Container Apps**, with **exactly one replica** (min = max = 1) at **0.25 vCPU / 0.5 GiB**.

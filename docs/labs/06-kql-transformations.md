@@ -2,6 +2,8 @@
 
 **Time:** 40 minutes · **Previous:** [Lab 05b](05b-bridge-azure-container-apps.md) · **Next:** [Lab 07](07-activator-alerts.md)
 
+> **Path:** Everyone.
+
 > **Run this lab's scripts before any data arrives**, ideally straight after Lab 02. Labs 03–05 need the tables and mappings it creates.
 > It's numbered 06 because it's easier to understand once you've seen the raw messages.
 

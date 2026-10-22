@@ -2,11 +2,23 @@
 
 **Time:** 20 minutes · **Previous:** – · **Next:** [Lab 01](01-prerequisites.md)
 
+> **Path:** Everyone. Then [choose your path](#choose-your-path).
+
 ## Objectives
 
 * Understand the end-to-end architecture and the data sources.
 * Know which parts are automated and which you build by hand.
 * Understand the costs, licensing terms and preview limitations before you start.
+
+## Choose your path
+
+| You are… | Follow | Labs |
+|---|---|---|
+| **Solo builder** – your own NROD/RDM accounts, Azure and Fabric | The labs in order | 00 → 01 → 02 → 03 → 04 (→ 04b) → 05a → 05b (→ 05c) → 06 → 07 → 08 → 09 → 10 → 11 → 12 |
+| **Instructor** – setting up a class | [Instructor guide](../instructor-guide.md) | 01, 02, 03, 05a, 05b, 05c (instructor parts) before the class |
+| **Classroom student** – the instructor gives you a handout | [Student guide](../student-guide.md) | 00 → 01 (student section) → 02 → 03 (Option C) → **05c (student steps)** → 06 → 07 → 08 → 09 → 10 → 11 → 12. **Skip 04, 04b, 05a, 05b** |
+
+Every lab starts with a **Path** line that says whether, and how, it applies to you.
 
 ## What you'll build
 

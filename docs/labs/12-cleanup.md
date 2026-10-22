@@ -2,9 +2,20 @@
 
 **Time:** 10 minutes · **Previous:** [Lab 11](11-rayfin-app.md)
 
+> **Path:** Solo – all · Instructor – all, plus the [Instructor guide clean-up](../instructor-guide.md#5-after-the-class) · **Classroom student – [Classroom students](#classroom-students) only.**
+
 ## Objectives
 
 Stop all spending and release your NROD connection.
+
+## Classroom students
+
+You only clean up **your own** Fabric items. Don't run `cleanup.sh`: you have no Azure resources, and the Event Hub belongs to the instructor.
+
+1. In your workspace, **deactivate** the Eventstreams (Eventstream → **Deactivate all**), so they stop reading the shared hub.
+2. Delete your Rayfin app (if any) and your Foundry agent (`FOUNDRY_AGENT_NAME`) in the shared Foundry project.
+3. Delete your workspace (*Workspace settings → General → Remove this workspace*), unless the instructor says to keep it.
+4. Delete your `.env`, because it may hold connection details.
 
 ## Option A – automated
 

@@ -2,6 +2,8 @@
 
 **Time:** 25 minutes · **Previous:** [Lab 04](04-rdm-kafka-eventstream.md) · **Next:** [Lab 05a](05a-bridge-local.md)
 
+> **Path:** Solo optional · Instructor optional demo · **Classroom student – skip**, unless you have your own Darwin subscription.
+
 > ⚠️ **Capacity warning.** This lab adds a **second always-on Kafka Eventstream**, which roughly **doubles** the streaming
 > load. As an **estimate**, two Kafka Eventstreams use about 1.67 CU continuously (≈ 83% of an F2) before the Eventhouse does
 > anything, and on an F2 this has been seen to **throttle the capacity overnight**. Use **F4 or larger**, or deactivate

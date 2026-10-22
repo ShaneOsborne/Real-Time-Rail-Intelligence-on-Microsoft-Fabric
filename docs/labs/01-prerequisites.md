@@ -2,9 +2,25 @@
 
 **Time:** 45 minutes, plus any account approval wait · **Previous:** [Lab 00](00-overview.md) · **Next:** [Lab 02](02-fabric-workspace.md)
 
+> **Path:** Solo – all sections. Instructor – all sections (see the [Instructor guide](../instructor-guide.md)). **Classroom student – only [Classroom students](#classroom-students).**
+
 ## Objectives
 
 Get every account, subscription, tenant setting and tool in place before you build anything.
+
+## Classroom students
+
+If you're in an instructor-led class using the shared Event Hub, you **only** need this section. The instructor has the
+NROD, RDM, Azure and Key Vault set-up covered. Then go to [Lab 02](02-fabric-workspace.md).
+
+1. **Fabric access.** Sign in to <https://app.fabric.microsoft.com>. Open your workspace from the handout (or check you can
+   create one on the class capacity). Confirm **+ New item** lists *Eventhouse*, *Eventstream* and *Lakehouse*.
+2. **Tools.** Python 3.11+, Git and the Azure CLI (`az login` as yourself – you don't need an Azure subscription, only your
+   work account). Node.js 20+ if you'll do Lab 11. Docker isn't needed. See [§6](#6-tools-on-your-machine).
+3. **Clone and configure.** See [§7](#7-clone-the-repo-and-configure). Fill in `.env` as shown in the
+   [Student guide](../student-guide.md#settings-for-your-env).
+
+Instructors: see the [Instructor guide](../instructor-guide.md) for the class set-up.
 
 ## 1. Network Rail Open Data (NROD)
 
@@ -97,8 +113,8 @@ The Fabric CLI (`fab`) isn't needed. The scripts call the Fabric REST API with `
 ## 7. Clone the repo and configure
 
 ```bash
-git clone https://github.com/<you>/Real-Time-Rail-Intelligence-on-Microsoft-Fabric.git
-cd Real-Time-Rail-Intelligence-on-Microsoft-Fabric
+git clone https://github.com/<you>/rail-fabric-rti.git
+cd rail-fabric-rti
 cp .env.example .env     # then edit .env
 az login
 ```

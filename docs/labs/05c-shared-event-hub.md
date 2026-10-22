@@ -2,6 +2,8 @@
 
 **Time:** 45 minutes (instructor 30, each student 15) · **Previous:** [Lab 05b](05b-bridge-azure-container-apps.md) · **Next:** [Lab 06](06-kql-transformations.md)
 
+> **Path:** Solo optional (for paused capacities) · Instructor ✅ – the *instructor* sections · **Classroom student ✅ – only [Student steps](#student-steps-each-student-in-their-own-workspace).**
+
 > **This lab is optional.** The direct paths stay the default and keep working: RDM Kafka → Eventstream Apache Kafka
 > source (Lab 04) and bridge → Eventstream custom endpoint (Labs 05a/05b). Skip this lab if you work alone and your
 > Fabric capacity runs whenever the bridge does.

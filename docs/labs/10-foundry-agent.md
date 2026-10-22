@@ -2,6 +2,8 @@
 
 **Time:** 30 minutes · **Previous:** [Lab 09](09-fabric-data-agent.md) · **Next:** [Lab 11](11-rayfin-app.md)
 
+> **Path:** Everyone. Classroom students use the instructor's shared Foundry project and their **own** `FOUNDRY_AGENT_NAME` (for example `rail-network-agent-student07`).
+
 ## Objectives
 
 * Connect a Foundry **prompt agent** to the published Fabric data agent through the **Microsoft Fabric data agent tool (preview)**.
