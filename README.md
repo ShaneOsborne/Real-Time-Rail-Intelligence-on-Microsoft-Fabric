@@ -203,7 +203,7 @@ For Fabric capacity sizing (estimates per Eventstream, sizing by scenario, class
 ## Preview and experimental features
 
 * Fabric data agent tool in Azure AI Foundry: **preview**. User identity (OBO) only, no service principals, and one data agent for each Foundry agent in this design.
-* Fabric Apps / Rayfin: **preview**. New Kusto connectors can't be added in Rayfin 1.36.2, so Lab 11 reads the Eventhouse through a Rayfin **function**. Functions aren't available in every tenant or region.
+* Fabric Apps / Rayfin: **preview**. New Kusto connectors can't be added in Rayfin 1.36.2, so Lab 11 reads the Eventhouse through a Rayfin **function**. Functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
 * RDM "NWR Train Movements" is a **beta** product with no SLA.
 * Lakehouse "Load Table" REST API: **preview**.
 

@@ -61,9 +61,19 @@ done
   * Users can create Fabric items (Real-Time Intelligence: Eventhouse, Eventstream, Activator).
   * **Fabric data agent** tenant settings enabled (Copilot and Azure OpenAI-powered features), plus the
     **cross-geo processing** and **cross-geo storage** settings for AI if your capacity region requires them.
-  * **Fabric Apps (preview)** workload: *OneLake catalog > Govern > Configurations > Workloads*.
+  * **Fabric Apps (preview)** (Lab 11): *Admin portal > Tenant settings > Fabric Apps (preview)* → **Enabled**, for the whole
+    organisation or a security group that includes every lab user. Allow a few minutes to propagate. Check it worked: in the
+    workspace, **+ New item** should list **App (preview)**.
   * Service principals can use Fabric APIs (only if you'll run the scripts as a service principal).
 * Capacity region: keep the data agent and its data sources on capacities in the **same region**.
+* **Capacity region for Lab 11 (Rayfin app).** Fabric Apps (preview) isn't available in every Fabric region. Even with the
+  tenant setting on, **App (preview)** won't appear under *New item* if the workspace's capacity is in an unsupported region.
+  Check this **now**, not at Lab 11: in a workspace on your capacity, **+ New item** → search **App (preview)**.
+  * Listed: you're fine.
+  * Not listed (and the tenant setting is on): you need a **second capacity in a region that supports Fabric Apps** for a
+    separate app workspace. See [Lab 11 – If App (preview) isn't available in your region](11-rayfin-app.md#if-app-preview-isnt-available-in-your-region).
+    The rest of the labs stay on your main capacity. A trial capacity is created in your tenant's home region, so it won't help here.
+  * If you can't get one, skip Lab 11. Labs 00–10 and 12 don't need Fabric Apps.
 
 ## 5. Azure AI Foundry (Lab 10)
 
@@ -116,6 +126,7 @@ Section : Rail Data Marketplace (RDM) Kafka
 - [ ] `az account show` returns the right subscription
 - [ ] You can create items in a Fabric workspace on a capacity sized for your scenario (F2 minimum) or a trial
 - [ ] The Capacity Metrics app is installed and shows your capacity
+- [ ] (Lab 11 only) **+ New item → App (preview)** is listed in a workspace on a capacity you can use (tenant setting on **and** a supported region)
 - [ ] `python --version` is 3.11+, `node --version` is 20+, and `docker compose version` works (optional)
 
 ## Troubleshooting
@@ -123,7 +134,7 @@ Section : Rail Data Marketplace (RDM) Kafka
 | Symptom | Fix |
 |---|---|
 | NROD account "pending" | Approval can take time. Do Lab 05a with `--replay` in the meantime |
-| Can't see the Fabric Apps workload | A Fabric admin must enable it under *Govern > Configurations > Workloads* |
+| Can't see **App (preview)** under *New item*, or `rayfin up` fails with *403 Forbidden – The feature is not available* | Two causes. 1) The tenant setting is off: a Fabric admin must enable *Admin portal > Tenant settings > Fabric Apps (preview)* for you, then wait a few minutes. 2) The workspace's capacity region doesn't support Fabric Apps yet: use an app workspace on a capacity in a supported region (Lab 11) or skip Lab 11 |
 | `az provider register` permission error | Ask a subscription Owner |
 
 ## 8. Shared Key Vault for credentials (needed from Lab 03)

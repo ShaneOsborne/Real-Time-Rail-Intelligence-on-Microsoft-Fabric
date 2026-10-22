@@ -85,7 +85,7 @@ See the table in the [README](../../README.md#what-is-automated-and-what-is-manu
 ## Preview caveats
 
 * The **Fabric data agent tool in Foundry** is preview. It supports **user identity (On-Behalf-Of) only**, not service principals. It needs a paid **F2+** capacity, the same tenant and the same capacity region for the data agent and its sources, and cross-geo processing/storage tenant settings where needed.
-* **Fabric Apps / Rayfin** is preview. New Kusto connectors can't be added in Rayfin 1.36.2, so Lab 11 reads the Eventhouse through a Rayfin function; functions aren't available in every tenant or region.
+* **Fabric Apps / Rayfin** is preview. New Kusto connectors can't be added in Rayfin 1.36.2, so Lab 11 reads the Eventhouse through a Rayfin function; functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
 * **RDM NWR Train Movements** is beta with no SLA.
 * The **Lakehouse Load Table** REST API is preview.
 

@@ -19,7 +19,11 @@
 
 ## Prerequisites
 
-* The Fabric Apps (preview) workload is enabled. You have Contributor or above on the workspace `rail-fabric-rti`.
+* **Fabric Apps (preview)** is enabled for you: *Admin portal > Tenant settings > Fabric Apps (preview)* (Lab 01). **Check first:** in the
+  workspace, **+ New item** → search **App (preview)**. If it isn't listed, `rayfin up` will fail with *403 – The feature is not available*.
+* The workspace's **capacity region supports Fabric Apps**. If **App (preview)** isn't listed even though the tenant setting is
+  on, your region isn't supported yet. See [If App (preview) isn't available in your region](#if-app-preview-isnt-available-in-your-region).
+* You have Contributor or above on the workspace `rail-fabric-rti` (or the app workspace), and the workspace is on a running Fabric capacity.
 * Node.js 20+ and npm, and the GitHub CLI (per the Rayfin installation guide).
 * Labs 06 (the `NetworkSnapshot()` function), 03 (coordinates) and 10 (Foundry agent) are done.
 * App users need at least **Viewer** on the `RailKQL` database, because the function queries it as them.
@@ -44,18 +48,45 @@ Create the app **next to** this repo, not inside it. The scaffold makes a comple
 
 ```
 labs/
-├── rail-fabric-rti/      ← this repo (the overlay code is in app/rayfin-starter)
-└── rail-app/             ← your Rayfin app (create it here)
+├── Real-Time-Rail-Intelligence-on-Microsoft-Fabric/   ← your clone of this repo (whatever you named the folder)
+│   └── app/rayfin-starter/                            ← the overlay code
+└── rail-app/                                          ← your Rayfin app (create it here)
 ```
 
 If you want to keep your app in Git, give it its **own** repository. (`rail-app/` is also in this repo's `.gitignore`,
 in case it's created inside by mistake.)
 
+## If App (preview) isn't available in your region
+
+The app doesn't need to sit in the same workspace, or region, as the Eventhouse. Its function calls the KQL database over the
+Query URI, so the data can stay where it is.
+
+1. In the Azure portal, create a small **Fabric capacity (F2)** in a region where Fabric Apps is available. Pause it when you're
+   not using it, because an F SKU bills per second while it runs. A **trial** capacity won't help: it's created in your tenant's home region.
+2. In Fabric, create a workspace such as `rail-fabric-rti-app` and assign it that capacity (*Workspace settings > License info*).
+3. Check that **+ New item → App (preview)** is now listed in that workspace.
+4. Keep `KUSTO_QUERY_URI` and `KQL_DATABASE` in `function_app.ts` pointing at your **existing** Eventhouse.
+5. Deploy into the new workspace: `npx rayfin up --workspace-id <app-workspace-guid>` (the GUID after `/groups/` in the
+   workspace URL). Or run `npx rayfin up --capacity-id <capacity-guid>` and let Rayfin create a workspace on that capacity.
+6. Grant access to `RailKQL` as in the prerequisites (users Viewer; the app identity Viewer if the deployed function runs as the app).
+
+Things to know:
+
+* **Data residency.** Query results (train positions, not personal data) pass through the app's region. Check that's acceptable
+  for your organisation.
+* Cross-region queries add a little latency, which doesn't matter for a 2-minute refresh.
+* The Foundry agent (Lab 10) is called over its endpoint, so its region doesn't matter here.
+* If you can't create a capacity in a supported region, skip this lab. The Lab 08 dashboard (map) and the Foundry playground (chat)
+  cover the same story.
+
 ## Option A – CLI plus overlay code
 
-Run these from the folder **above** the repo (for example `labs/`):
+Run these from the folder **above** the repo (for example `labs/`). The copy step uses `LAB_REPO`, the path to your clone
+as seen from inside `rail-app`, so it works whatever your clone folder is called:
 
 ```bash
+export LAB_REPO=../Real-Time-Rail-Intelligence-on-Microsoft-Fabric    # change to your clone's folder name
+
 # 1. Scaffold. <workspacename> = the Fabric workspace NAME, for example rail-fabric-rti
 npm create @microsoft/rayfin@latest -- rail-app --workspace rail-fabric-rti
 #    When asked for a template, choose the DEFAULT. The overlay code is React + TypeScript; if the default
@@ -67,10 +98,12 @@ npx rayfin login
 npx rayfin functions init
 
 # 3. Copy the overlay code from the lab repo
-cp -r ../rail-fabric-rti/app/rayfin-starter/src/* src/
-#    Then merge ../rail-fabric-rti/app/rayfin-starter/rayfin/functions/src/function_app.ts into
-#    rayfin/functions/src/function_app.ts, and set the constants at the top of it:
-#      KUSTO_QUERY_URI, KQL_DATABASE, FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_AGENT_NAME
+cp -r "$LAB_REPO"/app/rayfin-starter/src/* src/
+cp "$LAB_REPO"/app/rayfin-starter/rayfin/functions/src/function_app.ts rayfin/functions/src/function_app.ts
+#    The second copy REPLACES the scaffold's sample function file (that's intended).
+#    Now open rayfin/functions/src/function_app.ts and set the four constants in the
+#    "SET THESE FOUR VALUES" block at the top: KUSTO_QUERY_URI, KQL_DATABASE,
+#    FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_AGENT_NAME (all four are in the lab repo .env).
 #    Finally render <RailApp /> from src/App.tsx.
 
 # 4. Deploy and check
@@ -79,7 +112,13 @@ npx rayfin up
 npx rayfin up status
 ```
 
-In PowerShell, use `Copy-Item -Recurse ..\rail-fabric-rti\app\rayfin-starter\src\* src\` for the copy step.
+In PowerShell: `$env:LAB_REPO = "..\Real-Time-Rail-Intelligence-on-Microsoft-Fabric"`, then
+`Copy-Item -Recurse "$env:LAB_REPO\app\rayfin-starter\src\*" src\ -Force` and
+`Copy-Item "$env:LAB_REPO\app\rayfin-starter\rayfin\functions\src\function_app.ts" rayfin\functions\src\function_app.ts -Force`.
+
+> **Created `rail-app` inside the repo instead?** Then the overlay code is one level up, so the copy is
+> `cp -r ../app/rayfin-starter/src/* src/` (and `cp ../app/rayfin-starter/rayfin/functions/src/function_app.ts rayfin/functions/src/function_app.ts`).
+> It works, but move the app out of the repo before you commit anything.
 
 To develop locally, `npx rayfin dev` starts the frontend dev server and the backend. Or run
 `npx rayfin up --exclude-services staticHosting`, then `npm run dev`.
@@ -116,8 +155,10 @@ The details are in [`app/README.md`](../../app/README.md).
 | Symptom | Fix |
 |---|---|
 | `Connector type "kusto" is not available in this release` | Expected in Rayfin 1.36.2. This lab no longer uses a Kusto connector – follow Option A (function-based map) |
-| 401/403 on deploy | `npx rayfin login`, then `npx rayfin up` again |
+| `rayfin up` fails with **403 Forbidden – The feature is not available** (at *createRayfinItem*) | Fabric can't create an App item there. Check **+ New item → App (preview)** in the workspace. If it's missing: 1) ask a Fabric admin to enable *Admin portal > Tenant settings > Fabric Apps (preview)* for you, then wait a few minutes; 2) if the setting is already on, your capacity region isn't supported. Deploy to a workspace on a capacity in a supported region (see [above](#if-app-preview-isnt-available-in-your-region)). Also check the capacity is running, not paused |
+| 401/403 on deploy | `npx rayfin login`, then `npx rayfin up` again | (any other 401/403)
 | Map fails with *Eventhouse query failed with HTTP 401/403* | The signed-in user lacks access to `RailKQL`. Grant them **Viewer** on the database (or workspace Viewer) |
+| Map fails with HTTP 401/403 even though the signed-in user has access | Rayfin 1.36 deprecates `ctx.getToken()` (used here) in favour of typed `ctx.Tokens`, and its docs say deployed functions use the **app identity**. If that applies in your release, grant the Fabric app's identity **Viewer** on `RailKQL` as well |
 | Map fails with HTTP 400 | Check `KUSTO_QUERY_URI` (no trailing `/`) and `KQL_DATABASE` (the database **name**) in `function_app.ts`, and that `NetworkSnapshot()` exists (Lab 06) |
 | `client.functions.getNetworkSnapshot` isn't typed | `types.js` is generated on build. Run `npx rayfin up` (or `npx rayfin dev`) after merging `function_app.ts` |
 | Calls fail locally with HTTP 502 | The local Functions host isn't running. Use `npx rayfin dev`, or deploy with `npx rayfin up` first |
