@@ -24,7 +24,7 @@ LAB_REPO=../Real-Time-Rail-Intelligence-on-Microsoft-Fabric      # path to your 
 cp -r "$LAB_REPO"/app/rayfin-starter/packages/* packages/
 #   PowerShell: robocopy "$env:LAB_REPO\app\rayfin-starter\packages" packages /E   (Copy-Item won't merge existing folders)
 #  1. packages/functions/src/function_app.ts: set KUSTO_QUERY_URI, KQL_DATABASE, FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_AGENT_NAME
-#  2. packages/frontend/src/services/railClient.ts: fix the getRayfinClient import path
+#  2. packages/frontend/src/services/railClient.ts: check the import ('../lib/rayfin-client' in the 1.36 template)
 grep -rl "export.*getRayfinClient" packages/frontend/src
 #  3. packages/frontend/src/App.tsx: replace EmptyStatePreview (import and element) with RailApp
 

@@ -5,10 +5,10 @@
 // generated AppFunctionsSchema (from packages/functions/src/function_app.ts) into that client, so
 // `client.functions.getNetworkSnapshot` and `client.functions.askRailAgent` are typed.
 //
-// ONE EDIT NEEDED: point the import below at the template module that exports getRayfinClient. Find it with:
-//   grep -rl "export.*getRayfinClient" packages/frontend/src
-// For example, if that prints packages/frontend/src/services/rayfin.ts, the import is './rayfin'.
-import { getRayfinClient } from './rayfin'; // <-- EDIT this path if grep shows a different file
+// The default template (Rayfin 1.36.x) exports getRayfinClient from packages/frontend/src/lib/rayfin-client.ts.
+// If a later template moves it, find it with:  grep -rl "export.*getRayfinClient" packages/frontend/src
+// and change the path below (relative to this services/ folder, without the .ts extension).
+import { getRayfinClient } from '../lib/rayfin-client';
 
 export async function railFunctions() {
   const client = await getRayfinClient();
