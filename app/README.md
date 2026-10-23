@@ -22,6 +22,7 @@ npm run pack:add -- functions          # NOT `npx rayfin functions init`
 
 LAB_REPO=../Real-Time-Rail-Intelligence-on-Microsoft-Fabric      # path to your clone, from inside rail-app
 cp -r "$LAB_REPO"/app/rayfin-starter/packages/* packages/
+#   PowerShell: robocopy "$env:LAB_REPO\app\rayfin-starter\packages" packages /E   (Copy-Item won't merge existing folders)
 #  1. packages/functions/src/function_app.ts: set KUSTO_QUERY_URI, KQL_DATABASE, FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_AGENT_NAME
 #  2. packages/frontend/src/services/railClient.ts: fix the getRayfinClient import path
 grep -rl "export.*getRayfinClient" packages/frontend/src
