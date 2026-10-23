@@ -1,20 +1,39 @@
-// EXPERIMENTAL – Rayfin functions and delegated auth are not available in every tenant/region.
-// Merge into rayfin/functions/src/function_app.ts created by `npx rayfin functions init`.
+// Lab 11 – Rayfin functions for the rail app.
+// COPY this file over packages/functions/src/function_app.ts (created by `npm run pack:add -- functions` in the default
+// template) – it replaces the starter function. Then set the four constants below. types.ts is regenerated from this file; don't edit it.
 // Pattern: https://rayfin.ai/docs/functions/writing-functions and https://rayfin.ai/docs/functions/connections
+// Functions aren't available in every Fabric region or tenant.
 import { UserDataFunctions, AudienceType, type RayfinContext } from '@microsoft/fabric-user-data-functions';
 
-const udf = new UserDataFunctions();
-
-// ---- Eventhouse (KQL database) – values from Lab 02 / your .env, do not leave placeholders ----
-// KUSTO_QUERY_URI: RailKQL > Overview > Query URI, e.g. https://<id>.<region>.kusto.fabric.microsoft.com (also in the repo .env)
-// KQL_DATABASE: the database NAME, e.g. RailKQL
-const KUSTO_QUERY_URI = '<https://<id>.<region>.kusto.fabric.microsoft.com>';
+// ================= SET THESE FOUR VALUES (no placeholders in a deployed app) =================
+// Replace ONLY the text between the single quotes, and keep both quotes and the semicolon. For example:
+//   const KUSTO_QUERY_URI = 'https://trd-abc123.z0.kusto.fabric.microsoft.com';
+// Eventhouse: RailKQL > Overview > Query URI (also KUSTO_QUERY_URI in the lab repo .env). No trailing slash.
+const KUSTO_QUERY_URI = 'PASTE-KQL-QUERY-URI-HERE';
+// The KQL database NAME (FABRIC_KQL_DATABASE_NAME in the lab repo .env).
 const KQL_DATABASE = 'RailKQL';
+// Foundry project endpoint from Lab 10 (FOUNDRY_PROJECT_ENDPOINT in the lab repo .env), e.g.
+//   'https://my-foundry.services.ai.azure.com/api/projects/my-project'
+const FOUNDRY_PROJECT_ENDPOINT = 'PASTE-FOUNDRY-PROJECT-ENDPOINT-HERE';
+// Foundry agent name from Lab 10 (FOUNDRY_AGENT_NAME in the lab repo .env).
+const FOUNDRY_AGENT_NAME = 'rail-network-agent';
+// =============================================================================================
+
+// Fails with a clear message (shown in the app) if a value above wasn't set properly.
+function checkUrl(name: string, value: string): string {
+  if (!/^https:\/\/[^\s'"<>]+$/.test(value) || value.includes('PASTE-')) {
+    throw new Error(`${name} isn't set. Edit the "SET THESE FOUR VALUES" block in packages/functions/src/function_app.ts`);
+  }
+  return value.replace(/\/+$/, ''); // tolerate a trailing slash
+}
+
+const udf = new UserDataFunctions();
 
 type Row = Record<string, string | number | boolean | null>;
 
 // Map data for the frontend. Runs a FIXED query (only the look-back window comes from the caller, and it's validated),
-// so users can't send arbitrary KQL. Runs as the signed-in user: they need at least Viewer on RailKQL.
+// so users can't send arbitrary KQL. Rayfin 1.36 docs say DEPLOYED functions use the app identity, so grant the app
+// (the App item, e.g. rail-app) Viewer on RailKQL; locally (npm run dev) it runs as you.
 udf.func(
   'getNetworkSnapshot',
   async (ctx: RayfinContext, lookbackMinutes: number): Promise<Row[]> => {
@@ -24,7 +43,7 @@ udf.func(
     }
     const token = ctx.getToken(AudienceType.Kusto);
     // Kusto REST API v1 query endpoint (returns { Tables: [{ TableName, Columns, Rows }] }).
-    const res = await fetch(`${KUSTO_QUERY_URI}/v1/rest/query`, {
+    const res = await fetch(`${checkUrl('KUSTO_QUERY_URI', KUSTO_QUERY_URI)}/v1/rest/query`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${token}`,
@@ -50,10 +69,7 @@ udf.func(
   [udf.connection({ audienceType: AudienceType.Kusto })],
 );
 
-// ---- Foundry agent (Lab 10) ----
-// Real values from your Foundry project (Lab 10) – do not leave placeholders in a deployed app.
-const FOUNDRY_PROJECT_ENDPOINT = '<https://<resource>.services.ai.azure.com/api/projects/<project>>';
-const FOUNDRY_AGENT_NAME = 'rail-network-agent';
+// ---- Chat: forwards a question to the Foundry agent from Lab 10 ----
 
 udf.func(
   'askRailAgent',
@@ -64,7 +80,7 @@ udf.func(
 
     // TODO(verify): Foundry Responses API with an agent reference. Confirm the path and body shape
     // against https://ai.azure.com/api-reference/responses/ for your API version before relying on it.
-    const res = await fetch(`${FOUNDRY_PROJECT_ENDPOINT}/openai/v1/responses`, {
+    const res = await fetch(`${checkUrl('FOUNDRY_PROJECT_ENDPOINT', FOUNDRY_PROJECT_ENDPOINT)}/openai/v1/responses`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({

@@ -28,7 +28,7 @@ cp -r "$LAB_REPO"/app/rayfin-starter/packages/* packages/
 grep -rl "export.*getRayfinClient" packages/frontend/src
 #  3. packages/frontend/src/App.tsx: replace EmptyStatePreview (import and element) with RailApp
 
-npm run dev                            # generates function types; Ctrl+C when ready
+npx rayfin dev functions apply         # checks/installs Functions Core Tools, builds, generates types; Ctrl+C when ready
 npm run validate:functions && npm run typecheck && npm run build
 npm run rayfin:up
 ```
