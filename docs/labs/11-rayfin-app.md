@@ -104,7 +104,9 @@ npx rayfin login
 
 # 1b. Deploy the untouched template ONCE. This creates the App item and records it as the ACTIVE deployment in
 #     rayfin/.deployments.json – `rayfin dev functions apply` (step 5) refuses to run without one.
-npx rayfin up          # app workspace on another capacity? add --workspace-id <app-workspace-guid>
+#     Use the GUID of the workspace the app goes in (the part after /groups/ in its Fabric URL). A flag always wins over
+#     the name given at scaffold time, and once deployed the target is recorded, so later `rayfin up` runs need no flag.
+npx rayfin up --workspace-id <app-workspace-guid>
 
 # 2. Add the capabilities: functions (chat) and connectors (map)
 #    NOT `npx rayfin functions init` – that creates a second, unused functions project.
@@ -222,6 +224,7 @@ The details are in [`app/README.md`](../../app/README.md).
 | Map: *Map query failed (overflow)* | More than 5,000 rows or an unsafe number. Lower the look-back, or raise `resultSetRowCountLimit` in `loadSnapshot.ts` |
 | Map works locally but shows 0 trains | No movements in the look-back window, or the model's credentials expired. Check the Lab 10b checkpoint query |
 | `rayfin dev functions apply`: *No active deployment found. Run 'rayfin up' to deploy your Rayfin item first* | This project has no active deployment recorded in `rayfin/.deployments.json` (step 1b skipped, the file was deleted, or the project was re-scaffolded). Run `npx rayfin up list`. If your App item is listed, make it active: `npx rayfin up switch --workspace-id <workspace-guid>`. If nothing is listed, deploy once: `npx rayfin up --workspace-id <workspace-guid>` (it reuses the App item with the same name). If that fails while building the frontend, add `--exclude-services staticHosting`, run step 5, then a full `npx rayfin up` |
+| `rayfin up`: *Workspace "rail-fabric-rti" not found* | The project is pointing at a workspace name that doesn't exist (for example you deployed to an app workspace with another name, Lab 11 region workaround). Pass the target explicitly – flags win: `npx rayfin up --workspace-id <workspace-guid>` (or `--workspace "<exact name>"`, or `--workspace-uri <workspace URL>`). After one successful deploy it's recorded in `rayfin/.deployments.json`. To find where the old name is stored: `Select-String -Path package.json,rayfin\.env,rayfin\rayfin.yml -Pattern rail-fabric-rti` (bash: `grep -rn rail-fabric-rti package.json rayfin/`), and change it there. You can also set `RAYFIN_WORKSPACE_ID` in your shell |
 | `DeprecationWarning: [DEP0190] Passing args to a child process with shell option true` | A Node.js warning from inside the Rayfin CLI. Harmless – ignore it |
 | `npm run dev` says functions aren't installed | Run `npx rayfin dev functions apply` once from the project root (step 5). It checks/installs Azure Functions Core Tools, builds `packages/functions` and generates the types. Then `npm run dev` works |
 | `validate:functions` fails: *Generated AppFunctionsSchema is stale … "askRailAgent" … missing from types.ts* and *"helloWorld" remains* | `types.ts` was generated from the starter function and hasn't been regenerated since you copied in the rail functions – usually because an earlier `functions apply` failed to build (for example the TS1002 quote error) or was stopped too soon. Run `npx rayfin dev functions apply` again and leave it running until the `[typegen]` line appears and lists the rail functions; check `types.ts` as in step 5, then stop it. If `types.ts` still shows `helloWorld`, save `function_app.ts` once more while the session is running (the watcher regenerates on change), and read the diagnostic log path it prints. Never edit `types.ts` by hand |
