@@ -42,7 +42,7 @@
 |---|---|---|
 | Workspace **name** | The Fabric workspace the app is deployed to | `rail-fabric-rti` (or your app workspace) |
 | Semantic model **workspace ID** and **model ID** | `RailLiveMap` from Lab 10b | From its URL `…/groups/<workspace-id>/datasets/<model-id>/…`, or `npx rayfin connector search` (step 3) |
-| Foundry project endpoint, agent name | From Lab 10 | `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_AGENT_NAME` in the repo `.env` |
+| Foundry project endpoint, agent name | From Lab 10 (step 1.4) | `FOUNDRY_PROJECT_ENDPOINT`, `FOUNDRY_AGENT_NAME` in the repo `.env`. Not there? Foundry portal → your project → **Overview** → **Project endpoint** (`https://<resource>.services.ai.azure.com/api/projects/<project>`); the agent name is on the **Agents** page |
 
 ### Where to create the app
 

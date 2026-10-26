@@ -50,7 +50,13 @@ for the current list). Older models such as gpt-4.1-mini may work for quick ques
 3. **Models** (or *Model catalog*) → search **gpt-5.4** (or **gpt-5.5**) → **Deploy** → keep the default settings → **Deploy**.
    If it isn't offered, the project's region doesn't have it (see step 1). As a stop-gap, choose the newest GPT model
    listed and expect slower answers or timeouts on long questions.
-4. Note the **deployment name** (for example `gpt-5.4`). It goes in `FOUNDRY_MODEL_DEPLOYMENT_NAME` in `.env` for Option A.
+4. **Record three values in the repo `.env` now** – Option A and Lab 11 both need them:
+
+   | `.env` variable | Value | Where to find it |
+   |---|---|---|
+   | `FOUNDRY_PROJECT_ENDPOINT` | `https://<resource>.services.ai.azure.com/api/projects/<project>` | Foundry portal → your project → **Overview** (project home) → **Project endpoint** (copy button). Not the *Azure OpenAI* endpoint, and no trailing `/` |
+   | `FOUNDRY_MODEL_DEPLOYMENT_NAME` | e.g. `gpt-5.4` | The deployment name from step 3 |
+   | `FOUNDRY_AGENT_NAME` | `rail-network-agent` (classroom: your own name) | The name you give the agent in step 2 |
 
 ### 2. Create the agent
 
