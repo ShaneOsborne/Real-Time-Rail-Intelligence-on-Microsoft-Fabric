@@ -80,6 +80,8 @@ done
   * **Fabric Apps (preview)** (Lab 11): *Admin portal > Tenant settings > Fabric Apps (preview)* → **Enabled**, for the whole
     organisation or a security group that includes every lab user. Allow a few minutes to propagate. Check it worked: in the
     workspace, **+ New item** should list **App (preview)**.
+  * **Semantic Model Execute Queries REST API** (*Integration settings*; Labs 10b and 11): the app's map sends DAX to a semantic
+    model through it. Usually on by default.
   * Service principals can use Fabric APIs (only if you'll run the scripts as a service principal).
 * Capacity region: keep the data agent and its data sources on capacities in the **same region**.
 * **Capacity region for Lab 11 (Rayfin app).** Fabric Apps (preview) isn't available in every Fabric region. Even with the

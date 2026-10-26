@@ -14,9 +14,9 @@
 
 | You are… | Follow | Labs |
 |---|---|---|
-| **Solo builder** – your own NROD/RDM accounts, Azure and Fabric | The labs in order | 00 → 01 → 02 → 03 → 04 (→ 04b) → 05a → 05b (→ 05c) → 06 → 07 → 08 → 09 → 10 → 11 → 12 |
+| **Solo builder** – your own NROD/RDM accounts, Azure and Fabric | The labs in order | 00 → 01 → 02 → 03 → 04 (→ 04b) → 05a → 05b (→ 05c) → 06 → 07 → 08 → 09 → 10 → 10b → 11 → 12 |
 | **Instructor** – setting up a class | [Instructor guide](../instructor-guide.md) | 01, 02, 03, 05a, 05b, 05c (instructor parts) before the class |
-| **Classroom student** – the instructor gives you a handout | [Student guide](../student-guide.md) | 00 → 01 (student section) → 02 → 03 (Option C) → **05c (student steps)** → 06 → 07 → 08 → 09 → 10 → 11 → 12. **Skip 04, 04b, 05a, 05b** |
+| **Classroom student** – the instructor gives you a handout | [Student guide](../student-guide.md) | 00 → 01 (student section) → 02 → 03 (Option C) → **05c (student steps)** → 06 → 07 → 08 → 09 → 10 → 10b → 11 → 12. **Skip 04, 04b, 05a, 05b** |
 
 Every lab starts with a **Path** line that says whether, and how, it applies to you.
 
@@ -97,7 +97,7 @@ See the table in the [README](../../README.md#what-is-automated-and-what-is-manu
 ## Preview caveats
 
 * The **Fabric data agent tool in Foundry** is preview. It supports **user identity (On-Behalf-Of) only**, not service principals. It needs a paid **F2+** capacity, the same tenant and the same capacity region for the data agent and its sources, and cross-geo processing/storage tenant settings where needed.
-* **Fabric Apps / Rayfin** is preview. New Kusto connectors can't be added in Rayfin 1.36.2, so Lab 11 reads the Eventhouse through a Rayfin function; functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
+* **Fabric Apps / Rayfin** is preview. Rayfin 1.36.2 can't query a KQL database (no Kusto connector or token), so Lab 11's map reads a DirectQuery semantic model over `RailKQL` (Lab 10b) through the preview `fabric-semanticmodel` connector; the chat uses a Rayfin function, and functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
 * **RDM NWR Train Movements** is beta with no SLA.
 * The **Lakehouse Load Table** REST API is preview.
 

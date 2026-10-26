@@ -28,6 +28,7 @@ Follow these in order. Each lab page also has a **Path** line that says what to 
 | 8 | [08 Dashboard and Power BI](labs/08-dashboard-powerbi.md) | All | – |
 | 9 | [09 Fabric data agent](labs/09-fabric-data-agent.md) | All | – |
 | 10 | [10 Foundry agent](labs/10-foundry-agent.md) | All, in the **shared** Foundry project, with **your own** agent name | Creating a Foundry project |
+| 10b | [10b Live semantic model](labs/10b-live-semantic-model.md) | Before Lab 11: your own `RailLiveMap` model | – |
 | 11 | [11 Rayfin app](labs/11-rayfin-app.md) | If your instructor says Fabric Apps works in your region | – |
 | 12 | [12 Clean-up](labs/12-cleanup.md#classroom-students) | The *Classroom students* section only | Deleting Azure resources |
 

@@ -1,75 +1,46 @@
 // Lab 11 – Rayfin functions for the rail app.
 // COPY this file over packages/functions/src/function_app.ts (created by `npm run pack:add -- functions` in the default
-// template) – it replaces the starter function. Then set the four constants below. types.ts is regenerated from this file; don't edit it.
+// template) – it replaces the starter function. Then set the two values below. types.ts is regenerated from this file; don't edit it.
 // Pattern: https://rayfin.ai/docs/functions/writing-functions and https://rayfin.ai/docs/functions/connections
 // Functions aren't available in every Fabric region or tenant.
 import { UserDataFunctions, AudienceType, type RayfinContext } from '@microsoft/fabric-user-data-functions';
 
-// ================= SET THESE FOUR VALUES (no placeholders in a deployed app) =================
-// Eventhouse: RailKQL > Overview > Query URI (also KUSTO_QUERY_URI in the lab repo .env). No trailing slash.
-const KUSTO_QUERY_URI = '<https://<id>.<region>.kusto.fabric.microsoft.com>';
-// The KQL database NAME (FABRIC_KQL_DATABASE_NAME in the lab repo .env).
-const KQL_DATABASE = 'RailKQL';
-// Foundry project endpoint from Lab 10 (FOUNDRY_PROJECT_ENDPOINT in the lab repo .env).
-const FOUNDRY_PROJECT_ENDPOINT = '<https://<resource>.services.ai.azure.com/api/projects/<project>>';
+// ================= SET THESE TWO VALUES (no placeholders in a deployed app) =================
+// Replace ONLY the text between the single quotes, and keep both quotes and the semicolon.
+// (The map doesn't use a function: it reads the Lab 10b semantic model through a connector – see the frontend.)
+// Foundry project endpoint from Lab 10 (FOUNDRY_PROJECT_ENDPOINT in the lab repo .env), e.g.
+//   'https://my-foundry.services.ai.azure.com/api/projects/my-project'
+const FOUNDRY_PROJECT_ENDPOINT = 'PASTE-FOUNDRY-PROJECT-ENDPOINT-HERE';
 // Foundry agent name from Lab 10 (FOUNDRY_AGENT_NAME in the lab repo .env).
 const FOUNDRY_AGENT_NAME = 'rail-network-agent';
 // =============================================================================================
 
+// Fails with a clear message (shown in the app) if a value above wasn't set properly.
+function checkUrl(name: string, value: string): string {
+  if (!/^https:\/\/[^\s'"<>]+$/.test(value) || value.includes('PASTE-')) {
+    throw new Error(`${name} isn't set. Edit the "SET THESE TWO VALUES" block in packages/functions/src/function_app.ts`);
+  }
+  return value.replace(/\/+$/, ''); // tolerate a trailing slash
+}
+
 const udf = new UserDataFunctions();
 
-type Row = Record<string, string | number | boolean | null>;
-
-// Map data for the frontend. Runs a FIXED query (only the look-back window comes from the caller, and it's validated),
-// so users can't send arbitrary KQL. Rayfin 1.36 docs say DEPLOYED functions use the app identity, so grant the app
-// (the App item, e.g. rail-app) Viewer on RailKQL; locally (npm run dev) it runs as you.
-udf.func(
-  'getNetworkSnapshot',
-  async (ctx: RayfinContext, lookbackMinutes: number): Promise<Row[]> => {
-    const minutes = Math.round(Number(lookbackMinutes));
-    if (!Number.isFinite(minutes) || minutes < 5 || minutes > 240) {
-      throw new Error('lookbackMinutes must be between 5 and 240');
-    }
-    const token = ctx.getToken(AudienceType.Kusto);
-    // Kusto REST API v1 query endpoint (returns { Tables: [{ TableName, Columns, Rows }] }).
-    const res = await fetch(`${KUSTO_QUERY_URI}/v1/rest/query`, {
-      method: 'POST',
-      headers: {
-        Authorization: `Bearer ${token}`,
-        'Content-Type': 'application/json; charset=utf-8',
-        Accept: 'application/json',
-        'x-ms-client-request-id': `rail-app;${crypto.randomUUID()}`,
-      },
-      body: JSON.stringify({ db: KQL_DATABASE, csl: `NetworkSnapshot(${minutes}m) | take 2000` }),
-    });
-    if (!res.ok) {
-      console.error('Kusto query failed', res.status, await res.text());
-      throw new Error(`Eventhouse query failed with HTTP ${res.status}`);
-    }
-    const body = (await res.json()) as {
-      Tables?: Array<{ Columns: Array<{ ColumnName: string }>; Rows: unknown[][] }>;
-    };
-    const table = body.Tables?.[0];
-    if (!table) return [];
-    return table.Rows.map((row) =>
-      Object.fromEntries(table.Columns.map((c, i) => [c.ColumnName, row[i] as Row[string]])),
-    );
-  },
-  [udf.connection({ audienceType: AudienceType.Kusto })],
-);
+// This app has no Rayfin data entities, so the data schema is empty (pattern from the Rayfin connections docs).
+export type RailSchema = Record<string, never>;
 
 // ---- Chat: forwards a question to the Foundry agent from Lab 10 ----
 
 udf.func(
   'askRailAgent',
-  async (ctx: RayfinContext, question: string): Promise<string> => {
-    // On-behalf-of token for Azure AI Foundry as the signed-in user (the Fabric data agent
-    // tool in Foundry also requires user identity – service principals are not supported).
-    const token = ctx.getToken(AudienceType.AzureAI);
+  // Rayfin 1.36: the audience is declared in the context type and the token read from ctx.Tokens.
+  // Deployed, the token is for the Fabric app identity (the owner of the App item); locally it's the account you signed in with.
+  // Grant that identity the Foundry User role on the Foundry project. The Fabric data agent tool needs a USER identity.
+  async (ctx: RayfinContext<RailSchema, AudienceType.AzureAI>, question: string): Promise<string> => {
+    const token = ctx.Tokens.AzureAI;
 
     // TODO(verify): Foundry Responses API with an agent reference. Confirm the path and body shape
     // against https://ai.azure.com/api-reference/responses/ for your API version before relying on it.
-    const res = await fetch(`${FOUNDRY_PROJECT_ENDPOINT}/openai/v1/responses`, {
+    const res = await fetch(`${checkUrl('FOUNDRY_PROJECT_ENDPOINT', FOUNDRY_PROJECT_ENDPOINT)}/openai/v1/responses`, {
       method: 'POST',
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -87,5 +58,5 @@ udf.func(
     const text = (body.output ?? []).flatMap((o) => o.content ?? []).map((c) => c.text ?? '').join('\n').trim();
     return text || 'The agent returned no text.';
   },
-  [udf.connection({ audienceType: AudienceType.AzureAI })],
+  [],
 );

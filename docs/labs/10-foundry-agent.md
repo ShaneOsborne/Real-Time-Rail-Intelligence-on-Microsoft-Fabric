@@ -1,6 +1,6 @@
 # Lab 10 – Azure AI Foundry agent with the Fabric data agent tool
 
-**Time:** 30 minutes · **Previous:** [Lab 09](09-fabric-data-agent.md) · **Next:** [Lab 11](11-rayfin-app.md)
+**Time:** 30 minutes · **Previous:** [Lab 09](09-fabric-data-agent.md) · **Next:** [Lab 10b](10b-live-semantic-model.md)
 
 > **Path:** Everyone. Classroom students use the instructor's shared Foundry project and their **own** `FOUNDRY_AGENT_NAME` (for example `rail-network-agent-student07`).
 

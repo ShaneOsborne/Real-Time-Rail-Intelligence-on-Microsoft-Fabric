@@ -33,7 +33,7 @@ docker compose -f src/bridge/docker-compose.yml down     # if the bridge is runn
    resource group, delete it with `az eventhubs namespace delete -g <rg> -n <namespace>`. Students should delete their Event Hubs sources
    (or the whole workspace) too, and the instructor should rotate the `students-listen` key if the namespace is kept.
    Key Vault is soft-deleted for 7 days. Purge it with `az keyvault purge -n <name>` if you want to reuse the name.
-2. **Fabric**: delete the Rayfin app, data agent, Activator `RailAlerts`, dashboards, Eventstreams (stopping the Kafka consumer),
+2. **Fabric**: delete the Rayfin app, the `RailLiveMap` semantic model (Lab 10b), data agent, Activator `RailAlerts`, dashboards, Eventstreams (stopping the Kafka consumer),
    Eventhouse, Lakehouse and notebook. Or delete the whole workspace.
 3. **Capacity**: first **deactivate** any Eventstreams you're keeping (Eventstream → **Deactivate all**), so they stop
    consuming capacity. If you scaled the capacity up for a class or a back-fill, **scale it back down**. Then **pause**
