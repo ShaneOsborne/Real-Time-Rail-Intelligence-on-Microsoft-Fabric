@@ -102,6 +102,10 @@ npm create @microsoft/rayfin@latest -- rail-app --workspace rail-fabric-rti
 cd rail-app
 npx rayfin login
 
+# 1b. Deploy the untouched template ONCE. This creates the App item and records it as the ACTIVE deployment in
+#     rayfin/.deployments.json – `rayfin dev functions apply` (step 5) refuses to run without one.
+npx rayfin up          # app workspace on another capacity? add --workspace-id <app-workspace-guid>
+
 # 2. Add the capabilities: functions (chat) and connectors (map)
 #    NOT `npx rayfin functions init` – that creates a second, unused functions project.
 npm run pack:add -- functions
@@ -136,7 +140,7 @@ grep -rl "export.*getRayfinClient" packages/frontend/src
 # 5. Set up the local functions host and generate the function types
 npx rayfin dev functions apply
 #    Checks Node.js and Azure Functions Core Tools (offers to install Core Tools if missing), builds packages/functions,
-#    generates packages/functions/src/types.ts and starts the local functions host. Needs the earlier `rayfin up`.
+#    generates packages/functions/src/types.ts and starts the local functions host. Needs the step 1b `rayfin up`.
 #    Leave it running until it prints a [typegen] line AND the function URL for askRailAgent
 #    (not helloWorld). Then, in a SECOND terminal, check the generated types before you stop it:
 #      bash:        grep -E "askRailAgent|helloWorld" packages/functions/src/types.ts
@@ -217,6 +221,8 @@ The details are in [`app/README.md`](../../app/README.md).
 | Map: *Map query failed (query)* … `TrainPositions` / column not found | The model's table or column names differ. Set `MODEL_TABLE` in `loadSnapshot.ts`, and check the columns match `NetworkSnapshot()` (Lab 10b) |
 | Map: *Map query failed (overflow)* | More than 5,000 rows or an unsafe number. Lower the look-back, or raise `resultSetRowCountLimit` in `loadSnapshot.ts` |
 | Map works locally but shows 0 trains | No movements in the look-back window, or the model's credentials expired. Check the Lab 10b checkpoint query |
+| `rayfin dev functions apply`: *No active deployment found. Run 'rayfin up' to deploy your Rayfin item first* | This project has no active deployment recorded in `rayfin/.deployments.json` (step 1b skipped, the file was deleted, or the project was re-scaffolded). Run `npx rayfin up list`. If your App item is listed, make it active: `npx rayfin up switch --workspace-id <workspace-guid>`. If nothing is listed, deploy once: `npx rayfin up --workspace-id <workspace-guid>` (it reuses the App item with the same name). If that fails while building the frontend, add `--exclude-services staticHosting`, run step 5, then a full `npx rayfin up` |
+| `DeprecationWarning: [DEP0190] Passing args to a child process with shell option true` | A Node.js warning from inside the Rayfin CLI. Harmless – ignore it |
 | `npm run dev` says functions aren't installed | Run `npx rayfin dev functions apply` once from the project root (step 5). It checks/installs Azure Functions Core Tools, builds `packages/functions` and generates the types. Then `npm run dev` works |
 | `validate:functions` fails: *Generated AppFunctionsSchema is stale … "askRailAgent" … missing from types.ts* and *"helloWorld" remains* | `types.ts` was generated from the starter function and hasn't been regenerated since you copied in the rail functions – usually because an earlier `functions apply` failed to build (for example the TS1002 quote error) or was stopped too soon. Run `npx rayfin dev functions apply` again and leave it running until the `[typegen]` line appears and lists the rail functions; check `types.ts` as in step 5, then stop it. If `types.ts` still shows `helloWorld`, save `function_app.ts` once more while the session is running (the watcher regenerates on change), and read the diagnostic log path it prints. Never edit `types.ts` by hand |
 | `functions.askRailAgent` isn't typed in the frontend | Same cause as above: regenerate `types.ts` with `npx rayfin dev functions apply`, then `npm run typecheck` |
