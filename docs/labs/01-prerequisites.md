@@ -95,6 +95,14 @@ done
 
 * A Foundry project in the **same tenant** as Fabric, with a model deployment that supports **background mode** – Microsoft
   recommends **gpt-5.4** or **gpt-5.5** for the Fabric IQ tool at the time of writing (Lab 10 shows how to deploy it).
+* **Check the model is available in your region BEFORE you create the Foundry resource and project.** A project can only
+  deploy the models offered in its resource's region, and you can't move it later. Open
+  [Azure OpenAI Model Regional Availability](https://model-availability.azurewebsites.net/), find **gpt-5.4** and
+  **gpt-5.5**, and pick a region with a ✅ for at least one of them. Not every UK region has them – for example, gpt models
+  weren't available in **UK West** when this lab was tested. Regions such as Sweden Central and East US 2 usually get new
+  models first. The site updates frequently, so check on the day.
+  * If you already have a project in a region without them, create a new Foundry resource and project in a region that has
+    them. Fabric can stay where it is (the Fabric IQ tool works across regions; see the data residency note in Lab 10).
 * You and your end users need the **Foundry User** RBAC role (formerly *Azure AI User*). Whoever adds the **Fabric IQ
   (OneLake Catalog)** tool needs **Foundry Project Manager** (it creates a project connection).
 
@@ -128,6 +136,7 @@ az login
 - [ ] `az account show` returns the right subscription
 - [ ] You can create items in a Fabric workspace on a capacity sized for your scenario (F2 minimum) or a trial
 - [ ] The Capacity Metrics app is installed and shows your capacity
+- [ ] (Lab 10) Your Foundry project is in a region where **gpt-5.4 or gpt-5.5** is available ([model availability](https://model-availability.azurewebsites.net/))
 - [ ] (Lab 11 only) **+ New item → App (preview)** is listed in a workspace on a capacity you can use (tenant setting on **and** a supported region)
 - [ ] `python --version` is 3.11+, `node --version` is 20+, and `docker compose version` works (optional)
 

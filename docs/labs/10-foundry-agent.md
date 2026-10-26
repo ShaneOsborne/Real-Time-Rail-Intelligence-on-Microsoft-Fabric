@@ -42,10 +42,15 @@ for the current list). Older models such as gpt-4.1-mini may work for quick ques
 
 ### 1. Deploy the recommended model (once per project)
 
-1. In the [Foundry portal](https://ai.azure.com), open **your project** (the one from Lab 01 – check the project name at the top).
-2. **Models** (or *Model catalog*) → search **gpt-5.4** (or **gpt-5.5**) → **Deploy** → keep the default settings → **Deploy**.
-   If it's not offered, your region doesn't have it yet; choose the newest GPT model listed and expect slower answers.
-3. Note the **deployment name** (for example `gpt-5.4`). It goes in `FOUNDRY_MODEL_DEPLOYMENT_NAME` in `.env` for Option A.
+1. **Check the region first.** Your project's region must offer **gpt-5.4** or **gpt-5.5**: look it up on
+   [Azure OpenAI Model Regional Availability](https://model-availability.azurewebsites.net/) (Lab 01, §5). For example, gpt
+   models weren't available in **UK West** when this lab was tested. If your project's region doesn't have them, create a new
+   Foundry resource and project in a region that does **before** going further – a project can't change region.
+2. In the [Foundry portal](https://ai.azure.com), open **your project** (the one from Lab 01 – check the project name at the top).
+3. **Models** (or *Model catalog*) → search **gpt-5.4** (or **gpt-5.5**) → **Deploy** → keep the default settings → **Deploy**.
+   If it isn't offered, the project's region doesn't have it (see step 1). As a stop-gap, choose the newest GPT model
+   listed and expect slower answers or timeouts on long questions.
+4. Note the **deployment name** (for example `gpt-5.4`). It goes in `FOUNDRY_MODEL_DEPLOYMENT_NAME` in `.env` for Option A.
 
 ### 2. Create the agent
 
@@ -131,6 +136,7 @@ Your Fabric data agent doesn't change.
 
 | Error | Fix |
 |---|---|
+| gpt-5.4 / gpt-5.5 isn't in the model catalog, or deployment fails with *not available in this region* | The project's region doesn't offer it. Check [model availability](https://model-availability.azurewebsites.net/), then create a new Foundry resource and project in a listed region (UK West didn't have them when tested) |
 | `Rail Network Analyst` isn't in the OneLake Catalog | Publish it in Fabric (Lab 09), and check it's shared with you. Refresh the catalog |
 | You can't add the Fabric IQ tool / connection creation is denied | You need **Foundry Project Manager** on the project. Ask the project owner (or instructor) |
 | Agent created in the wrong project, without your model | Create it again and set the **project** in the extra options of the create screen |
