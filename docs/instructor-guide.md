@@ -26,7 +26,7 @@ accounts, or an Azure subscription.
 | **Size and buy the Fabric capacity** | [Capacity planning](capacity-planning.md#classrooms-and-shared-capacities) | ~1.5–2 CU per student (10 students ≈ F16–F32). The Foundry tool (Lab 10) needs a **paid** F2+ |
 | **Tenant settings** (Fabric admin) | [Lab 01 §4](labs/01-prerequisites.md#4-microsoft-fabric) | Create Fabric items, data agent / Copilot, cross-geo AI settings, Fabric Apps (preview). Enable them for a security group that contains every student |
 | **Check Fabric Apps works in your capacity's region** | [Lab 01 §4](labs/01-prerequisites.md#4-microsoft-fabric) | **+ New item → App (preview)**. If it isn't listed, plan the [Lab 11 workaround](labs/11-rayfin-app.md#if-app-preview-isnt-available-in-your-region), run Lab 11 as a demo, or drop it |
-| **Foundry project** with a model deployment | [Lab 01 §5](labs/01-prerequisites.md#5-azure-ai-foundry-lab-10) | One shared project. Give every student the **Foundry User** role |
+| **Foundry project** with a **gpt-5.4 / gpt-5.5** deployment (background mode) | [Lab 01 §5](labs/01-prerequisites.md#5-azure-ai-foundry-lab-10), [Lab 10 step 1](labs/10-foundry-agent.md#1-deploy-the-recommended-model-once-per-project) | One shared project. Give every student **Foundry User**. Adding the **Fabric IQ** tool creates a project connection and needs **Foundry Project Manager**: either give students that role, or add the tool for each student's data agent yourself |
 | Student accounts | Entra ID | Each student needs a Fabric licence, and to be in the security groups above |
 
 ## 2. The day before
@@ -69,7 +69,7 @@ Send each student their own copy, **privately** (not in a repo, Teams channel or
 | Key name and key | `students-listen` / `…` | `create-eventhub` output (Listen only) |
 | **Their** consumer group | `student07` | Step 2.5 |
 | Reference Lakehouse | workspace `rail-instructor` → `RailLakehouse` → `Tables/locations` | Step 2.3 |
-| Foundry project endpoint and model deployment | `https://…/api/projects/…`, `gpt-4.1-mini` | Foundry portal |
+| Foundry project endpoint and model deployment | `https://…/api/projects/…`, `gpt-5.4` | Foundry portal |
 | Their agent name | `rail-network-agent-student07` | Lab 10 (unique per student in the shared project) |
 
 ## 4. During the class

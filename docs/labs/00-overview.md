@@ -96,7 +96,7 @@ See the table in the [README](../../README.md#what-is-automated-and-what-is-manu
 
 ## Preview caveats
 
-* The **Fabric data agent tool in Foundry** is preview. It supports **user identity (On-Behalf-Of) only**, not service principals. It needs a paid **F2+** capacity, the same tenant and the same capacity region for the data agent and its sources, and cross-geo processing/storage tenant settings where needed.
+* Lab 10 uses the **Fabric IQ (OneLake Catalog)** tool in Foundry (preview). The older Fabric data agent tool stops being supported on **6 November 2026**. Use a background-mode model (gpt-5.4/5.5 recommended). Calls run as the signed-in user. It needs a paid **F2+** capacity, the same tenant and the same capacity region for the data agent and its sources, and cross-geo processing/storage tenant settings where needed.
 * **Fabric Apps / Rayfin** is preview. Rayfin 1.36.2 can't query a KQL database (no Kusto connector or token), so Lab 11's map reads a DirectQuery semantic model over `RailKQL` (Lab 10b) through the preview `fabric-semanticmodel` connector; the chat uses a Rayfin function, and functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
 * **RDM NWR Train Movements** is beta with no SLA.
 * The **Lakehouse Load Table** REST API is preview.

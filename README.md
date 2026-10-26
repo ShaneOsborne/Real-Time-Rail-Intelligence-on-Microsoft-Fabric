@@ -53,7 +53,7 @@ flowchart LR
     APP["Rayfin app<br/>map + chat"]
   end
 
-  FOUNDRY["Azure AI Foundry agent<br/>+ Fabric data agent tool (preview)"]
+  FOUNDRY["Azure AI Foundry agent<br/>+ Fabric IQ tool (preview)"]
 
   subgraph Shared["Optional shared tier (Lab 05c)"]
     EHNS[("Azure Event Hubs Standard<br/>nrod-feed · rdm-trust<br/>7-day retention<br/>1 consumer group per student")]
@@ -107,7 +107,7 @@ flowchart LR
 | [07](docs/labs/07-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) | ✅ |
 | [08](docs/labs/08-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) | ✅ |
 | [09](docs/labs/09-fabric-data-agent.md) | Fabric data agent (instructions and example queries) | 30 min | Manual (content supplied) | ✅ |
-| [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric data agent tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) | ✅ (shared project) |
+| [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric IQ (OneLake Catalog) tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) | ✅ (shared project) |
 | [10b](docs/labs/10b-live-semantic-model.md) | Live semantic model (DirectQuery over `NetworkSnapshot`) for the app map | 25 min | Manual (Power BI Desktop) | If doing Lab 11 |
 | [11](docs/labs/11-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code | If region supports it |
 | [12](docs/labs/12-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` | Student section only |
@@ -213,7 +213,7 @@ For Fabric capacity sizing (estimates per Eventstream, sizing by scenario, class
 
 ## Preview and experimental features
 
-* Fabric data agent tool in Azure AI Foundry: **preview**. User identity (OBO) only, no service principals, and one data agent for each Foundry agent in this design.
+* Fabric IQ (OneLake Catalog) tool in Azure AI Foundry: **preview**. It replaces the Fabric data agent tool, which stops being supported on **6 November 2026**. Calls run as the signed-in user; use a background-mode model (gpt-5.4/5.5 recommended).
 * Fabric Apps / Rayfin: **preview**. Rayfin 1.36.2 can't query a KQL database (no Kusto connector or token), so Lab 11's map reads a DirectQuery semantic model over `RailKQL` (Lab 10b) through the preview `fabric-semanticmodel` connector; the chat uses a Rayfin function, and functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
 * RDM "NWR Train Movements" is a **beta** product with no SLA.
 * Lakehouse "Load Table" REST API: **preview**.

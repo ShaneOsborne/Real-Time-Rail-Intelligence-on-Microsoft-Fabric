@@ -1,0 +1,15 @@
+{
+  "type": "Microsoft.MachineLearningServices/workspaces/connections",
+  "properties": {
+    "authType": "UserEntraToken",
+    "group": "AzureAI",
+    "category": "RemoteTool",
+    "target": "https://api.fabric.microsoft.com/v1/mcp/workspaces/<workspace-id>/dataagents/<data-agent-id>/agent",
+    "audience": "https://api.fabric.microsoft.com/.default",
+    "isSharedToAll": true,
+    "sharedUserList": [],
+    "UseCustomConnector": false,
+    "Credentials": { "ClientId": "fake" },
+    "metadata": { "ApiType": "Azure" }
+  }
+}

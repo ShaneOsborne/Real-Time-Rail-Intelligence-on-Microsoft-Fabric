@@ -48,13 +48,16 @@ Not available in this repo. Create the data agent in the portal. All the content
    * "How many cancellations in the last hour, by reason?"
    * "Show the latest departures and arrivals at Leeds." – expect a table with time, arrival/departure, headcode, origin and
      on-time status. Blank platform or origin values are normal (see Troubleshooting).
-8. **Publish**. Note the URL, `…/groups/<workspace_id>/aiskills/<artifact_id>…`. Lab 10 needs both GUIDs.
+8. **Publish**, with a clear **description**, for example: *Answers questions about live GB train movements, delays,
+   cancellations, operator performance and station boards from the RailKQL Eventhouse (TRUST open data).* Lab 10's Foundry
+   agent finds it in the OneLake Catalog and uses the description to decide when to call it. For Lab 10 Option A, note the
+   **MCP server URL** under *Settings → Model Context Protocol*.
 9. **Share** the data agent (Read) with the people who'll use the Foundry agent or Rayfin app. They also need the **Reader** role on the KQL database.
 
 ## Checkpoint
 
 - [ ] Answers come with KQL that uses the views and functions (expand *Show steps*)
-- [ ] The agent is published, and you have the workspace and artifact IDs
+- [ ] The agent is published with a description, and (for Lab 10 Option A) you have its MCP server URL
 
 ## Troubleshooting
 

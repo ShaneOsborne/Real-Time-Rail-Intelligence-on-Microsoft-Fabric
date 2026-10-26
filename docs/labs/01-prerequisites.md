@@ -53,8 +53,6 @@ Instructors: see the [Instructor guide](../instructor-guide.md) for the class se
 * An Azure subscription with permission to create resource groups and role assignments (Owner, or Contributor plus User Access Administrator), so Bicep can grant Key Vault and ACR roles.
 * Resource providers registered: `Microsoft.App`, `Microsoft.OperationalInsights`, `Microsoft.KeyVault`, `Microsoft.ContainerRegistry` and `Microsoft.ManagedIdentity`.
 
-Run the following command within the 'Cloud Shell' in the Azure Portal to ensure all providers are available 
-
 ```bash
 for p in Microsoft.App Microsoft.OperationalInsights Microsoft.KeyVault Microsoft.ContainerRegistry Microsoft.ManagedIdentity; do
   az provider register -n $p
@@ -95,8 +93,10 @@ done
 
 ## 5. Azure AI Foundry (Lab 10)
 
-* A Foundry project in the **same tenant** as Fabric, with a model deployment (for example `gpt-4.1-mini`).
-* You and your end users need the **Foundry User** RBAC role (formerly *Azure AI User*).
+* A Foundry project in the **same tenant** as Fabric, with a model deployment that supports **background mode** – Microsoft
+  recommends **gpt-5.4** or **gpt-5.5** for the Fabric IQ tool at the time of writing (Lab 10 shows how to deploy it).
+* You and your end users need the **Foundry User** RBAC role (formerly *Azure AI User*). Whoever adds the **Fabric IQ
+  (OneLake Catalog)** tool needs **Foundry Project Manager** (it creates a project connection).
 
 ## 6. Tools on your machine
 
@@ -120,22 +120,6 @@ cd rail-fabric-rti
 cp .env.example .env     # then edit .env
 az login
 ```
-
-## 8. Edit the initial values within .env
-
-Check the default values within the .env file, we will modify some of these later as we go through the labs but for the moment ensure the following are populated
-
-Section : Network Rail Open Data (NROD)
-- NROD_USERNAME
-- NROD_PASSWORD
-- NROD_CLIENT_ID
-
-Section : Rail Data Marketplace (RDM) Kafka
-- RDM_KAFKA_BOOTSTRAP_SERVERS
-- RDM_KAFKA_TOPIC (Ensure you enter the JSON topic)
-- RDM_KAFKA_CONSUMER_GROUP
-- RDM_KAFKA_USERNAME
-- RDM_KAFKA_PASSWORD
 
 ## Checkpoint
 

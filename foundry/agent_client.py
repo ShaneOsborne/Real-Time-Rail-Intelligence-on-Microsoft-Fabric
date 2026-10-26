@@ -1,20 +1,22 @@
-"""Lab 10: create (optionally) and chat with a Foundry prompt agent that uses the
-Microsoft Fabric data agent tool (preview).
+"""Lab 10: create (optionally) and chat with a Foundry prompt agent that calls the Fabric data agent
+"Rail Network Analyst" through the Fabric IQ (OneLake Catalog) tool (preview).
 
-Based on the documented Python sample:
-https://learn.microsoft.com/azure/foundry/agents/how-to/tools/fabric
+The older Microsoft Fabric data agent tool (MicrosoftFabricPreviewTool / fabric_dataagent_preview) stops
+being supported on 6 November 2026; this script uses its replacement, FabricIQPreviewTool.
+Docs: https://learn.microsoft.com/azure/foundry/agents/how-to/tools/fabric-iq
 
 Prerequisites
-* `az login` as a USER (the Fabric tool uses identity passthrough / On-Behalf-Of;
-  service principals are not supported).
-* Env vars (or .env): FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_MODEL_DEPLOYMENT_NAME,
-  FABRIC_PROJECT_CONNECTION_ID (or --connection-name), FOUNDRY_AGENT_NAME.
+* `az login` as a USER: the connection uses UserEntraToken, so the data agent runs as the signed-in user.
+* pip install -r foundry/requirements.txt   (azure-ai-projects >= 2.2.0)
+* Env vars (or .env): FOUNDRY_PROJECT_ENDPOINT, FOUNDRY_MODEL_DEPLOYMENT_NAME (e.g. gpt-5.4),
+  FABRIC_IQ_PROJECT_CONNECTION_ID (full resource ID; or --connection-name), FOUNDRY_AGENT_NAME.
 
 Usage
     python foundry/agent_client.py --create              # create a new agent version, then chat
     python foundry/agent_client.py                       # chat with the existing agent
     python foundry/agent_client.py --ask "Which trains are 15+ minutes late?"
     python foundry/agent_client.py --create --delete-after
+    python foundry/agent_client.py --no-background       # if your model doesn't support background mode
 """
 
 from __future__ import annotations
@@ -22,15 +24,19 @@ from __future__ import annotations
 import argparse
 import os
 import sys
+import time
 from pathlib import Path
 
 REPO = Path(__file__).resolve().parents[1]
 
-INSTRUCTIONS = """You are the Rail Network Assistant for Great Britain's railway.
-For ANY question about trains, delays, cancellations, stations, operators or punctuality, use the
-Microsoft Fabric tool - never guess numbers. State the time window used and keep answers short
-(one-sentence summary plus a small table). The data is near-real-time open data and not official;
-say so when users ask for authoritative figures."""
+DATA_AGENT_NAME = "Rail Network Analyst"
+
+INSTRUCTIONS = f"""You are the Rail Network Assistant for Great Britain's railway.
+For ANY question about trains, delays, cancellations, stations, operators or punctuality, use the Fabric IQ tool for the
+'{DATA_AGENT_NAME}' data agent - never guess numbers. It answers from live TRUST train-movement data in the RailKQL
+Eventhouse (latest positions, delays, cancellations, operator performance, station boards).
+State the time window used and keep answers short (one-sentence summary plus a small table). The data is
+near-real-time open data and not official; say so when users ask for authoritative figures."""
 
 
 def load_dotenv() -> None:
@@ -46,10 +52,12 @@ def load_dotenv() -> None:
 def main() -> int:
     load_dotenv()
     p = argparse.ArgumentParser()
-    p.add_argument("--create", action="store_true", help="Create a new agent version with the Fabric tool")
-    p.add_argument("--connection-name", help="Foundry project connection NAME (alternative to FABRIC_PROJECT_CONNECTION_ID)")
+    p.add_argument("--create", action="store_true", help="Create a new agent version with the Fabric IQ tool")
+    p.add_argument("--connection-name", help="Foundry project connection NAME (alternative to FABRIC_IQ_PROJECT_CONNECTION_ID)")
     p.add_argument("--ask", help="Ask one question and exit")
     p.add_argument("--delete-after", action="store_true", help="Delete the created agent version on exit")
+    p.add_argument("--no-background", action="store_true", help="Don't use background mode (for models without it)")
+    p.add_argument("--timeout", type=int, default=300, help="Seconds to wait for a background answer (default 300)")
     a = p.parse_args()
 
     endpoint = os.getenv("FOUNDRY_PROJECT_ENDPOINT")
@@ -65,40 +73,44 @@ def main() -> int:
 
     created = None
     if a.create:
-        from azure.ai.projects.models import (
-            FabricDataAgentToolParameters,
-            MicrosoftFabricPreviewTool,
-            PromptAgentDefinition,
-            ToolProjectConnection,
-        )
+        from azure.ai.projects.models import FabricIQPreviewTool, PromptAgentDefinition
 
         model = os.getenv("FOUNDRY_MODEL_DEPLOYMENT_NAME")
-        conn_id = os.getenv("FABRIC_PROJECT_CONNECTION_ID")
+        conn_id = os.getenv("FABRIC_IQ_PROJECT_CONNECTION_ID")
         if a.connection_name:
             conn_id = project.connections.get(a.connection_name).id
         if not model or not conn_id:
-            print("ERROR: FOUNDRY_MODEL_DEPLOYMENT_NAME and FABRIC_PROJECT_CONNECTION_ID (or --connection-name) required", file=sys.stderr)
+            print("ERROR: FOUNDRY_MODEL_DEPLOYMENT_NAME and FABRIC_IQ_PROJECT_CONNECTION_ID (or --connection-name) required",
+                  file=sys.stderr)
             return 2
         created = project.agents.create_version(
             agent_name=agent_name,
             definition=PromptAgentDefinition(
                 model=model,
                 instructions=INSTRUCTIONS,
-                tools=[
-                    MicrosoftFabricPreviewTool(
-                        fabric_dataagent_preview=FabricDataAgentToolParameters(
-                            project_connections=[ToolProjectConnection(project_connection_id=conn_id)]
-                        )
-                    )
-                ],
+                tools=[FabricIQPreviewTool(project_connection_id=conn_id, require_approval="never")],
             ),
         )
-        print(f"Agent created: name={created.name} version={created.version}")
+        print(f"Agent created: name={created.name} version={created.version} model={model}")
 
     openai = project.get_openai_client(agent_name=agent_name)
 
     def ask(question: str) -> None:
-        response = openai.responses.create(input=question, tool_choice="required")
+        if a.no_background:
+            response = openai.responses.create(input=question, tool_choice="required")
+        else:
+            # Data agent calls can outlast the normal tool-call timeout; background mode lets them finish.
+            response = openai.responses.create(input=question, tool_choice="required", background=True)
+            deadline = time.monotonic() + a.timeout
+            while response.status in ("queued", "in_progress"):
+                if time.monotonic() > deadline:
+                    print(f"\nStill running after {a.timeout}s (response {response.id}). Try a narrower question.\n")
+                    return
+                time.sleep(2)
+                response = openai.responses.retrieve(response.id)
+            if response.status != "completed":
+                print(f"\nAgent run ended with status '{response.status}': {getattr(response, 'error', None)}\n")
+                return
         print(f"\nAgent: {response.output_text}\n")
 
     try:

@@ -34,7 +34,7 @@ udf.func(
   'askRailAgent',
   // Rayfin 1.36: the audience is declared in the context type and the token read from ctx.Tokens.
   // Deployed, the token is for the Fabric app identity (the owner of the App item); locally it's the account you signed in with.
-  // Grant that identity the Foundry User role on the Foundry project. The Fabric data agent tool needs a USER identity.
+  // Grant that identity the Foundry User role on the Foundry project. The Lab 10 Fabric IQ connection runs as a user (UserEntraToken).
   async (ctx: RayfinContext<RailSchema, AudienceType.AzureAI>, question: string): Promise<string> => {
     const token = ctx.Tokens.AzureAI;
 
