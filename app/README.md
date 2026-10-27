@@ -32,8 +32,12 @@ Azure Maps map (grayscale/road/night/satellite styles, OS Open Zoomstack railway
 | `packages/frontend/src/services/railClient.ts` | Adapter: gets the template's authenticated client (`getRayfinClient()`) and returns its typed `functions` and the `railmap` connector |
 | `packages/frontend/src/features/network/loadSnapshot.ts` | Fixed DAX query to the `railmap` semantic model connector (`TrainPositions`), mapped to train positions |
 | `packages/frontend/src/features/network/NetworkMap.tsx` | Dependency-free SVG map of GB, coloured by delay, refreshes every 30 s |
-| `packages/frontend/src/features/chat/ChatPanel.tsx` | Chat UI calling `askRailAgent` |
-| `packages/frontend/src/RailApp.tsx` | Two-panel layout, rendered from `App.tsx` in place of the welcome page |
+| `packages/frontend/src/features/chat/ChatPanel.tsx` | *Ask the network* chat: suggested questions, message bubbles, typing indicator, Markdown tables in answers |
+| `packages/frontend/src/RailApp.tsx` | Rendered from `App.tsx` in place of the welcome page; puts the map into `AppShell` |
+| `packages/frontend/src/AppShell.tsx` | Branded layout: header with live status, KPI strip, map + chat grid, attribution footer |
+| `packages/frontend/src/theme/brand.ts`, `theme/rail.css` | Brand name, strapline and colours; scoped styles (`.rp`) |
+| `packages/frontend/src/features/network/useSnapshot.ts` | One shared 30-second poller for the train snapshot (map and KPIs share one query) |
+| `packages/frontend/src/features/network/KpiStrip.tsx` | Active trains, % on time, late, very late, operators |
 | `packages/functions/src/function_app.ts` | `askRailAgent` (`ctx.Tokens.AzureAI` → Foundry agent from Lab 10) |
 
 ## Unverified / to check

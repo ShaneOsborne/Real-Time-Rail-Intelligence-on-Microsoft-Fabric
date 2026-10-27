@@ -1,62 +1,64 @@
-// Dependency-free map: plots train positions (lat/lon) inside a Great Britain bounding box as SVG.
-// Swap for a tile-based map library later if you need a basemap.
-import { useEffect, useState } from 'react';
-import { loadSnapshot, type TrainPosition } from './loadSnapshot';
+// Lab 11 – dependency-free map: plots train positions (lat/lon) inside a Great Britain bounding box as SVG.
+// Lab 11b swaps this for an Azure Maps map with satellite imagery and railway lines.
+import { useState } from 'react';
+import { delayColour, DELAY_BANDS } from '../../theme/brand';
+import { useSnapshot } from './useSnapshot';
+import type { TrainPosition } from './loadSnapshot';
 
 const BOUNDS = { minLat: 49.9, maxLat: 58.7, minLon: -6.4, maxLon: 1.8 };
 const W = 420;
 const H = 640;
+const x = (lon: number) => ((lon - BOUNDS.minLon) / (BOUNDS.maxLon - BOUNDS.minLon)) * W;
+const y = (lat: number) => H - ((lat - BOUNDS.minLat) / (BOUNDS.maxLat - BOUNDS.minLat)) * H;
 
-function colour(delay: number): string {
-  if (delay >= 15) return '#d13438';
-  if (delay > 0) return '#ffaa44';
-  return '#107c10';
-}
-
-export function NetworkMap({ refreshMs = 30000 }: { refreshMs?: number }) {
-  const [trains, setTrains] = useState<TrainPosition[]>([]);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let active = true;
-    const load = () =>
-      loadSnapshot()
-        .then((t) => {
-          if (active) {
-            setTrains(t);
-            setError(null);
-          }
-        })
-        .catch((e: unknown) => {
-          if (active) setError(String(e));
-        });
-    load();
-    const id = setInterval(load, refreshMs);
-    return () => {
-      active = false;
-      clearInterval(id);
-    };
-  }, [refreshMs]);
-
-  const x = (lon: number) => ((lon - BOUNDS.minLon) / (BOUNDS.maxLon - BOUNDS.minLon)) * W;
-  const y = (lat: number) => H - ((lat - BOUNDS.minLat) / (BOUNDS.maxLat - BOUNDS.minLat)) * H;
+export function NetworkMap() {
+  const { trains, error, loading } = useSnapshot();
+  const [hover, setHover] = useState<TrainPosition | null>(null);
+  const plotted = trains.filter((t) => Number.isFinite(t.lat) && Number.isFinite(t.lon));
+  // Draw late trains last so they sit on top.
+  const ordered = [...plotted].sort((a, b) => a.delayMinutes - b.delayMinutes);
 
   return (
-    <section>
-      <h2>Live network ({trains.length} trains)</h2>
-      {error && <p role="alert">{error}</p>}
-      <svg width={W} height={H} style={{ background: '#eef3f8', borderRadius: 8 }}>
-        {trains
-          .filter((t) => Number.isFinite(t.lat) && Number.isFinite(t.lon))
-          .map((t) => (
-            <circle key={t.trainId} cx={x(t.lon)} cy={y(t.lat)} r={3} fill={colour(t.delayMinutes)}>
-              <title>{`${t.trainId} ${t.status} ${t.delayMinutes} min – ${t.location}`}</title>
+    <section className="rp-card">
+      <div className="rp-card-head">
+        <h2>Live network map</h2>
+        <span className="rp-sub">{plotted.length.toLocaleString('en-GB')} trains plotted</span>
+      </div>
+      {error && <div className="rp-alert" role="alert">{error}</div>}
+      <div className="rp-map">
+        <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="xMidYMid meet" role="img" aria-label="Map of trains in Great Britain">
+          {ordered.map((t) => (
+            <circle
+              key={t.trainId}
+              cx={x(t.lon)}
+              cy={y(t.lat)}
+              r={t.delayMinutes >= 15 ? 3.6 : 2.8}
+              fill={delayColour(t.delayMinutes)}
+              stroke="#fff"
+              strokeWidth={0.6}
+              onMouseEnter={() => setHover(t)}
+              onMouseLeave={() => setHover(null)}
+            >
+              <title>{`${t.trainId} · ${t.location} · ${t.status} ${t.delayMinutes} min`}</title>
             </circle>
           ))}
-      </svg>
-      <p style={{ fontSize: 12 }}>
-        Contains data from Network Rail Open Data / Rail Data Marketplace. Not an official service.
-      </p>
+        </svg>
+        {loading && !plotted.length && <div className="rp-overlay">Loading live positions…</div>}
+        {hover && (
+          <div className="rp-msg agent" style={{ position: 'absolute', left: 12, bottom: 12, maxWidth: 260, fontSize: 12 }}>
+            <strong>{hover.trainId}</strong> ({hover.tocId})<br />
+            {hover.location}<br />
+            {hover.status} · {hover.delayMinutes} min
+          </div>
+        )}
+      </div>
+      <div className="rp-legend">
+        {DELAY_BANDS.map((b) => (
+          <span key={b.key}>
+            <i className="rp-swatch" style={{ background: b.colour }} /> {b.label}
+          </span>
+        ))}
+      </div>
     </section>
   );
 }

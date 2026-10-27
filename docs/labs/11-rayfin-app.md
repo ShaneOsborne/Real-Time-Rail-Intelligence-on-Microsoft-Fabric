@@ -198,10 +198,27 @@ The details are in [`app/README.md`](../../app/README.md).
    <https://ai.azure.com/api-reference/responses/>.
 5. **Chat UI.** `ChatPanel.tsx` calls `askRailAgent.invoke({ question })` and shows any error message.
 
+## Make it yours – branding and layout
+
+The app is styled as **RailPulse**, a fictional brand: a navy header with a live-status pill, a KPI strip (active trains,
+% on time, late, very late, operators), the map and an *Ask the network* chat with suggested questions, and an attribution
+footer. To rebrand it, edit one file, `packages/frontend/src/theme/brand.ts`:
+
+* `name` and `strapline` – shown in the header.
+* `colours` – `ink` (header and headings), `accent` (logo, buttons, highlights), the three delay colours, and so on.
+
+The styles are in `theme/rail.css`, scoped under `.rp` so they don't clash with the template's own styles. The KPIs are
+calculated in the browser from the same snapshot as the map (`useSnapshot.ts`), so they don't add a query. The refresh
+interval is `REFRESH_MS` in `useSnapshot.ts`; use 60 seconds on an F2 with several viewers.
+
+Keep it clearly unofficial: don't use Network Rail or National Rail names, logos or colours as your brand. The
+*Demo · not an official service* badge and the footer attribution must stay.
+
 ## Checkpoint
 
 * The deployed app URL (printed by `rayfin up`) opens inside Fabric SSO.
-* The chat panel answers "Which trains are 15+ minutes late?"
+* The page shows the RailPulse header with a green *Live* pill, the five KPI cards, the map and the chat panel.
+* The chat panel answers "Which trains are 15+ minutes late?" (try a suggested question).
 * The map shows trains, and the count in the heading changes as trains move (within about 30 seconds).
 * The page shows the attribution text. The app isn't described as "official", and it uses no Network Rail or National Rail logos.
 
@@ -230,11 +247,6 @@ The details are in [`app/README.md`](../../app/README.md).
 | `validate:functions` fails: *Generated AppFunctionsSchema is stale … "askRailAgent" … missing from types.ts* and *"helloWorld" remains* | `types.ts` was generated from the starter function and hasn't been regenerated since you copied in the rail functions – usually because an earlier `functions apply` failed to build (for example the TS1002 quote error) or was stopped too soon. Run `npx rayfin dev functions apply` again and leave it running until the `[typegen]` line appears and lists the rail functions; check `types.ts` as in step 5, then stop it. If `types.ts` still shows `helloWorld`, save `function_app.ts` once more while the session is running (the watcher regenerates on change), and read the diagnostic log path it prints. Never edit `types.ts` by hand |
 | `functions.askRailAgent` isn't typed in the frontend | Same cause as above: regenerate `types.ts` with `npx rayfin dev functions apply`, then `npm run typecheck` |
 | `pack:add` says `functions` is unknown, or there's no `packages/` folder | You chose a flat (older) template. Either re-scaffold with the default template, or copy `packages/frontend/src/*` into `src/` and `packages/functions/src/function_app.ts` into `rayfin/functions/src/` (after `npx rayfin functions init`), and create the client yourself as in <https://rayfin.ai/docs/functions/calling-functions> |
-| Chat shows *InternalError: An internal execution error occured during function execution* | You have an older `function_app.ts` whose `askRailAgent` throws; deployed functions hide the reason. Copy the current file (re-enter your Foundry values), redeploy, and ask again – the chat now shows **Agent error (…)** with the real cause. Most common causes below |
-| Chat: *Agent error (setup): FOUNDRY_PROJECT_ENDPOINT isn't set* | The Foundry values were reset to `PASTE-…` when you re-copied `function_app.ts`. Re-enter them (Lab 10 step 1.4) and `npx rayfin up` |
-| Chat: *Agent error (HTTP 401/403)* | The deployed function runs as the **app identity** (the App item's owner). Give that account **Foundry User** on the Foundry project, and check it can chat with the agent in the Foundry playground |
-| Chat: *Agent error (HTTP 404)* | `FOUNDRY_AGENT_NAME` doesn't match the agent in the project (names are case-sensitive), or the endpoint points at another project |
-| Chat: *Agent error (HTTP 400)* mentioning `background` | The agent's model doesn't support background mode – switch it to gpt-5.4/5.5 (Lab 10) |
 | Chat answers fail when deployed, but work with `npm run dev` | Deployed functions use the **app identity**, while the Lab 10 Fabric IQ connection runs as a **user** (`UserEntraToken`). The app identity is the App item's owner, so check that account can use the agent in the playground. Otherwise use the Foundry playground for chat |
 | Chat times out or returns a partial answer | The function calls the agent synchronously, and data agent questions can take a while. Ask a narrower question (shorter time window). The Lab 10 playground and script use background mode for long questions |
 | Calls fail locally with HTTP 502 | The local Functions host isn't running. Use `npm run dev`, or `npx rayfin dev functions apply` plus `npm run dev:frontend`, from the project root |
