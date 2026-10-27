@@ -136,8 +136,27 @@ For local runs (`npm run dev`), also add it to `packages/functions/local.setting
 
 ## 5. Generate types, check and deploy
 
+First check `getMapAuth` is in your functions file – the map code won't compile without it:
+
+```powershell
+Select-String -Path packages\functions\src\function_app.ts -Pattern "'getMapAuth'"      # bash: grep -n "'getMapAuth'" packages/functions/src/function_app.ts
+```
+
+No match? Do the *getMapAuth function* part of step 3 first. Then regenerate the function types:
+
 ```bash
-npx rayfin dev functions apply     # wait for [typegen] and the getMapAuth URL, then Ctrl+C
+npx rayfin dev functions apply     # leave it running until [typegen] has run and getMapAuth is listed
+```
+
+In a **second terminal**, check the generated types now include it (don't edit `types.ts` by hand):
+
+```powershell
+Select-String -Path packages\functions\src\types.ts -Pattern "getMapAuth|askRailAgent"   # bash: grep -nE "getMapAuth|askRailAgent" packages/functions/src/types.ts
+```
+
+Both names should appear. Then Ctrl+C the first terminal and:
+
+```bash
 npm run validate:functions && npm run typecheck && npm run build
 npx rayfin up
 ```
@@ -167,7 +186,7 @@ job that runs `new-azure-maps-sas` and updates the secret (not scripted here).
 | Satellite styles missing from the picker | The Maps account isn't Gen2 (the Bicep creates Gen2). Check the pricing tier in the portal |
 | `create-azure-maps` fails: location not available | Choose a location from the `az provider show` list in step 1 for `AZURE_MAPS_LOCATION` |
 | `Cannot find module 'azure-maps-control'` | Run `npm install -w @rayfin-app/frontend azure-maps-control` in `rail-app` |
-| `functions.getMapAuth` isn't typed / `validate:functions` fails | The function isn't in `function_app.ts`, or types weren't regenerated – step 3, then `npx rayfin dev functions apply` |
+| `error TS2339: Property 'getMapAuth' does not exist on type 'TypedFunctionClients<AppFunctionsSchema>'` (in `mapAuth.ts`), or `validate:functions` fails | The generated `types.ts` doesn't know about `getMapAuth` yet. Either `function_app.ts` doesn't contain it (step 3 – the add-on copy only adds frontend files), or the types weren't regenerated after you added it. Do step 5: check `function_app.ts`, run `npx rayfin dev functions apply` until `[typegen]` lists `getMapAuth`, confirm it's in `types.ts`, then `npm run typecheck`. If `functions apply` fails to build (e.g. a lost quote when re-entering the Foundry values), fix that first – types are only regenerated after a successful build |
 | Vite warns about a large chunk | Expected: the Azure Maps library is big. Harmless |
 | `build_gb_rail.py`: *No .gpkg file found* / out of disk | The zip needs ~4.3 GB and the GeoPackage ~12 GB. Free space, delete `data/zoomstack/` and re-run, or download by hand and use `--gpkg` |
 

@@ -9,6 +9,25 @@ You can use it in two ways:
 * **Deploy as-is.** Run the scripts in each lab (Option A) to get a working end-to-end solution quickly.
 * **Learn step by step.** Follow the manual portal instructions (Option B) in each lab as a training course.
 
+## What you'll build
+
+**A live operations dashboard (Lab 08).** A Real-Time Dashboard over the KQL database: a network map, KPI tiles,
+gauges, delay trends by operator and a table of the most delayed trains, refreshing automatically.
+
+![Real-Time Dashboard built in Lab 08](docs/images/rtd-dashboard.png)
+
+**RailPulse, a Rayfin (Fabric Apps) web app (Labs 10b, 11 and 11b).** A live map of trains with KPI tiles, plus
+an "Ask the network" chat panel that answers questions through the Foundry agent and Fabric IQ.
+
+![RailPulse app built in Labs 11 and 11b](docs/images/railpulse-app.png)
+
+## Presentation
+
+The slide deck [Real-Time-Rail-Intelligence-on-Microsoft-Fabric.pptx](docs/presentation/Real-Time-Rail-Intelligence-on-Microsoft-Fabric.pptx)
+covers the architecture, the design choices and the four-week PoC plan. It also has one slide per lab, with what you do,
+what to watch out for and the concept behind it (for example JSON ingestion mappings and update policies).
+Use it to introduce the labs or to run a class. Download it from GitHub to open it in PowerPoint.
+
 ## Choose your path
 
 | You are… | Start here |
@@ -177,6 +196,8 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ├── docs/instructor-guide.md   Classroom set-up: timeline, shared Event Hub, reference data, student handout, clean-up
 ├── docs/student-guide.md      Classroom student route through the labs (which to do, which to skip)
 ├── docs/capacity-planning.md  Fabric capacity sizing, classroom guidance and throttling recovery
+├── docs/presentation/         Slide deck: architecture, PoC plan and one slide per lab
+├── docs/images/               Screenshots of the finished dashboard and app (used in this README)
 ├── docs/labs/                 00–12 lab guides (+ optional 04b Darwin, 05c shared Event Hub)
 ├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);

@@ -11,6 +11,10 @@
   **semantic model connector**, as the signed-in user.
 * Add a **chat panel** that calls a second function (`askRailAgent`), which calls the Foundry agent from Lab 10 on behalf of the user.
 
+When you finish, RailPulse looks something like this (shown with the optional Lab 11b Azure Maps basemap):
+
+![Finished RailPulse app](../images/railpulse-app.png)
+
 > **Why a semantic model and not the Eventhouse directly?** Rayfin 1.36.2 has no way to query a KQL database: there's no
 > Kusto connector (`connector add --type kusto` → *not available in this release*), and functions can only get tokens for
 > Sql, Storage, Fabric, AzureAI and ADO ([Connections](https://rayfin.ai/docs/functions/connections)). It does have a
@@ -198,27 +202,10 @@ The details are in [`app/README.md`](../../app/README.md).
    <https://ai.azure.com/api-reference/responses/>.
 5. **Chat UI.** `ChatPanel.tsx` calls `askRailAgent.invoke({ question })` and shows any error message.
 
-## Make it yours – branding and layout
-
-The app is styled as **RailPulse**, a fictional brand: a navy header with a live-status pill, a KPI strip (active trains,
-% on time, late, very late, operators), the map and an *Ask the network* chat with suggested questions, and an attribution
-footer. To rebrand it, edit one file, `packages/frontend/src/theme/brand.ts`:
-
-* `name` and `strapline` – shown in the header.
-* `colours` – `ink` (header and headings), `accent` (logo, buttons, highlights), the three delay colours, and so on.
-
-The styles are in `theme/rail.css`, scoped under `.rp` so they don't clash with the template's own styles. The KPIs are
-calculated in the browser from the same snapshot as the map (`useSnapshot.ts`), so they don't add a query. The refresh
-interval is `REFRESH_MS` in `useSnapshot.ts`; use 60 seconds on an F2 with several viewers.
-
-Keep it clearly unofficial: don't use Network Rail or National Rail names, logos or colours as your brand. The
-*Demo · not an official service* badge and the footer attribution must stay.
-
 ## Checkpoint
 
 * The deployed app URL (printed by `rayfin up`) opens inside Fabric SSO.
-* The page shows the RailPulse header with a green *Live* pill, the five KPI cards, the map and the chat panel.
-* The chat panel answers "Which trains are 15+ minutes late?" (try a suggested question).
+* The chat panel answers "Which trains are 15+ minutes late?"
 * The map shows trains, and the count in the heading changes as trains move (within about 30 seconds).
 * The page shows the attribution text. The app isn't described as "official", and it uses no Network Rail or National Rail logos.
 

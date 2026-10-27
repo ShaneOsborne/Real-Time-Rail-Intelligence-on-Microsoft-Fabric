@@ -9,6 +9,10 @@
 * Build a **Real-Time Dashboard** with tiles that refresh automatically.
 * Build a **Power BI** report: **DirectQuery** to the KQL database for live pages (with automatic page refresh), and **Direct Lake** over the Lakehouse for history.
 
+When you finish, your Real-Time Dashboard looks something like this:
+
+![Finished Real-Time Dashboard](../images/rtd-dashboard.png)
+
 ## Option A – automated
 
 The tile queries are supplied in [`fabric/dashboard/queries.kql`](../../fabric/dashboard/queries.kql). You add the tiles by hand.
