@@ -16,7 +16,9 @@ NROD, RDM, Azure and Key Vault set-up covered. Then go to [Lab 02](02-fabric-wor
 1. **Fabric access.** Sign in to <https://app.fabric.microsoft.com>. Open your workspace from the handout (or check you can
    create one on the class capacity). Confirm **+ New item** lists *Eventhouse*, *Eventstream* and *Lakehouse*.
 2. **Tools.** Python 3.11+, Git and the Azure CLI (`az login` as yourself – you don't need an Azure subscription, only your
-   work account). Node.js 20+ if you'll do Lab 11. Docker isn't needed. See [§6](#6-tools-on-your-machine).
+   work account). Node.js 20+ and Azure Functions Core Tools if you'll do Lab 11. Docker and Power BI Desktop
+   aren't needed (Labs 08 and 10b have web-only routes; Desktop is optional and Windows only). Several of these need **admin rights or `sudo`** to install – check [§6](#6-tools-on-your-machine) and
+   install them before the class, or tell your instructor.
 3. **Clone and configure.** See [§7](#7-clone-the-repo-and-configure). Fill in `.env` as shown in the
    [Student guide](../student-guide.md#settings-for-your-env).
 
@@ -108,15 +110,33 @@ done
 
 ## 6. Tools on your machine
 
-| Tool | Version | Used in |
-|---|---|---|
-| Azure CLI (`az`) | recent; `az bicep install` | 02, 03, 05b, 06, 12 |
-| Python | 3.11+ | 03, 05a, 06, 10 |
-| Docker Desktop / Engine with Compose v2.24+ | – | 05a (optional) |
-| Node.js and npm | 20+ | 11 |
-| Git | – | all |
-| GitHub CLI (`gh`) | – | 11 (listed by the Rayfin installation guide) |
-| PowerShell 7 | – | if you use the `.ps1` scripts |
+> **Admin rights.** Several of these tools install system-wide, which needs **administrator rights** on Windows (a UAC
+> prompt) or **`sudo`** on Linux. On a locked-down work laptop, install them **before** the workshop, ask IT to, or use a
+> machine or VM where you're an admin. The *Without admin* column lists the usual alternatives. macOS with Homebrew
+> normally needs no `sudo` once Homebrew itself is installed.
+
+| Tool | Version | Used in | Install usually needs admin / sudo? | Without admin |
+|---|---|---|---|---|
+| Azure CLI (`az`), plus `az bicep install` | recent | 01 (Key Vault), 02, 03, 05b, 05c, 06, 10 (Option A), 11b, 12 | Windows MSI: yes. Linux (`apt`/`dnf`): `sudo` | Use **Azure Cloud Shell** (browser) for the `az`/Bicep scripts |
+| Python | 3.11+ | 03, 05a, 06, 10, 11b (build script) | Windows: no (choose *Install for me only*). Linux: `sudo` for `python3-venv` if it's missing | Windows per-user installer; Linux `pyenv` or `uv` |
+| Git | – | all | Windows installer: yes by default | Git for Windows portable |
+| Node.js and npm | 20, 22 or 24 | 11, 11b | Windows MSI: yes. Linux packages: `sudo` | `nvm` (Linux/macOS), `nvm-windows` or `fnm`, or the Node.js ZIP |
+| Azure Functions Core Tools (`func`) | 4.x | 11 (local Rayfin functions) | `npx rayfin dev functions apply` offers to install it with `winget`, which may show a UAC prompt | `npm install -g azure-functions-core-tools@4` with a per-user npm prefix |
+| GitHub CLI (`gh`) | – | 11 (listed by the Rayfin installation guide) | Windows MSI/winget: usually | Release ZIP on your `PATH` |
+| Power BI Desktop (**optional**, Windows only) | current | 08 (live page), 10b – both have a web-only route | Installer: yes | **Microsoft Store** version (no admin), or skip it and use the web routes |
+| Docker Desktop / Engine with Compose v2.24+ (**optional**) | – | 05a only – Lab 05b builds the image in Azure (`az acr build`), no local Docker | Yes: Docker Desktop needs admin and WSL 2; Linux Docker Engine needs `sudo` | Skip Docker – Lab 05a's venv route doesn't need it |
+| PowerShell 7 | – | if you use the `.ps1` scripts | Windows MSI: yes | Use Git Bash and the `.sh` scripts, or the PowerShell ZIP |
+
+Check what you have:
+
+```bash
+az version && az bicep version
+python --version          # 3.11+
+git --version
+node --version            # v20, v22 or v24
+func --version            # 4.x (Lab 11 can install it for you)
+docker compose version    # optional
+```
 
 The Fabric CLI (`fab`) isn't needed. The scripts call the Fabric REST API with `az rest`.
 
@@ -138,7 +158,8 @@ az login
 - [ ] The Capacity Metrics app is installed and shows your capacity
 - [ ] (Lab 10) Your Foundry project is in a region where **gpt-5.4 or gpt-5.5** is available ([model availability](https://model-availability.azurewebsites.net/))
 - [ ] (Lab 11 only) **+ New item → App (preview)** is listed in a workspace on a capacity you can use (tenant setting on **and** a supported region)
-- [ ] `python --version` is 3.11+, `node --version` is 20+, and `docker compose version` works (optional)
+- [ ] The §6 tools are installed (`az version`, `python --version` 3.11+, `node --version` 20+, `git --version`), or you've
+      arranged admin rights or pre-installation for any that are missing. `docker compose version` is optional
 
 ## Troubleshooting
 

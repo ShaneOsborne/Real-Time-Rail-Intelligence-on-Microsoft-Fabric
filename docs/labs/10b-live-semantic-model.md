@@ -28,7 +28,7 @@ Rayfin app (browser) ──DAX──► semantic model "RailLiveMap" (DirectQuer
 
 * Labs 03 (coordinates in `Locations`) and 06 (`NetworkSnapshot()`) are done, and this returns rows in a KQL queryset:
   `NetworkSnapshot(1h) | take 10`.
-* **Power BI Desktop** (Windows, current version). The web alternative is at the end of this lab.
+* **Power BI Desktop** (Windows, current version) for Option A – **optional**: Option B at the end of this lab is web-only.
 * Tenant setting **Semantic Model Execute Queries REST API** is enabled (*Admin portal > Tenant settings > Integration
   settings*). The Rayfin connector sends DAX through it. It's on by default in most tenants. See Lab 01.
 * App users will need **Build** permission on the model (step 5).

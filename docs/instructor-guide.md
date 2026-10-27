@@ -20,6 +20,7 @@ accounts, or an Azure subscription.
 
 | Task | Where | Notes |
 |---|---|---|
+| **Student laptops and admin rights** | [Lab 01 §6](labs/01-prerequisites.md#6-tools-on-your-machine) | Students need `az`, Python, Git, Node.js and Functions Core Tools. Docker and Power BI Desktop are optional (web routes exist). Several installs need **admin rights or `sudo`**. Send the §6 list with the joining instructions, ask IT to pre-install on managed laptops, or provide lab VMs (Azure Cloud Shell covers the `az` scripts) |
 | Register for NROD and subscribe to the feeds, including *All Reference Data* | [Lab 01 §1](labs/01-prerequisites.md#1-network-rail-open-data-nrod) | Approval can take days |
 | Subscribe to RDM *NWR Train Movements* (and *Darwin Push Port* if you'll demo Lab 04b) | [Lab 01 §2](labs/01-prerequisites.md#2-rail-data-marketplace-rdm) | One subscription feeds the whole class via the relay |
 | Azure subscription and resource providers | [Lab 01 §3](labs/01-prerequisites.md#3-azure) | Only you need Azure |

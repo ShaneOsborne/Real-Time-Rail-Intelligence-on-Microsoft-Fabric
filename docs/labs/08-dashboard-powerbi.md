@@ -116,7 +116,11 @@ These are **preview** features – they may change, and they aren't needed for t
 
 ### Power BI – live page (DirectQuery)
 
-1. In Power BI Desktop: **Get data** → **KQL Database** (or *Azure Data Explorer (Kusto)*) → paste the `RailKQL` **Query URI**, database `RailKQL`.
+> **No Power BI Desktop (or on a Mac)?** Use the web route: open a KQL queryset on `RailKQL`, run
+> `LateTrains(15, 2h)` (or `TrainLatest`), then **Power BI report** (*Build Power BI report*). Fabric creates a DirectQuery
+> semantic model and report in the browser; add the visuals in step 3, set page refresh (step 4) and save it to the workspace.
+
+1. In Power BI Desktop (Windows): **Get data** → **KQL Database** (or *Azure Data Explorer (Kusto)*) → paste the `RailKQL` **Query URI**, database `RailKQL`.
 2. Choose **DirectQuery**. Select the materialized views `TrainLatest` and `DelaysBy15Min`, or use the functions as queries,
    for example `LateTrains(15, 2h)`.
 3. Visuals: card (count of late trains), table (worst trains), line chart (`avg_delay` by `window_start`, legend `toc_id`).
