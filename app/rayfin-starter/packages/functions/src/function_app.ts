@@ -29,6 +29,29 @@ const udf = new UserDataFunctions();
 export type RailSchema = Record<string, never>;
 
 // ---- Chat: forwards a question to the Foundry agent from Lab 10 ----
+// Never throws: a deployed function that throws only shows the browser "InternalError: An internal execution error
+// occured", which hides the cause. Instead every failure comes back as a readable "Agent error (…)" answer, and the
+// details are also written with console.error (visible in the `npm run dev` / `rayfin dev functions apply` terminal).
+
+type FoundryResponse = {
+  id?: string;
+  status?: string; // queued | in_progress | completed | failed | incomplete | cancelled
+  output_text?: string;
+  output?: Array<{ content?: Array<{ text?: string }> }>;
+  error?: { code?: string; message?: string } | null;
+  incomplete_details?: { reason?: string } | null;
+};
+
+const POLL_MS = 2_000;
+const MAX_WAIT_MS = 100_000; // stay under the Fabric function / client timeouts; the app waits up to 120 s
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+const short = (t: string) => t.replace(/\s+/g, ' ').slice(0, 300);
+
+function textOf(body: FoundryResponse): string {
+  if (body.output_text) return body.output_text;
+  return (body.output ?? []).flatMap((o) => o.content ?? []).map((c) => c.text ?? '').join('\n').trim();
+}
 
 udf.func(
   'askRailAgent',
@@ -36,27 +59,67 @@ udf.func(
   // Deployed, the token is for the Fabric app identity (the owner of the App item); locally it's the account you signed in with.
   // Grant that identity the Foundry User role on the Foundry project. The Lab 10 Fabric IQ connection runs as a user (UserEntraToken).
   async (ctx: RayfinContext<RailSchema, AudienceType.AzureAI>, question: string): Promise<string> => {
-    const token = ctx.Tokens.AzureAI;
+    const q = String(question ?? '').trim().slice(0, 2000);
+    if (!q) return 'Please ask a question.';
 
-    // TODO(verify): Foundry Responses API with an agent reference. Confirm the path and body shape
-    // against https://ai.azure.com/api-reference/responses/ for your API version before relying on it.
-    const res = await fetch(`${checkUrl('FOUNDRY_PROJECT_ENDPOINT', FOUNDRY_PROJECT_ENDPOINT)}/openai/v1/responses`, {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        input: question,
-        agent_reference: { type: 'agent_reference', name: FOUNDRY_AGENT_NAME },
-        tool_choice: 'required',
-      }),
-    });
-    if (!res.ok) {
-      console.error('Foundry call failed', res.status, await res.text());
-      throw new Error(`Foundry agent call failed with HTTP ${res.status}`);
+    let base: string;
+    let token: string;
+    try {
+      base = `${checkUrl('FOUNDRY_PROJECT_ENDPOINT', FOUNDRY_PROJECT_ENDPOINT)}/openai/v1/responses`;
+      if (!FOUNDRY_AGENT_NAME || FOUNDRY_AGENT_NAME.includes('PASTE-')) throw new Error('FOUNDRY_AGENT_NAME isn\'t set');
+      token = ctx.Tokens.AzureAI;
+    } catch (e) {
+      console.error('askRailAgent setup failed', e);
+      return `Agent error (setup): ${e instanceof Error ? e.message : String(e)}`;
     }
-    const body = (await res.json()) as { output_text?: string; output?: Array<{ content?: Array<{ text?: string }> }> };
-    if (body.output_text) return body.output_text;
-    const text = (body.output ?? []).flatMap((o) => o.content ?? []).map((c) => c.text ?? '').join('\n').trim();
-    return text || 'The agent returned no text.';
+    const headers = { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' };
+
+    try {
+      // TODO(verify): Foundry Responses API with an agent reference and background mode (Lab 10). Check the path and body
+      // against https://ai.azure.com/api-reference/responses/ for your API version.
+      // background: true lets long Fabric IQ / data agent calls finish; we poll until the answer is ready.
+      const start = await fetch(base, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          input: q,
+          agent_reference: { type: 'agent_reference', name: FOUNDRY_AGENT_NAME },
+          tool_choice: 'required',
+          background: true,
+        }),
+      });
+      if (!start.ok) {
+        const detail = short(await start.text());
+        console.error('Foundry call failed', start.status, detail);
+        return `Agent error (HTTP ${start.status}): ${detail}`;
+      }
+      let body = (await start.json()) as FoundryResponse;
+
+      const deadline = Date.now() + MAX_WAIT_MS;
+      while ((body.status === 'queued' || body.status === 'in_progress') && body.id) {
+        if (Date.now() > deadline) {
+          return 'The agent is still working on that (over 100 seconds). Try a narrower question, e.g. a shorter time window.';
+        }
+        await sleep(POLL_MS);
+        const poll = await fetch(`${base}/${encodeURIComponent(body.id)}`, { headers });
+        if (!poll.ok) {
+          const detail = short(await poll.text());
+          console.error('Foundry poll failed', poll.status, detail);
+          return `Agent error while waiting (HTTP ${poll.status}): ${detail}`;
+        }
+        body = (await poll.json()) as FoundryResponse;
+      }
+
+      if (body.status && body.status !== 'completed') {
+        const why = body.error?.message ?? body.incomplete_details?.reason ?? body.status;
+        console.error('Foundry response not completed', body.status, body.error, body.incomplete_details);
+        return `Agent error (${body.status}): ${short(String(why))}`;
+      }
+      return textOf(body) || 'The agent returned no text.';
+    } catch (e) {
+      console.error('askRailAgent failed', e);
+      return `Agent error: ${e instanceof Error ? short(e.message) : 'unexpected failure'}`;
+    }
   },
   [],
 );
