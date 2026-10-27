@@ -1,6 +1,6 @@
 # Lab 12 – Clean-up
 
-**Time:** 10 minutes · **Previous:** [Lab 11](11-rayfin-app.md)
+**Time:** 10 minutes · **Previous:** [Lab 11b](11b-azure-maps.md) or [Lab 11](11-rayfin-app.md)
 
 > **Path:** Solo – all · Instructor – all, plus the [Instructor guide clean-up](../instructor-guide.md#5-after-the-class) · **Classroom student – [Classroom students](#classroom-students) only.**
 

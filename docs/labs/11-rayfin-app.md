@@ -1,6 +1,6 @@
 # Lab 11 – Rayfin app: live map and "chat with the network"
 
-**Time:** 60 minutes · **Previous:** [Lab 10b](10b-live-semantic-model.md) · **Next:** [Lab 12](12-cleanup.md)
+**Time:** 60 minutes · **Previous:** [Lab 10b](10b-live-semantic-model.md) · **Next:** [Lab 11b](11b-azure-maps.md) (optional) or [Lab 12](12-cleanup.md)
 
 > **Path:** Everyone, **if Fabric Apps is available in your capacity's region** (checked in Lab 01). Classroom students: your instructor will tell you.
 

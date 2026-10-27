@@ -110,6 +110,7 @@ flowchart LR
 | [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric IQ (OneLake Catalog) tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) | ✅ (shared project) |
 | [10b](docs/labs/10b-live-semantic-model.md) | Live semantic model (DirectQuery over `NetworkSnapshot`) for the app map | 25 min | Manual (Power BI Desktop) | If doing Lab 11 |
 | [11](docs/labs/11-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code | If region supports it |
+| [11b](docs/labs/11b-azure-maps.md) | *Optional:* Azure Maps basemap, satellite view and OS Open Zoomstack railway lines for the app map | 45 min | ✅ `create-azure-maps.sh/.ps1`, `new-azure-maps-sas.sh/.ps1`, `app/tools/build_gb_rail.py` | If your instructor provides a token |
 | [12](docs/labs/12-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` | Student section only |
 
 ## Quick start: deploy as-is
@@ -179,7 +180,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ├── docs/labs/                 00–12 lab guides (+ optional 04b Darwin, 05c shared Event Hub)
 ├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
-│                              optional shared Event Hubs namespace (eventhubs.bicep)
+│                              optional shared Event Hubs namespace (eventhubs.bicep); optional Azure Maps account (azuremaps.bicep, Lab 11b)
 ├── scripts/                   run-local / create-keyvault / deploy-bridge / fabric-setup / cleanup, optional create-eventhub /
 │                              add-student-consumer-groups (.sh and .ps1)
 ├── fabric/
@@ -190,7 +191,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 │   ├── dashboard/             Real-Time Dashboard tile queries
 │   └── activator/             Activator rule specifications
 ├── foundry/                   Foundry agent client (Python) + setup notes
-├── app/                       Rayfin app starter (overlay files + guide)
+├── app/                       Rayfin app starter (overlay files + guide); rayfin-maps-addon/ (Lab 11b Azure Maps map); tools/build_gb_rail.py
 └── .github/workflows/         bridge-ci, infra-validate
 ```
 

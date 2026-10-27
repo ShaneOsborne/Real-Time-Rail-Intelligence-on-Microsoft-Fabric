@@ -19,6 +19,12 @@ types list `askRailAgent`) → `npm run validate:functions`, `typecheck`, `build
 
 `rayfin-starter/` mirrors the default template's layout (`packages/frontend`, `packages/functions`), so the files copy straight across.
 
+**Optional – [Lab 11b](../docs/labs/11b-azure-maps.md):** `rayfin-maps-addon/` is copied on top of that to swap the simple SVG map for an
+Azure Maps map (grayscale/road/night/satellite styles, OS Open Zoomstack railway lines, train pop-ups). It needs
+`npm install -w @rayfin-app/frontend azure-maps-control`, the `getMapAuth` function (already in `function_app.ts`) and the
+`AZURE_MAPS_TOKEN` secret. Without the secret the app keeps the simple map. `tools/build_gb_rail.py` builds
+`rayfin-maps-addon/packages/frontend/public/data/gb-rail.geojson` from OS Open Zoomstack.
+
 ## What each overlay file does
 
 | File | Purpose |
