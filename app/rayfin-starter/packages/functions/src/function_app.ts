@@ -67,11 +67,11 @@ udf.func(
 // rate-limited and expires within 24 hours (scripts/new-azure-maps-sas.*). A subscription key also works for a quick
 // test, but it never expires, so don't use one beyond that. Only signed-in app users can call this function.
 // ctx.getSecret() (untyped, deprecated in Rayfin 1.36) is used on purpose: the secret is optional, so Lab 11 still builds
-// without it.
+// and runs without it – the function just returns { configured: false } and the Lab 11 app never calls it. Your editor may
+// show getSecret struck through as deprecated; that's expected.
 udf.func(
   'getMapAuth',
   async (ctx: RayfinContext<RailSchema>): Promise<{ configured: boolean; authType: 'sas' | 'subscriptionKey' | 'none'; token: string }> => {
-    // eslint-disable-next-line @typescript-eslint/no-deprecated
     const value = (ctx.getSecret('AZURE_MAPS_TOKEN') ?? '').trim();
     if (!value) return { configured: false, authType: 'none', token: '' };
     // SAS tokens are JWTs ("eyJ…"); anything else is treated as a subscription key.

@@ -143,14 +143,14 @@ grep -rl "export.*getRayfinClient" packages/frontend/src
 npx rayfin dev functions apply
 #    Checks Node.js and Azure Functions Core Tools (offers to install Core Tools if missing), builds packages/functions,
 #    generates packages/functions/src/types.ts and starts the local functions host. Needs the step 1b `rayfin up`.
-#    Leave it running until it prints a [typegen] line AND the function URL for askRailAgent
+#    Leave it running until it prints a [typegen] line AND the function URLs for askRailAgent and getMapAuth
 #    (not helloWorld). Then, in a SECOND terminal, check the generated types before you stop it:
 #      bash:        grep -E "askRailAgent|helloWorld" packages/functions/src/types.ts
 #      PowerShell:  Select-String -Path packages\functions\src\types.ts -Pattern "askRailAgent|helloWorld"
-#    You should see askRailAgent and NOT helloWorld. Then Ctrl+C the first terminal.
+#    You should see askRailAgent (and getMapAuth, used only by optional Lab 11b) and NOT helloWorld. Then Ctrl+C the first terminal.
 #    Run it first: `npm run dev` on its own can stop with "functions not installed" until this has run once.
 npm run dev                     # optional: full local loop (frontend + functions) to try the app before deploying
-npm run validate:functions      # askRailAgent must be listed in AppFunctionsSchema
+npm run validate:functions      # askRailAgent and getMapAuth must be listed in AppFunctionsSchema
 npm run typecheck && npm run build
 
 # 6. Deploy
