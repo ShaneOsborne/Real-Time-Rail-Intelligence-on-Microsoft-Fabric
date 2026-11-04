@@ -45,7 +45,11 @@ class FrameHandler:
         log.info("stomp connected", extra={"server": frame.headers.get("server", "")})
 
     def on_error(self, frame: Any) -> None:
-        log.error("stomp error frame", extra={"headers": dict(frame.headers), "body": str(frame.body)[:500]})
+        headers = dict(frame.headers)
+        log.error("stomp error frame", extra={"headers": headers, "body": str(frame.body)[:500]})
+        hint = error_hint(headers.get("message", ""))
+        if hint:
+            log.error("what to check", extra={"hint": hint})
 
     def on_disconnected(self) -> None:
         log.warning("stomp disconnected")
@@ -99,6 +103,24 @@ class FrameHandler:
             self.disconnected.set()
 
 
+def error_hint(message: str) -> str:
+    """Plain-language next step for the NROD broker errors people hit most often (see Lab 05a troubleshooting)."""
+    if "AMQ339009" in message:
+        return (
+            "NROD refused the session at CONNECT. Usual causes, most likely first: "
+            "1) another connection with this account or client-id is still open - the Lab 05b Container App, "
+            "a Docker container, another terminal or a run that has not timed out yet (NROD allows one connection "
+            "per account; stop the others and wait about 5 minutes); "
+            "2) wrong NROD_USERNAME/NROD_PASSWORD, or the account is not active - sign in at "
+            "publicdatafeeds.networkrail.co.uk to check; "
+            "3) a temporary block after many quick reconnects - wait 15-30 minutes. "
+            "To tell 1) from 2), retry once with NROD_DURABLE=false and NROD_CLIENT_ID=<anything unique>."
+        )
+    if "AMQ229031" in message or "Unable to validate user" in message:
+        return "NROD rejected the username or password. Check NROD_USERNAME/NROD_PASSWORD (quote the password in .env if it has special characters)."
+    return ""
+
+
 def stomp12_ack(conn: Any) -> Callable[[dict[str, str]], None]:
     """STOMP 1.2 ACK uses the MESSAGE frame's ``ack`` header (fallback: message-id)."""
 
@@ -144,7 +166,7 @@ def run_stomp(cfg: BridgeConfig, sink: Sink, state: BridgeState, stop: threading
                     backoff.reset()
                 stop.wait(1.0)
         except Exception as exc:  # noqa: BLE001
-            log.error("connection failed", extra={"error": str(exc)})
+            log.error("connection failed", extra={"error": str(exc) or type(exc).__name__})
         finally:
             state.update(connected=False)
             try:
