@@ -1,0 +1,40 @@
+// Lab 09b – keyed entity tables for the rail ontology (Fabric IQ).
+//   python fabric/scripts/apply_kql.py --file fabric/kql/09_ontology_tables.kql
+// Safe to rerun. Rerun it after you reload reference data (Lab 03) or fill TocCodes (07_toc_codes_seed.kql).
+//
+// Why these tables? An ontology entity type needs ONE row per thing and a string or integer key. Locations has several
+// rows per station and per STANOX, so it can't be bound directly. These tables give each entity a clean key.
+// Property names must be unique across ALL entity types in an ontology, so every column has an entity prefix
+// (station_, point_, operator_). Train (live) is bound to the TrainLatest materialized view in the lab, not copied here.
+.execute database script with (ContinueOnErrors=false) <|
+// Station: one row per passenger station (CRS code, e.g. LDS = Leeds). A station can have several timing points.
+.set-or-replace OntStations with (folder="ontology", docstring="Lab 09b: one row per station (CRS code) for the rail ontology") <|
+    Locations
+    | where isnotempty(crs)
+    | extend crs = toupper(crs)
+    | summarize station_name = take_anyif(name, isnotempty(name)),
+                station_lat = take_anyif(lat, isnotnull(lat)),
+                station_lon = take_anyif(lon, isnotnull(lon)),
+                station_timing_points = dcount(stanox)
+        by station_crs = crs
+
+// Timing point: one row per STANOX – the code TRUST reports movements against. point_crs links it to its station
+// (blank for junctions, sidings and other non-station points).
+.set-or-replace OntTimingPoints with (folder="ontology", docstring="Lab 09b: one row per STANOX timing point for the rail ontology") <|
+    Locations
+    | where isnotempty(stanox)
+    | extend crs = toupper(crs)
+    | summarize point_name = take_anyif(name, isnotempty(name)),
+                point_tiploc = take_anyif(tiploc, isnotempty(tiploc)),
+                point_crs = take_anyif(crs, isnotempty(crs)),
+                point_lat = take_anyif(lat, isnotnull(lat)),
+                point_lon = take_anyif(lon, isnotnull(lon))
+        by point_stanox = stanox
+
+// Operator: every TRUST operator code seen in the last 30 days, with its name from TocCodes when you've filled it in.
+.set-or-replace OntOperators with (folder="ontology", docstring="Lab 09b: one row per train operator (TRUST toc_id) for the rail ontology") <|
+    TrustMovements
+    | where event_time > ago(30d) and isnotempty(toc_id)
+    | distinct operator_id = toc_id
+    | join kind=leftouter (TocCodes | where isnotempty(toc_id) | summarize toc_name = take_any(toc_name) by operator_id = toc_id) on operator_id
+    | project operator_id, operator_name = iff(isempty(toc_name), strcat("Operator ", operator_id), toc_name)

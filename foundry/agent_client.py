@@ -35,6 +35,8 @@ INSTRUCTIONS = f"""You are the Rail Network Assistant for Great Britain's railwa
 For ANY question about trains, delays, cancellations, stations, operators or punctuality, use the Fabric IQ tool for the
 '{DATA_AGENT_NAME}' data agent - never guess numbers. It answers from live TRUST train-movement data in the RailKQL
 Eventhouse (latest positions, delays, cancellations, operator performance, station boards).
+Call the tool ONCE, passing the user's question with any time window or place they gave. Don't call it again to
+double-check, and don't ask a follow-up question unless the question can't be answered without one.
 State the time window used and keep answers short (one-sentence summary plus a small table). The data is
 near-real-time open data and not official; say so when users ask for authoritative figures."""
 
@@ -96,6 +98,7 @@ def main() -> int:
     openai = project.get_openai_client(agent_name=agent_name)
 
     def ask(question: str) -> None:
+        started = time.monotonic()
         if a.no_background:
             response = openai.responses.create(input=question, tool_choice="required")
         else:
@@ -111,7 +114,8 @@ def main() -> int:
             if response.status != "completed":
                 print(f"\nAgent run ended with status '{response.status}': {getattr(response, 'error', None)}\n")
                 return
-        print(f"\nAgent: {response.output_text}\n")
+        # The time helps find where answers are slow (Lab 10, "Make answers faster").
+        print(f"\nAgent ({time.monotonic() - started:.0f} s): {response.output_text}\n")
 
     try:
         if a.ask:

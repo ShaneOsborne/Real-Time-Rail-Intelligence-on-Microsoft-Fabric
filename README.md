@@ -126,6 +126,7 @@ flowchart LR
 | [07](docs/labs/07-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) | ✅ |
 | [08](docs/labs/08-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) | ✅ |
 | [09](docs/labs/09-fabric-data-agent.md) | Fabric data agent (instructions and example queries) | 30 min | Manual (content supplied) | ✅ |
+| [09b](docs/labs/09b-rail-ontology.md) | *Optional:* rail ontology (Fabric IQ): stations, timing points, trains, operators and business rules, plus a data agent grounded in it, compared with Lab 09 | 50 min | ✅ `09_ontology_tables.kql`; ontology via the ontology agent or by hand | Optional, own workspace |
 | [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric IQ (OneLake Catalog) tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) | ✅ (shared project) |
 | [10b](docs/labs/10b-live-semantic-model.md) | Live semantic model (DirectQuery over `NetworkSnapshot`) for the app map | 25 min | Manual (Power BI Desktop) | If doing Lab 11 |
 | [11](docs/labs/11-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code | If region supports it |
@@ -209,6 +210,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 │   ├── notebooks/             Reference-data notebook (.ipynb)
 │   ├── scripts/               apply_kql.py, load_reference_data.py
 │   ├── data-agent/            Instructions + example question/KQL pairs
+│   ├── ontology/              Lab 09b: ontology definition (entities, relationships, rules, prompts) + comparison questions
 │   ├── dashboard/             Real-Time Dashboard tile queries
 │   └── activator/             Activator rule specifications
 ├── foundry/                   Foundry agent client (Python) + setup notes

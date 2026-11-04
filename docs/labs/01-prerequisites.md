@@ -77,6 +77,8 @@ done
   * Users can create Fabric items (Real-Time Intelligence: Eventhouse, Eventstream, Activator).
   * **Fabric data agent** tenant settings enabled (Copilot and Azure OpenAI-powered features), plus the
     **cross-geo processing** and **cross-geo storage** settings for AI if your capacity region requires them.
+  * *Optional (Lab 09b):* **Users can create ontology (preview) items** → Enabled, for the same users. Check: **+ New item**
+    lists **Ontology (preview)**.
   * **Fabric Apps (preview)** (Lab 11): *Admin portal > Tenant settings > Fabric Apps (preview)* → **Enabled**, for the whole
     organisation or a security group that includes every lab user. Allow a few minutes to propagate. Check it worked: in the
     workspace, **+ New item** should list **App (preview)**.

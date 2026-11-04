@@ -29,9 +29,15 @@ const udf = new UserDataFunctions();
 export type RailSchema = Record<string, never>;
 
 // ---- Chat: forwards a question to the Foundry agent from Lab 10 ----
-// Never throws: a deployed function that throws only shows the browser "InternalError: An internal execution error
-// occured", which hides the cause. Instead every failure comes back as a readable "Agent error (…)" answer, and the
-// details are also written with console.error (visible in the `npm run dev` / `rayfin dev functions apply` terminal).
+// A question goes Foundry agent → Fabric IQ tool → data agent (writes and runs KQL) → back, so answers often take
+// 20–90 seconds. To avoid timeouts the app uses TWO quick calls instead of one long one:
+//   startRailAgent(question)   starts a background run and returns at once with its id
+//   pollRailAgent(responseId)  returns the current state; the chat panel calls it every few seconds until it's done
+// Each call finishes in a second or two, so no function or client timeout is hit however long the agent takes.
+// askRailAgent (one call that waits up to 100 s) is kept for older chat panels and quick tests.
+// None of them throw: a deployed function that throws only shows the browser "InternalError: An internal execution error
+// occured", which hides the cause. Every failure comes back as a readable "Agent error (…)" text, and the details are also
+// written with console.error (visible in the `npm run dev` / `rayfin dev functions apply` terminal).
 
 type FoundryResponse = {
   id?: string;
@@ -42,84 +48,131 @@ type FoundryResponse = {
   incomplete_details?: { reason?: string } | null;
 };
 
+// What the chat panel receives. status: 'working' → poll again with id; 'done' → show text; 'error' → show text as an error.
+type AgentState = { id: string; status: 'working' | 'done' | 'error'; text: string };
+
 const POLL_MS = 2_000;
-const MAX_WAIT_MS = 100_000; // stay under the Fabric function / client timeouts; the app waits up to 120 s
+const MAX_WAIT_MS = 100_000; // askRailAgent only: stay under the client timeout
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 const short = (t: string) => t.replace(/\s+/g, ' ').slice(0, 300);
+const fail = (text: string, id = ''): AgentState => ({ id, status: 'error', text });
 
 function textOf(body: FoundryResponse): string {
   if (body.output_text) return body.output_text;
   return (body.output ?? []).flatMap((o) => o.content ?? []).map((c) => c.text ?? '').join('\n').trim();
 }
 
+// Turns a Foundry response into what the panel shows.
+function stateOf(body: FoundryResponse): AgentState {
+  const id = body.id ?? '';
+  if (body.status === 'queued' || body.status === 'in_progress') return { id, status: 'working', text: '' };
+  if (body.status && body.status !== 'completed') {
+    const why = body.error?.message ?? body.incomplete_details?.reason ?? body.status;
+    console.error('Foundry response not completed', body.status, body.error, body.incomplete_details);
+    return fail(`Agent error (${body.status}): ${short(String(why))}`, id);
+  }
+  return { id, status: 'done', text: textOf(body) || 'The agent returned no text.' };
+}
+
+type Foundry = { base: string; headers: Record<string, string> };
+
+// Rayfin 1.36: the audience is declared in the context type and the token read from ctx.Tokens.
+// Deployed, the token is for the Fabric app identity (the owner of the App item); locally it's the account you signed in with.
+// Grant that identity the Foundry User role on the Foundry project. The Lab 10 Fabric IQ connection runs as a user (UserEntraToken).
+function foundry(ctx: RayfinContext<RailSchema, AudienceType.AzureAI>): Foundry | string {
+  try {
+    const base = `${checkUrl('FOUNDRY_PROJECT_ENDPOINT', FOUNDRY_PROJECT_ENDPOINT)}/openai/v1/responses`;
+    if (!FOUNDRY_AGENT_NAME || FOUNDRY_AGENT_NAME.includes('PASTE-')) throw new Error('FOUNDRY_AGENT_NAME isn\'t set');
+    const token = ctx.Tokens.AzureAI;
+    return { base, headers: { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' } };
+  } catch (e) {
+    console.error('Foundry setup failed', e);
+    return `Agent error (setup): ${e instanceof Error ? e.message : String(e)}`;
+  }
+}
+
+async function startRun(f: Foundry, question: string): Promise<AgentState> {
+  const q = String(question ?? '').trim().slice(0, 2000);
+  if (!q) return fail('Please ask a question.');
+  try {
+    // TODO(verify): Foundry Responses API with an agent reference and background mode (Lab 10). Check the path and body
+    // against https://ai.azure.com/api-reference/responses/ for your API version.
+    // background: true returns at once with an id; the run carries on in Foundry and we poll for the result.
+    const res = await fetch(f.base, {
+      method: 'POST',
+      headers: f.headers,
+      body: JSON.stringify({
+        input: q,
+        agent_reference: { type: 'agent_reference', name: FOUNDRY_AGENT_NAME },
+        tool_choice: 'required',
+        background: true,
+      }),
+    });
+    if (!res.ok) {
+      const detail = short(await res.text());
+      console.error('Foundry call failed', res.status, detail);
+      return fail(`Agent error (HTTP ${res.status}): ${detail}`);
+    }
+    return stateOf((await res.json()) as FoundryResponse);
+  } catch (e) {
+    console.error('Foundry start failed', e);
+    return fail(`Agent error: ${e instanceof Error ? short(e.message) : 'unexpected failure'}`);
+  }
+}
+
+async function readRun(f: Foundry, id: string): Promise<AgentState> {
+  if (!/^[A-Za-z0-9_-]{1,200}$/.test(id)) return fail('Agent error: invalid response id.', id);
+  try {
+    const res = await fetch(`${f.base}/${encodeURIComponent(id)}`, { headers: f.headers });
+    if (!res.ok) {
+      const detail = short(await res.text());
+      console.error('Foundry poll failed', res.status, detail);
+      return fail(`Agent error while waiting (HTTP ${res.status}): ${detail}`, id);
+    }
+    return stateOf((await res.json()) as FoundryResponse);
+  } catch (e) {
+    console.error('Foundry poll failed', e);
+    return fail(`Agent error while waiting: ${e instanceof Error ? short(e.message) : 'unexpected failure'}`, id);
+  }
+}
+
+// Starts the agent run and returns straight away (status 'working' + id), or 'done'/'error' if it already finished.
+udf.func(
+  'startRailAgent',
+  async (ctx: RayfinContext<RailSchema, AudienceType.AzureAI>, question: string): Promise<{ id: string; status: 'working' | 'done' | 'error'; text: string }> => {
+    const f = foundry(ctx);
+    return typeof f === 'string' ? fail(f) : startRun(f, question);
+  },
+  [],
+);
+
+// Returns the current state of a run started by startRailAgent. One quick request; the chat panel repeats it.
+udf.func(
+  'pollRailAgent',
+  async (ctx: RayfinContext<RailSchema, AudienceType.AzureAI>, responseId: string): Promise<{ id: string; status: 'working' | 'done' | 'error'; text: string }> => {
+    const f = foundry(ctx);
+    return typeof f === 'string' ? fail(f, responseId) : readRun(f, String(responseId ?? ''));
+  },
+  [],
+);
+
+// One-call version (waits up to 100 s). Kept for older chat panels and quick tests; the current ChatPanel uses start/poll.
 udf.func(
   'askRailAgent',
-  // Rayfin 1.36: the audience is declared in the context type and the token read from ctx.Tokens.
-  // Deployed, the token is for the Fabric app identity (the owner of the App item); locally it's the account you signed in with.
-  // Grant that identity the Foundry User role on the Foundry project. The Lab 10 Fabric IQ connection runs as a user (UserEntraToken).
   async (ctx: RayfinContext<RailSchema, AudienceType.AzureAI>, question: string): Promise<string> => {
-    const q = String(question ?? '').trim().slice(0, 2000);
-    if (!q) return 'Please ask a question.';
-
-    let base: string;
-    let token: string;
-    try {
-      base = `${checkUrl('FOUNDRY_PROJECT_ENDPOINT', FOUNDRY_PROJECT_ENDPOINT)}/openai/v1/responses`;
-      if (!FOUNDRY_AGENT_NAME || FOUNDRY_AGENT_NAME.includes('PASTE-')) throw new Error('FOUNDRY_AGENT_NAME isn\'t set');
-      token = ctx.Tokens.AzureAI;
-    } catch (e) {
-      console.error('askRailAgent setup failed', e);
-      return `Agent error (setup): ${e instanceof Error ? e.message : String(e)}`;
+    const f = foundry(ctx);
+    if (typeof f === 'string') return f;
+    let state = await startRun(f, question);
+    const deadline = Date.now() + MAX_WAIT_MS;
+    while (state.status === 'working' && state.id) {
+      if (Date.now() > deadline) {
+        return 'The agent is still working on that (over 100 seconds). Try a narrower question, e.g. a shorter time window.';
+      }
+      await sleep(POLL_MS);
+      state = await readRun(f, state.id);
     }
-    const headers = { Authorization: ['Bearer', token].join(' '), 'Content-Type': 'application/json' };
-
-    try {
-      // TODO(verify): Foundry Responses API with an agent reference and background mode (Lab 10). Check the path and body
-      // against https://ai.azure.com/api-reference/responses/ for your API version.
-      // background: true lets long Fabric IQ / data agent calls finish; we poll until the answer is ready.
-      const start = await fetch(base, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({
-          input: q,
-          agent_reference: { type: 'agent_reference', name: FOUNDRY_AGENT_NAME },
-          tool_choice: 'required',
-          background: true,
-        }),
-      });
-      if (!start.ok) {
-        const detail = short(await start.text());
-        console.error('Foundry call failed', start.status, detail);
-        return `Agent error (HTTP ${start.status}): ${detail}`;
-      }
-      let body = (await start.json()) as FoundryResponse;
-
-      const deadline = Date.now() + MAX_WAIT_MS;
-      while ((body.status === 'queued' || body.status === 'in_progress') && body.id) {
-        if (Date.now() > deadline) {
-          return 'The agent is still working on that (over 100 seconds). Try a narrower question, e.g. a shorter time window.';
-        }
-        await sleep(POLL_MS);
-        const poll = await fetch(`${base}/${encodeURIComponent(body.id)}`, { headers });
-        if (!poll.ok) {
-          const detail = short(await poll.text());
-          console.error('Foundry poll failed', poll.status, detail);
-          return `Agent error while waiting (HTTP ${poll.status}): ${detail}`;
-        }
-        body = (await poll.json()) as FoundryResponse;
-      }
-
-      if (body.status && body.status !== 'completed') {
-        const why = body.error?.message ?? body.incomplete_details?.reason ?? body.status;
-        console.error('Foundry response not completed', body.status, body.error, body.incomplete_details);
-        return `Agent error (${body.status}): ${short(String(why))}`;
-      }
-      return textOf(body) || 'The agent returned no text.';
-    } catch (e) {
-      console.error('askRailAgent failed', e);
-      return `Agent error: ${e instanceof Error ? short(e.message) : 'unexpected failure'}`;
-    }
+    return state.text;
   },
   [],
 );

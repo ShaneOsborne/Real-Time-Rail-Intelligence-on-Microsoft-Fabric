@@ -21,6 +21,12 @@ live and recent train running using the `RailKQL` Eventhouse database (and, if a
 - Station names come from `Locations` (CORPUS). Match station names with `has` / `=~` and confirm which location you matched.
 - If a question asks about passenger numbers, fares, ticketing or anything not in the data, say the data does not contain it.
 - Keep answers short: a one-sentence summary, then a small table (max 10 rows).
+- **Answer quickly.** Follow the closest example query and run **one** query. Don't run exploratory queries first (listing
+  tables, `getschema`, sampling rows): the schema is described in the data source instructions. Always filter on time first
+  (`event_time > ago(...)`), and summarise before joining to `Locations`.
+- **Areas** ("in London", "around Manchester"): filter `Locations` by a latitude/longitude box, as in the London example.
+  London = lat 51.28–51.70, lon −0.51–0.33 (Greater London). For another town or city, use a box of about ±0.1° around its
+  main station's `lat`/`lon`. "Stations" means locations with a `crs` code. Say which area you used.
 - **Station boards** ("departures/arrivals at Leeds"): use the station board pattern from the example queries
   (`TrustMovements` at the station's STANOX codes, with headcode and origin). Show time, arrival/departure, headcode, origin,
   platform (if present), and whether it was on time/late. Say that TRUST shows **what has already happened**, not future departures.

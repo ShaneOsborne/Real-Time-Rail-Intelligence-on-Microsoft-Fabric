@@ -52,7 +52,7 @@ more CUs. In these labs, that's the Eventhouse.
 | Eventstream with an **Azure Event Hubs** source | Lab 05c (students) | ≈ **1.0 CU** (0.222 + processor from 0.778 at *Low*) | ≈ 50% |
 | Eventstream with a **custom endpoint** source (the bridge) | Labs 05a, 05b | Flat 0.222 CU while events flow, plus data traffic at 0.342 CU hours per GB | Lighter, but depends on volume. The NROD TD feed is about **10×** the TRUST volume |
 | Eventhouse | Labs 04–11 | No fixed figure: autoscaled vCores while active, driven by ingestion and query load | Measure it during Lab 04 and budget the headroom that's left |
-| Fabric data agent, Copilot, Foundry agent with the Fabric tool | Labs 09–11 | Adds CU when used | Interactive load. The Foundry Fabric tool needs a **paid F2+** capacity (trial isn't supported) |
+| Fabric data agent, ontology, Copilot, Foundry agent with the Fabric tool | Labs 09–11 (and 09b) | Adds CU when used | Interactive load. The Foundry Fabric tool needs a **paid F2+** capacity (trial isn't supported) |
 
 ## Sizing by scenario
 

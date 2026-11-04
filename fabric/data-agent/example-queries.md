@@ -168,7 +168,33 @@ TrainLatest
 | order by event_time desc
 ```
 
-## 9. (Optional – Darwin, Lab 04b) Which services at Leeds don't have a confirmed platform yet?
+## 9. What are the busiest stations in London in the last 30 minutes?
+
+**Question**
+
+```text
+What are the busiest stations in London in the last 30 minutes?
+```
+
+**Query**
+
+```kusto
+// Busiest = most TRUST movements (arrivals and departures) at stations, i.e. locations with a CRS code.
+// "London" = a box around Greater London (lat 51.28 to 51.70, lon -0.51 to 0.33). Change the box for another area.
+// Filter by time and summarise BEFORE the join, so only a small table is joined.
+let area = Locations
+| where isnotempty(stanox) and isnotempty(crs) and lat between (51.28 .. 51.70) and lon between (-0.51 .. 0.33)
+| summarize station = take_any(name), crs = take_any(crs) by stanox;
+TrustMovements
+| where event_time > ago(30m)
+| summarize movements = count(), late = countif(delay_minutes > 0) by loc_stanox
+| join kind=inner area on $left.loc_stanox == $right.stanox
+| summarize movements = sum(movements), late = sum(late), station = take_any(station) by crs
+| top 10 by movements desc
+| project station, crs, movements, late
+```
+
+## 10. (Optional – Darwin, Lab 04b) Which services at Leeds don't have a confirmed platform yet?
 
 **Question**
 
@@ -190,7 +216,7 @@ DarwinLocations
 | take 10
 ```
 
-## 10. (Optional – Darwin, Lab 04b) Which trains have the biggest predicted delays right now?
+## 11. (Optional – Darwin, Lab 04b) Which trains have the biggest predicted delays right now?
 
 **Question**
 
@@ -211,7 +237,7 @@ DarwinLocations
 | project name, crs, rid, pta, ptd, arr_et, dep_et, delay_minutes, platform
 ```
 
-## 11. (Optional – Darwin, Lab 04b) What is the expected departure time and platform of trains at York?
+## 12. (Optional – Darwin, Lab 04b) What is the expected departure time and platform of trains at York?
 
 **Question**
 

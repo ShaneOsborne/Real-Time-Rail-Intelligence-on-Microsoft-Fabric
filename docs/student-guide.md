@@ -27,6 +27,7 @@ Follow these in order. Each lab page also has a **Path** line that says what to 
 | 7 | [07 Activator](labs/07-activator-alerts.md) | All | – |
 | 8 | [08 Dashboard and Power BI](labs/08-dashboard-powerbi.md) | All | – |
 | 9 | [09 Fabric data agent](labs/09-fabric-data-agent.md) | All | – |
+| 9b | [09b Rail ontology](labs/09b-rail-ontology.md) | Optional: all, in your own workspace, if your instructor says the ontology setting is on | – |
 | 10 | [10 Foundry agent](labs/10-foundry-agent.md) | All, in the **shared** Foundry project, with **your own** agent name | Creating a Foundry project |
 | 10b | [10b Live semantic model](labs/10b-live-semantic-model.md) | Before Lab 11: your own `RailLiveMap` model | – |
 | 11 | [11 Rayfin app](labs/11-rayfin-app.md) | If your instructor says Fabric Apps works in your region | – |

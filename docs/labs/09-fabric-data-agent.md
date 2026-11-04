@@ -1,6 +1,6 @@
 # Lab 09 – Fabric data agent
 
-**Time:** 30 minutes · **Previous:** [Lab 08](08-dashboard-powerbi.md) · **Next:** [Lab 10](10-foundry-agent.md)
+**Time:** 30 minutes · **Previous:** [Lab 08](08-dashboard-powerbi.md) · **Next:** [Lab 10](10-foundry-agent.md) (or the optional [Lab 09b – rail ontology](09b-rail-ontology.md))
 
 > **Path:** Everyone.
 
@@ -29,6 +29,7 @@ Not available in this repo. Create the data agent in the portal. All the content
 2. **Add data source** → `RailKQL`. Select the tables, views and functions the agent may use:
    `TrustMovements`, `TrustCancellations`, `TrustActivations`, `Locations`, `TocCodes`, plus the materialized views
    (`TrainLatest`, `DelaysBy15Min`, `CancellationsBy15Min`, `DailyTocPerformance`). Leave `RawFeed` and `RdmTrustRaw` **out**.
+   Don't add anything else: every extra table makes answers slower.
 3. Optionally, add the `Rail Performance` semantic model from Lab 08.
    *Optional (only if you did [Lab 04b](04b-darwin-push-port.md)):* also select `DarwinLocations` and the functions
    `DarwinLatest`, `DarwinUnconfirmedPlatforms` and `DarwinBiggestDelays`. Leave `RdmDarwinRaw` **out**.
@@ -69,3 +70,9 @@ Not available in this repo. Create the data agent in the portal. All the content
 | The agent queries `RawFeed` | Remove it from the selected tables. Strengthen the instruction |
 | "Not enough data" | Make sure the live feed is flowing (Lab 05/04). The agent filters by time |
 | Users get unauthorised errors | Grant Read on the data agent **and** Reader on the KQL database |
+
+## Next: optional ontology
+
+This agent knows the rail data through its instructions and examples. [Lab 09b](09b-rail-ontology.md) puts the same
+meaning (stations and timing points, headcodes, "late", "active") into a Fabric IQ **ontology** that any agent can share, and
+compares the two agents on the same questions.

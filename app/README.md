@@ -15,7 +15,7 @@ Follow that, including its PowerShell notes and troubleshooting. In short, with 
 scaffold `rail-app` → `npm run pack:add -- functions` and `-- connectors` → `npx rayfin connector add --type
 fabric-semanticmodel … --name railmap` (+ its printed `npm install`) → copy `rayfin-starter/packages/*` onto `packages/` → set
 the two values, check the client import, swap `EmptyStatePreview` for `RailApp` → `npx rayfin dev functions apply` (until the
-types list `askRailAgent`) → `npm run validate:functions`, `typecheck`, `build` → `npm run rayfin:up`.
+types list `startRailAgent`, `pollRailAgent` and `askRailAgent`) → `npm run validate:functions`, `typecheck`, `build` → `npm run rayfin:up`.
 
 `rayfin-starter/` mirrors the default template's layout (`packages/frontend`, `packages/functions`), so the files copy straight across.
 
@@ -38,7 +38,7 @@ Azure Maps map (grayscale/road/night/satellite styles, OS Open Zoomstack railway
 | `packages/frontend/src/theme/brand.ts`, `theme/rail.css` | Brand name, strapline and colours; scoped styles (`.rp`) |
 | `packages/frontend/src/features/network/useSnapshot.ts` | One shared 30-second poller for the train snapshot (map and KPIs share one query) |
 | `packages/frontend/src/features/network/KpiStrip.tsx` | Active trains, % on time, late, very late, operators |
-| `packages/functions/src/function_app.ts` | `askRailAgent` (`ctx.Tokens.AzureAI` → Foundry agent from Lab 10) |
+| `packages/functions/src/function_app.ts` | `startRailAgent` / `pollRailAgent` (start a background Foundry run, then check it; `ctx.Tokens.AzureAI` → Foundry agent from Lab 10), `askRailAgent` (one-call version), `getMapAuth` (Lab 11b) |
 
 ## Unverified / to check
 

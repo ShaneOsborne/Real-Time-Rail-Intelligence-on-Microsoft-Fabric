@@ -121,6 +121,61 @@ full resource ID.
    then `responses.create(..., background=True)` and polls until the answer is ready. Add `--no-background` if your model
    doesn't support background mode.
 
+## Make answers faster
+
+A question goes through **two** AI models before you see an answer:
+
+```
+Foundry agent (your model)  →  Fabric IQ tool  →  data agent "Rail Network Analyst" (its own model)
+   decides to call the tool                          reads the schema and examples, writes KQL, runs it on RailKQL,
+   writes the final answer   ←───────────────────    summarises the rows
+```
+
+The KQL itself normally runs in about a second. Almost all of the time is the two models thinking, so 20–90 seconds is
+normal, and a broad question can take longer. The first question after a quiet period is also slower.
+
+### 1. Find where the time goes
+
+Ask the **same question** at each level and note the time. This tells you which fix to apply.
+
+| Level | How | What it tells you |
+|---|---|---|
+| KQL | Run the matching query from [`example-queries.md`](../../fabric/data-agent/example-queries.md) in a KQL queryset | Should take about a second. If it's slow, see step 4 (capacity) |
+| Data agent | Ask it in Fabric (Lab 09), on its own | The data agent's share. If this is most of the time, see step 3 |
+| Foundry agent | `python foundry/agent_client.py --ask "…"` (prints the seconds taken), or the playground | The data agent's time plus the Foundry model's. If much more than the line above, see step 2 |
+| App | RailPulse shows *Answered in N s* under each answer | Should be close to the Foundry time. Much more means the app is waiting, not the agent |
+
+### 2. Make the Foundry model quicker
+
+* **Reasoning effort.** gpt-5.x models "think" before answering. If the model's **parameters** panel (where you turned on
+  background mode) offers **Reasoning effort**, set it to **Low** (or **Minimal**). This agent only has to pass the question
+  on and tidy up the answer, so it doesn't need deep reasoning. This is usually the biggest single saving.
+  *(Unverified: the setting's name and whether it's offered depend on the model and portal version.)*
+* **Call the tool once.** Paste the current `INSTRUCTIONS` from `foundry/agent_client.py` again (step 4) and **Save**. They
+  now tell the agent to call the data agent once and not ask follow-up questions; each extra call adds a full data agent run.
+* **Smaller model.** If the [Fabric IQ page](https://learn.microsoft.com/azure/foundry/agents/how-to/tools/fabric-iq#run-a-fabric-data-agent-in-background-mode)
+  lists a *mini* model with background mode that your region offers, try it. Check the answers are still accurate.
+
+### 3. Make the data agent quicker
+
+* **Fewer tables.** Select only the tables and views listed in Lab 09 step 2. Every extra table makes the data agent's
+  prompt bigger and its choice slower.
+* **Examples for your common questions.** When a question matches an example query, the data agent copies the pattern
+  instead of working it out. Add your own (for example the London "busiest stations" example, number 9 in
+  [`example-queries.md`](../../fabric/data-agent/example-queries.md)), then **Publish** the data agent again.
+* **Current instructions.** Paste the current *Agent instructions* from
+  [`instructions.md`](../../fabric/data-agent/instructions.md) and publish. They now say to run one query without
+  exploring the schema first, and how to handle areas such as "in London".
+* **Narrower questions** ("in the last 30 minutes", "at Leeds") are faster than open-ended ones ("today across the network").
+
+### 4. Check the capacity and regions
+
+* **Throttling.** An F2 running two always-on Kafka Eventstreams can be throttled, and then every query and data agent call
+  slows down. Check the **Fabric Capacity Metrics** app ([Capacity planning](../capacity-planning.md)). Scale up, or stop the
+  Eventstreams you don't need.
+* **Regions.** Keep the Foundry project and the Fabric capacity in the same or nearby regions (for example UK South and
+  Sweden Central, not the US). The effect is small compared with model time, but it adds up over several calls.
+
 ## Migrating an existing agent
 
 If you built `rail-network-agent` with the old **Microsoft Fabric** data agent tool:
@@ -142,6 +197,7 @@ Your Fabric data agent doesn't change.
 
 | Error | Fix |
 |---|---|
+| Answers take over a minute, or the app says *Request timed out* | See [Make answers faster](#make-answers-faster). Update the Lab 11 app too: its chat now starts the run and checks back every few seconds, so it no longer times out |
 | gpt-5.4 / gpt-5.5 isn't in the model catalog, or deployment fails with *not available in this region* | The project's region doesn't offer it. Check [model availability](https://model-availability.azurewebsites.net/), then create a new Foundry resource and project in a listed region (UK West didn't have them when tested) |
 | `Rail Network Analyst` isn't in the OneLake Catalog | Publish it in Fabric (Lab 09), and check it's shared with you. Refresh the catalog |
 | You can't add the Fabric IQ tool / connection creation is denied | You need **Foundry Project Manager** on the project. Ask the project owner (or instructor) |

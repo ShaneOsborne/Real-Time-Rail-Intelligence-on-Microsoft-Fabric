@@ -9,7 +9,8 @@
 * Scaffold a **Fabric app** with the **Rayfin** CLI, in its **own folder outside this repo**.
 * Show a **live map** of trains by querying the Lab 10b semantic model (DirectQuery over `RailKQL`) through the Rayfin
   **semantic model connector**, as the signed-in user.
-* Add a **chat panel** that calls a second function (`askRailAgent`), which calls the Foundry agent from Lab 10 on behalf of the user.
+* Add a **chat panel** that calls the Foundry agent from Lab 10 through two quick functions: `startRailAgent` starts a
+  background run, and `pollRailAgent` checks it every few seconds until the answer is ready.
 
 When you finish, RailPulse looks something like this (shown with the optional Lab 11b Azure Maps basemap):
 
@@ -147,14 +148,14 @@ grep -rl "export.*getRayfinClient" packages/frontend/src
 npx rayfin dev functions apply
 #    Checks Node.js and Azure Functions Core Tools (offers to install Core Tools if missing), builds packages/functions,
 #    generates packages/functions/src/types.ts and starts the local functions host. Needs the step 1b `rayfin up`.
-#    Leave it running until it prints a [typegen] line AND the function URLs for askRailAgent and getMapAuth
+#    Leave it running until it prints a [typegen] line AND the function URLs for startRailAgent, pollRailAgent, askRailAgent and getMapAuth
 #    (not helloWorld). Then, in a SECOND terminal, check the generated types before you stop it:
-#      bash:        grep -E "askRailAgent|helloWorld" packages/functions/src/types.ts
-#      PowerShell:  Select-String -Path packages\functions\src\types.ts -Pattern "askRailAgent|helloWorld"
-#    You should see askRailAgent (and getMapAuth, used only by optional Lab 11b) and NOT helloWorld. Then Ctrl+C the first terminal.
+#      bash:        grep -E "RailAgent|helloWorld" packages/functions/src/types.ts
+#      PowerShell:  Select-String -Path packages\functions\src\types.ts -Pattern "RailAgent|helloWorld"
+#    You should see startRailAgent, pollRailAgent and askRailAgent (and getMapAuth, used only by optional Lab 11b) and NOT helloWorld. Then Ctrl+C the first terminal.
 #    Run it first: `npm run dev` on its own can stop with "functions not installed" until this has run once.
 npm run dev                     # optional: full local loop (frontend + functions) to try the app before deploying
-npm run validate:functions      # askRailAgent and getMapAuth must be listed in AppFunctionsSchema
+npm run validate:functions      # startRailAgent, pollRailAgent, askRailAgent and getMapAuth must be listed in AppFunctionsSchema
 npm run typecheck && npm run build
 
 # 6. Deploy
@@ -195,12 +196,16 @@ The details are in [`app/README.md`](../../app/README.md).
    (`api`, `query`, `overflow`, `network`) and a `requestId`, which the map shows.
 3. **Map.** `NetworkMap.tsx` projects lat/lon onto an SVG of GB and colours each dot:
    green is on time, amber is late, red is 15 minutes or more late. It refreshes every 30 seconds.
-4. **Chat function.** `askRailAgent` declares the audience in its context type – `RayfinContext<RailSchema, AudienceType.AzureAI>` –
+4. **Chat functions.** `startRailAgent` starts a Foundry run in background mode and returns its id at once; `pollRailAgent`
+   returns the run's state. Each call takes a second or two, so a long data agent question never hits a function or client
+   timeout. (`askRailAgent`, which waits up to 100 seconds in one call, is kept for older chat panels.) They declare the audience in its context type – `RayfinContext<RailSchema, AudienceType.AzureAI>` –
    reads `ctx.Tokens.AzureAI`, and calls the Foundry agent. (`ctx.getToken()` and `udf.connection()` are deprecated in 1.36 and
    don't type-check any more.)
    **TODO(verify)**: the REST path and body (`POST {project}/openai/v1/responses` with `agent_reference`). Check them against
    <https://ai.azure.com/api-reference/responses/>.
-5. **Chat UI.** `ChatPanel.tsx` calls `askRailAgent.invoke({ question })` and shows any error message.
+5. **Chat UI.** `ChatPanel.tsx` calls `startRailAgent.invoke({ question })`, then `pollRailAgent.invoke({ responseId })` every
+   2.5 seconds (for up to 5 minutes). It shows progress and the elapsed time, a **Stop waiting** button, and *Answered in N s*
+   under each answer.
 
 ## Checkpoint
 
@@ -235,7 +240,9 @@ The details are in [`app/README.md`](../../app/README.md).
 | `functions.askRailAgent` isn't typed in the frontend | Same cause as above: regenerate `types.ts` with `npx rayfin dev functions apply`, then `npm run typecheck` |
 | `pack:add` says `functions` is unknown, or there's no `packages/` folder | You chose a flat (older) template. Either re-scaffold with the default template, or copy `packages/frontend/src/*` into `src/` and `packages/functions/src/function_app.ts` into `rayfin/functions/src/` (after `npx rayfin functions init`), and create the client yourself as in <https://rayfin.ai/docs/functions/calling-functions> |
 | Chat answers fail when deployed, but work with `npm run dev` | Deployed functions use the **app identity**, while the Lab 10 Fabric IQ connection runs as a **user** (`UserEntraToken`). The app identity is the App item's owner, so check that account can use the agent in the playground. Otherwise use the Foundry playground for chat |
-| Chat times out or returns a partial answer | The function calls the agent synchronously, and data agent questions can take a while. Ask a narrower question (shorter time window). The Lab 10 playground and script use background mode for long questions |
+| Chat says *Sorry – Request timed out after 120000ms* | You have the older chat, which waited for the whole answer in one call. Copy the current `function_app.ts` (set your two values again), `ChatPanel.tsx` and `theme/rail.css` from the repo, run `npx rayfin dev functions apply` until the types list `startRailAgent` and `pollRailAgent`, then `npx rayfin up`. The chat then checks back every few seconds and doesn't time out. To make answers themselves faster, see [Lab 10 – Make answers faster](10-foundry-agent.md#make-answers-faster) |
+| *Property 'startRailAgent' (or 'pollRailAgent') does not exist on type 'TypedFunctionClients…'* | `types.ts` is from the older `function_app.ts`. Run `npx rayfin dev functions apply` and leave it running until the `[typegen]` line lists the new functions, then `npm run typecheck` |
+| Chat answers are slow (over a minute) | Normal for broad questions: two AI models think before you see an answer. See [Lab 10 – Make answers faster](10-foundry-agent.md#make-answers-faster) to find and fix the slow part |
 | Calls fail locally with HTTP 502 | The local Functions host isn't running. Use `npm run dev`, or `npx rayfin dev functions apply` plus `npm run dev:frontend`, from the project root |
 | Functions not available | Your tenant or region doesn't have them yet. The map still works (it uses the connector); use the Foundry playground for chat |
 | Map empty but `NetworkSnapshot(1h)` returns rows | `Locations.lat/lon` is missing (re-run Lab 03 with NaPTAN), or the Lab 10b checkpoint query returns nothing |

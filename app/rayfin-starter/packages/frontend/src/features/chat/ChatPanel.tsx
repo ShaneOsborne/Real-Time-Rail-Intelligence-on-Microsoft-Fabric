@@ -1,8 +1,23 @@
-// Lab 11 – "Ask the network": chat with the Foundry agent from Lab 10 through the askRailAgent Rayfin function.
+// Lab 11 – "Ask the network": chat with the Foundry agent from Lab 10 through Rayfin functions.
+// startRailAgent starts a background run and returns its id; pollRailAgent is called every few seconds until the answer
+// is ready. Each call is quick, so long data agent questions no longer hit "Request timed out after 120000ms".
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';
 import { railFunctions } from '../../services/railClient';
 
-type Turn = { role: 'user' | 'agent'; text: string; error?: boolean };
+type Turn = { role: 'user' | 'agent'; text: string; error?: boolean; seconds?: number };
+
+const POLL_EVERY_MS = 2_500;
+const GIVE_UP_AFTER_MS = 300_000; // 5 minutes
+const CALL_TIMEOUT_MS = 30_000; // each start/poll call is quick; this only guards against a stuck request
+
+const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+// Progress text while the agent works, so a long wait doesn't look like a hang.
+function progressText(seconds: number): string {
+  if (seconds < 8) return 'Asking the agent…';
+  if (seconds < 45) return `Querying the live data… ${seconds} s`;
+  return `Still working – detailed questions can take a minute or two… ${seconds} s`;
+}
 
 const SUGGESTIONS = [
   'Which trains are more than 15 minutes late right now?',
@@ -48,6 +63,8 @@ export function ChatPanel() {
   const [turns, setTurns] = useState<Turn[]>([]);
   const [question, setQuestion] = useState('');
   const [busy, setBusy] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const cancelled = useRef(false);
   const logRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -60,14 +77,33 @@ export function ChatPanel() {
     setTurns((t) => [...t, { role: 'user', text: q }]);
     setQuestion('');
     setBusy(true);
+    setElapsed(0);
+    cancelled.current = false;
+    const started = Date.now();
+    const timer = setInterval(() => setElapsed(Math.round((Date.now() - started) / 1000)), 1000);
+    const secs = () => Math.round((Date.now() - started) / 1000);
     try {
       const functions = await railFunctions();
-      const answer = await functions.askRailAgent.invoke({ question: q }, { timeoutMs: 120_000 });
-      setTurns((t) => [...t, { role: 'agent', text: answer, error: answer.startsWith('Agent error') }]);
+      let state = await functions.startRailAgent.invoke({ question: q }, { timeoutMs: CALL_TIMEOUT_MS });
+      while (state.status === 'working' && state.id && !cancelled.current) {
+        if (Date.now() - started > GIVE_UP_AFTER_MS) {
+          state = { ...state, status: 'error', text: 'The agent took more than 5 minutes. Try a narrower question, e.g. a shorter time window.' };
+          break;
+        }
+        await wait(POLL_EVERY_MS);
+        if (cancelled.current) break;
+        state = await functions.pollRailAgent.invoke({ responseId: state.id }, { timeoutMs: CALL_TIMEOUT_MS });
+      }
+      if (cancelled.current) {
+        setTurns((t) => [...t, { role: 'agent', text: 'Stopped waiting for that answer.', error: true }]);
+      } else {
+        setTurns((t) => [...t, { role: 'agent', text: state.text, error: state.status !== 'done', seconds: secs() }]);
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       setTurns((t) => [...t, { role: 'agent', text: `Sorry – ${msg}`, error: true }]);
     } finally {
+      clearInterval(timer);
       setBusy(false);
     }
   }
@@ -85,11 +121,16 @@ export function ChatPanel() {
         {turns.map((t, i) => (
           <div key={i} className={`rp-msg ${t.role}${t.error ? ' error' : ''}`}>
             {t.role === 'agent' ? renderAnswer(t.text) : t.text}
+            {t.seconds !== undefined && !t.error && <div className="rp-msg-meta">Answered in {t.seconds} s</div>}
           </div>
         ))}
         {busy && (
           <div className="rp-typing" aria-label="The agent is working">
             <i /><i /><i />
+            <span className="rp-typing-text">{progressText(elapsed)}</span>
+            <button type="button" className="rp-stop" onClick={() => { cancelled.current = true; }}>
+              Stop waiting
+            </button>
           </div>
         )}
       </div>
@@ -120,7 +161,7 @@ export function ChatPanel() {
           Ask
         </button>
       </form>
-      <div className="rp-hint">Data agent questions can take up to a minute. Near-real-time open data – not an official source.</div>
+      <div className="rp-hint">Answers usually take 20–90 seconds. Near-real-time open data – not an official source.</div>
     </section>
   );
 }

@@ -78,6 +78,10 @@
 .rp-typing i { width: 6px; height: 6px; border-radius: 50%; background: #9aa7b8; animation: rp-blink 1.2s infinite; }
 .rp-typing i:nth-child(2) { animation-delay: 0.2s; }
 .rp-typing i:nth-child(3) { animation-delay: 0.4s; }
+.rp-typing { align-items: center; }
+.rp-typing-text { margin-left: 6px; font-size: 12px; color: #6b7a90; }
+.rp-stop { margin-left: 8px; font: inherit; font-size: 11px; padding: 2px 8px; border-radius: 999px; border: 1px solid var(--rp-border); background: transparent; color: inherit; cursor: pointer; }
+.rp-msg-meta { margin-top: 6px; font-size: 11px; color: #8592a6; }
 @keyframes rp-blink { 0%, 80%, 100% { opacity: 0.25; } 40% { opacity: 1; } }
 .rp-empty { color: #6b7a90; font-size: 13px; }
 .rp-chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 18px 0; }
