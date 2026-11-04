@@ -10,6 +10,9 @@ function Import-DotEnv {
         $name, $value = $line -split '=', 2
         $name = $name.Trim()
         $value = $value.Trim().Trim('"').Trim("'")
+        if ($value.Contains('\$')) {
+            Write-Warning "$name in .env contains a backslash before `$. .env is read literally, so the backslash is sent too. Remove it."
+        }
         if ($name) { Set-Item -Path "Env:$name" -Value $value }
     }
 }

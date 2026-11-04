@@ -29,7 +29,7 @@
 * **Direct path (custom endpoint).** The bridge only ACKs a STOMP frame after the sink accepts it. While the capacity is
   paused, sends to the Eventstream custom endpoint are expected to fail (*validate this in your tenant – the exact error
   isn't documented*). Each failure raises `SinkError`: the bridge does **not** ACK the frame, increments `send_failures`,
-  disconnects and reconnects with exponential backoff (1, 2, 4 … capped at `BACKOFF_MAX_S`, default 60 s), then tries
+  disconnects and reconnects with exponential backoff (30, 60, 120 … seconds, capped at `BACKOFF_MAX_S`, default 600 s; 25 minutes after an NROD `AMQ339009` block), then tries
   again with the redelivered frame. That loop is safe for short outages, but NROD only buffers a durable subscription for
   about **5 minutes**, so anything older than that is lost when the pause lasts longer. The Eventstream **Custom endpoint
   source doesn't support pause and resume** either ([Pause and resume data streams](https://learn.microsoft.com/en-us/fabric/real-time-intelligence/event-streams/pause-resume-data-streams)).
@@ -310,7 +310,7 @@ one for `rdm-trust`), **the same consumer group name**, data format **JSON**, an
 ```kusto
 RawFeed | summarize events = count(), last_received = max(received_utc), last_ingested = max(ingestion_time()) by feed
 RdmTrustRaw | summarize n = count() by t = bin(ingestion_time(), 1m) | order by t desc | take 10
-TrustMovements | summarize n = count(), last = max(event_time) by source
+TrustMovements | summarize n = count(), ['last'] = max(event_time) by source
 ```
 
 ## Overnight pause checkpoint

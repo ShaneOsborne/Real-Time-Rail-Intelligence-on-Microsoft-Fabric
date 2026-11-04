@@ -39,6 +39,7 @@ class FrameHandler:
         self._state = state
         self.disconnected = threading.Event()
         self.received_any = False
+        self.last_error = ""
 
     # --- stomp.py callbacks -------------------------------------------------
     def on_connected(self, frame: Any) -> None:
@@ -46,6 +47,7 @@ class FrameHandler:
 
     def on_error(self, frame: Any) -> None:
         headers = dict(frame.headers)
+        self.last_error = headers.get("message", "")
         log.error("stomp error frame", extra={"headers": headers, "body": str(frame.body)[:500]})
         hint = error_hint(headers.get("message", ""))
         if hint:
@@ -107,14 +109,14 @@ def error_hint(message: str) -> str:
     """Plain-language next step for the NROD broker errors people hit most often (see Lab 05a troubleshooting)."""
     if "AMQ339009" in message:
         return (
-            "NROD refused the session at CONNECT. Usual causes, most likely first: "
-            "1) another connection with this account or client-id is still open - the Lab 05b Container App, "
-            "a Docker container, another terminal or a run that has not timed out yet (NROD allows one connection "
-            "per account; stop the others and wait about 5 minutes); "
-            "2) wrong NROD_USERNAME/NROD_PASSWORD, or the account is not active - sign in at "
-            "publicdatafeeds.networkrail.co.uk to check; "
-            "3) a temporary block after many quick reconnects - wait 15-30 minutes. "
-            "To tell 1) from 2), retry once with NROD_DURABLE=false and NROD_CLIENT_ID=<anything unique>."
+            "NROD refused the session. NROD support (CACI) says this is usually a TEMPORARY BLOCK: too many "
+            "connection attempts in about 15 minutes block the account for about 20 minutes, and EVERY attempt "
+            "during the block restarts the 20 minutes. So: stop every run (this one waits before retrying), make no "
+            "connection at all for 25-30 minutes, then start ONE run. Other causes: another connection with this "
+            "account or client-id still open (NROD allows one per account); wrong NROD_USERNAME/NROD_PASSWORD or an "
+            "inactive account - check at publicdatafeeds.networkrail.co.uk, and make sure NROD_PASSWORD in .env has no "
+            "backslash escapes (.env is read literally: write $ not \\$). If it still fails after a full 30-minute "
+            "pause, contact NROD support with the time of the error."
         )
     if "AMQ229031" in message or "Unable to validate user" in message:
         return "NROD rejected the username or password. Check NROD_USERNAME/NROD_PASSWORD (quote the password in .env if it has special characters)."
@@ -178,6 +180,10 @@ def run_stomp(cfg: BridgeConfig, sink: Sink, state: BridgeState, stop: threading
         if stop.is_set():
             break
         delay = backoff.next_delay()
+        if "AMQ339009" in handler.last_error:
+            # Retrying quickly would keep the NROD block going: wait it out instead.
+            delay = max(delay, cfg.blocked_wait_s)
+            log.warning("NROD looks blocked: waiting before the next attempt", extra={"wait_min": round(delay / 60, 1)})
         state.incr("reconnects")
         log.warning("reconnecting after backoff", extra={"delay_s": round(delay, 2), "attempt": backoff.attempt})
         # NROD only buffers durable messages for ~5 minutes after disconnect.

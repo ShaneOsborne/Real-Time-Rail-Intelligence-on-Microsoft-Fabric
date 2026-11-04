@@ -21,6 +21,10 @@ load_env() {
       val="${val:1:${#val}-2}"
     fi
     [[ "$key" =~ ^[A-Za-z_][A-Za-z0-9_]*$ ]] || continue
+    if [[ "$val" == *'\$'* ]]; then
+      echo "WARNING: $key in .env contains a backslash before \$. .env is read literally, so the backslash is sent too." >&2
+      echo "         Remove the backslash (write the value exactly as it is, in single quotes if it has spaces or #)." >&2
+    fi
     # Variables already set in the shell win over .env
     [[ -n "${!key+x}" ]] || export "$key=$val"
   done < "$file"

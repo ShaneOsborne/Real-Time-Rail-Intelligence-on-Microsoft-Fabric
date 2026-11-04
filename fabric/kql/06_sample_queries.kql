@@ -3,7 +3,7 @@
 // 1. Is data arriving? Events per feed in the last 15 minutes
 RawFeed
 | where received_utc > ago(15m)
-| summarize events = count(), last = max(received_utc) by feed, topic
+| summarize events = count(), ['last'] = max(received_utc) by feed, topic
 
 // 2. TRUST message type mix (last hour)
 RawFeed

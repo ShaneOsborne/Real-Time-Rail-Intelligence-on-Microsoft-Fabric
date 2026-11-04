@@ -135,7 +135,7 @@ In Fabric, `RawFeed | summarize max(received_utc)` should advance every few seco
 
 | Symptom | Fix |
 |---|---|
-| Logs show **`AMQ339009 Exception getting session`** | Another connection is using the same NROD account – usually a local bridge from Lab 05a still running. NROD allows one connection per account: stop the local one (Ctrl+C, `docker compose down`), wait about 5 minutes, and the Container App reconnects by itself. Full checklist in [Lab 05a troubleshooting](05a-bridge-local.md#troubleshooting) |
+| Logs show **`AMQ339009 Exception getting session`** | Usually a temporary NROD block after too many connection attempts, or a second connection on the same account (for example a local Lab 05a bridge). Stop the local bridge; the Container App waits 25 minutes by itself after this error and then reconnects. Full checklist in [Lab 05a troubleshooting](05a-bridge-local.md#troubleshooting) |
 | Phase 2 fails with a Key Vault reference error | RBAC propagation can take a few minutes. The script retries. Re-run it if needed |
 | `ImagePullBackOff` / unauthorized | The identity is missing *AcrPull*, or the GHCR image is private |
 | App restarts repeatedly | Check the logs for NROD login errors. Make sure no local bridge uses the same client-id |

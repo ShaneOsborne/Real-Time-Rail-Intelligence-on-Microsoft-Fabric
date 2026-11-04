@@ -41,8 +41,11 @@ class BridgeConfig:
     client_id: str = ""
     subscription_prefix: str = "rail-fabric-rti"
     heartbeat_ms: int = 15000
-    backoff_initial_s: float = 1.0
-    backoff_max_s: float = 60.0
+    backoff_initial_s: float = 30.0
+    backoff_max_s: float = 600.0
+    # NROD blocks an account for ~20 min after too many connection attempts, and every attempt during the block
+    # restarts it. After AMQ339009 the bridge waits this long (default 25 min) before trying again.
+    blocked_wait_s: float = 1500.0
     replay_file: str = ""
     replay_interval_s: float = 1.0
     replay_loop: bool = False
@@ -87,8 +90,9 @@ class BridgeConfig:
             client_id=e.get("NROD_CLIENT_ID", "") or username,
             subscription_prefix=e.get("NROD_SUBSCRIPTION_PREFIX", "rail-fabric-rti"),
             heartbeat_ms=int(e.get("NROD_HEARTBEAT_MS", "15000")),
-            backoff_initial_s=float(e.get("BACKOFF_INITIAL_S", "1")),
-            backoff_max_s=float(e.get("BACKOFF_MAX_S", "60")),
+            backoff_initial_s=float(e.get("BACKOFF_INITIAL_S", "30")),
+            backoff_max_s=float(e.get("BACKOFF_MAX_S", "600")),
+            blocked_wait_s=float(e.get("NROD_BLOCKED_WAIT_S", "1500")),
             replay_file=e.get("REPLAY_FILE", ""),
             replay_interval_s=float(e.get("REPLAY_INTERVAL_S", "1")),
             replay_loop=_bool(e.get("REPLAY_LOOP"), False),
