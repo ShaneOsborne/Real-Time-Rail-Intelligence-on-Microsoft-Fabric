@@ -99,18 +99,26 @@ The Eventstream side is **always set up in the portal** – there's no script fo
 3. Paste it into the repo-root `.env` on **one line**: `EVENTSTREAM_CONNECTION_STRING=Endpoint=sb://…;EntityPath=…`.
    Quotes are optional. **Never commit `.env`.**
 4. **Add destination** → **Eventhouse** → **Direct ingestion** → `RailEventhouse` / **`RailKQL`** (not the default database
-   named after the Eventhouse) → **Save** → **Publish**. Then in **Live view**, select **Configure** on the Eventhouse node. In
-   the **Get data** wizard choose the **existing** table **`RawFeed`** (not *New table*), format **JSON**, and the **existing
-   mapping** **`RawFeedMapping`** → **Finish**. This is the same flow as [Lab 04, steps 5–6](04-rdm-kafka-eventstream.md); the
-   table and mapping must already exist (Lab 02, "Create the raw tables and mappings now").
+   named after the Eventhouse) → **Save** → **Publish**. Don't configure the table yet: the next step needs data in the
+   Eventstream first.
 
-Then run:
+Then send live data to the Eventstream (keep it running):
 
 | # | Step | bash | PowerShell |
 |---|---|---|---|
 | 5 | Live → Eventstream | `./scripts/run-local.sh venv eventstream` | `./scripts/run-local.ps1 -Mode venv -Sink eventstream` |
 
-After a minute or two, check the [Checkpoint](#checkpoint) queries.
+The log should show `events_sent` going up. RTPPM sends a message about once a minute, so give it a minute or two. In
+**RailEventstreamNrod**, select the `nrod-bridge` source → **Data preview** to see the events arriving.
+
+6. **Configure the destination now that data is flowing.** In the Eventstream's **Live view**, select **Configure** on the
+   Eventhouse node. The **Get data** wizard reads a sample of the incoming events, which is why the bridge must be running
+   first. Choose the **existing** table **`RawFeed`** (not *New table*), format **JSON**, and the **existing mapping**
+   **`RawFeedMapping`** → **Finish**. This is the same flow as [Lab 04, steps 5–6](04-rdm-kafka-eventstream.md); the table
+   and mapping must already exist (Lab 02, "Create the raw tables and mappings now").
+   Events sent before you select **Finish** may not reach `RawFeed`. That's fine: leave the bridge running and new ones will.
+
+Leave the bridge running and, after a minute or two, check the [Checkpoint](#checkpoint) queries.
 
 ### A3. Docker (optional alternative to the virtual environment)
 
@@ -162,16 +170,21 @@ curl -s localhost:8080/metrics             # frames_received, events_sent, frame
 
 ### B3. Wire to Eventstream (custom endpoint)
 
-1. Do the portal set-up in [A2, steps 1–4](#a2-connect-to-fabric-portal-set-up-then-run) (custom endpoint, connection string in
-   `.env`, Eventhouse destination with `RawFeed` / `RawFeedMapping`). It's the same for both options.
-2. Load `.env` into your shell again if you changed it (see B2), then run the bridge with the eventstream sink:
+1. Do the portal set-up in [A2, steps 1–4](#a2-connect-to-fabric-portal-set-up-then-run): custom endpoint, connection string in
+   `.env`, and the Eventhouse destination added and published but **not configured yet**.
+2. Load `.env` into your shell again if you changed it (see B2), then run the bridge with the eventstream sink and leave it
+   running:
 
 ```bash
 python -m rail_bridge --sink eventstream
 ```
 
+3. Once events show in the Eventstream's **Data preview**, configure the Eventhouse destination with `RawFeed` /
+   `RawFeedMapping` as in [A2, step 6](#a2-connect-to-fabric-portal-set-up-then-run).
+
 > If you load `.env` with `set -a; source ../../.env; set +a`, put the connection string in **double quotes** – otherwise the
-> shell treats each `;` as the end of a command. The repo scripts read `.env` safely and don't need the quotes.
+> shell treats each `;` as the end of a command – and a password containing `$` in **single quotes**. The repo scripts read
+> `.env` as plain text and need neither.
 
 ### B3b. Optional: send to the shared Event Hub (sink `eventhub`)
 
