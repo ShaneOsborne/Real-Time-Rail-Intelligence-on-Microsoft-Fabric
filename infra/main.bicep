@@ -78,7 +78,7 @@ param keyVaultName string = ''
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var kvName = !empty(keyVaultName) ? keyVaultName : take('${namePrefix}kv${suffix}', 24)
 var acrName = take('${namePrefix}acr${suffix}', 50)
-var acrImage = createAcr ? '${acr.properties.loginServer}/rail-bridge:${imageTag}' : ''
+var acrImage = createAcr ? '${acr!.properties.loginServer}/rail-bridge:${imageTag}' : ''
 var image = !empty(containerImage) ? containerImage : acrImage
 var bridgeSecretName = bridgeTarget == 'eventhub' ? 'eventhub-nrod-connection-string' : 'eventstream-connection-string'
 var bridgeSecretEnv = bridgeTarget == 'eventhub' ? 'EVENTHUB_CONNECTION_STRING' : 'EVENTSTREAM_CONNECTION_STRING'
@@ -224,7 +224,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
     configuration: {
       activeRevisionsMode: 'Single'
       // No ingress: the bridge only makes outbound connections. Probes still reach the container.
-      registries: createAcr ? [ { server: acr.properties.loginServer, identity: uami.id } ] : []
+      registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
       secrets: [
         {
           name: 'nrod-username'
@@ -298,7 +298,7 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
     workloadProfileName: 'Consumption'
     configuration: {
       activeRevisionsMode: 'Single'
-      registries: createAcr ? [ { server: acr.properties.loginServer, identity: uami.id } ] : []
+      registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
       secrets: [
         {
           name: 'rdm-kafka-username'
@@ -358,8 +358,8 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
 
 output keyVaultName string = kv.name
 output keyVaultUri string = kv.properties.vaultUri
-output acrName string = createAcr ? acr.name : ''
-output acrLoginServer string = createAcr ? acr.properties.loginServer : ''
+output acrName string = createAcr ? acr!.name : ''
+output acrLoginServer string = createAcr ? acr!.properties.loginServer : ''
 output containerAppName string = deployApp ? app.name : ''
 output relayAppName string = (deployApp && deployRdmRelay) ? relay.name : ''
 output bridgeTarget string = bridgeTarget
