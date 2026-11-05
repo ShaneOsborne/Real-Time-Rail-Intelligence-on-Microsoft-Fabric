@@ -74,6 +74,8 @@ class BridgeConfig:
     health_port: int = 8080
     log_level: str = "INFO"
     stale_after_s: int = 300
+    # Log a one-line status (counters) every N seconds so quiet feeds still show they're alive. 0 = off.
+    status_interval_s: int = 300
 
     @classmethod
     def from_env(cls, env: dict[str, str] | None = None) -> BridgeConfig:
@@ -115,6 +117,7 @@ class BridgeConfig:
             health_port=int(e.get("HEALTH_PORT", "8080")),
             log_level=e.get("LOG_LEVEL", "INFO").upper(),
             stale_after_s=int(e.get("STALE_AFTER_S", "300")),
+            status_interval_s=int(e.get("STATUS_LOG_INTERVAL_S", "300")),
         )
 
     def subscription_name(self, topic: str) -> str:

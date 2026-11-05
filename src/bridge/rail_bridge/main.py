@@ -110,6 +110,13 @@ def main(argv: list[str] | None = None) -> int:
     server = start_health_server(state, cfg.health_port)
     connection_string, entity_name = cfg.sink_target()
     sink = build_sink(cfg.sink, cfg.output_file, connection_string, entity_name)
+    def _status_loop() -> None:
+        # One INFO line every status_interval_s: proves the bridge is alive in Log Analytics even when the feed is quiet.
+        while not stop.wait(cfg.status_interval_s):
+            log.info("status", extra={"metrics": state.snapshot()})
+
+    if cfg.status_interval_s > 0:
+        threading.Thread(target=_status_loop, name="status", daemon=True).start()
     try:
         if cfg.source == "replay":
             run_replay(cfg, sink, state, stop)

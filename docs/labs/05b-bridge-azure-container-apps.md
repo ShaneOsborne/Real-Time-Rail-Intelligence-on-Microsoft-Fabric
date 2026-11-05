@@ -152,17 +152,27 @@ az containerapp replica list -g $RG -n $APP -o table          # exactly 1 replic
 az containerapp logs show -g $RG -n $APP --follow --format text
 ```
 
-In Log Analytics (*Logs*):
+You should see `stomp connected`, then `subscribed`. After that the bridge is quiet: it doesn't log each message, but it
+writes a `status` line every 5 minutes with its counters (`frames_received`, `events_sent`, `frames_acked`). *No logs since
+last 60 seconds* between them is normal.
+
+In Log Analytics (the `railrti-logs` workspace, or the Container Apps environment → **Logs**):
 
 ```kusto
-ContainerAppConsoleLogs_CL
-| where ContainerAppName_s endswith "-bridge"
-| project TimeGenerated, Log_s
+// isfuzzy=true: runs whichever table your environment writes to, and doesn't fail if one doesn't exist.
+union isfuzzy=true
+    (ContainerAppConsoleLogs_CL | project TimeGenerated, App = ContainerAppName_s, Message = Log_s),
+    (ContainerAppConsoleLogs    | project TimeGenerated, App = ContainerAppName, Message = Log)
+| where App endswith "-bridge"
 | order by TimeGenerated desc
 | take 50
 ```
 
-(Table and column names depend on the environment's logging configuration. Newer environments may use `ContainerAppConsoleLogs`.)
+**The table doesn't exist yet?** Log Analytics only creates it when the first log line arrives, and the first lines from a
+new environment can take **10–20 minutes** to appear (later ones take a few minutes). Until then, use
+`az containerapp logs show` above, which streams directly from the app. If there's still nothing after 30 minutes, check
+the environment sends to this workspace: Container Apps environment → **Monitoring → Logging options** should show
+*Azure Log Analytics* and `railrti-logs`.
 
 In Fabric, `RawFeed | summarize max(received_utc)` should advance every few seconds.
 
