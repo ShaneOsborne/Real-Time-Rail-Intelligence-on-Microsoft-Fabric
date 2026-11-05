@@ -202,6 +202,14 @@ Use a shared Eventhouse for short demos where students only need to query.
    `BRIDGE_SOURCE=kafka`, 1 replica, 0.25 vCPU / 0.5 GiB. To go back to the direct path, re-run with `BRIDGE_TARGET=eventstream`
    (and `DEPLOY_RDM_RELAY=false`; see the note in Lab 05b about removing the relay app).
 
+   If you deployed Lab 05b with `SECRETS_SOURCE=inline` (Key Vault blocked by policy), add it here too. The apps then get
+   their secrets from `.env` instead of Key Vault, so `.env` needs `EVENTHUB_CONNECTION_STRING` (the `nrod-feed`
+   **bridge-send** connection string) and, with the relay, `EVENTHUB_RDM_CONNECTION_STRING` (the `rdm-trust` one):
+
+   ```bash
+   SECRETS_SOURCE=inline BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
+   ```
+
 ## Option B – manual (instructor, Azure portal)
 
 > Portal labels change from time to time. If a label differs slightly, pick the closest match.
@@ -241,16 +249,20 @@ az keyvault secret set --vault-name $KV -n rdm-kafka-password --value "<RDM pass
 
 Or use the portal (*Key Vault → Secrets → Generate/Import*) to keep secrets out of your shell history.
 
+Using Container Apps secrets instead (Lab 05b, *inline*)? Skip this step and add the values as **Container Apps secrets** in B6.
+
 ### B6. Container apps
 
 **Bridge** (`<prefix>-bridge`) → **Containers** / **Secrets**:
-* Add a secret `eventhub-nrod-connection-string` as a **Key Vault reference** (identity = the bridge's user-assigned identity).
+* Add a secret `eventhub-nrod-connection-string` as a **Key Vault reference** (identity = the bridge's user-assigned identity),
+  or as a **Container Apps secret** with the value pasted in if you use the inline choice from Lab 05b.
 * Edit the container: `BRIDGE_SINK=eventhub`, add `EVENTHUB_CONNECTION_STRING` → *Reference a secret* → `eventhub-nrod-connection-string`.
   Remove `EVENTSTREAM_CONNECTION_STRING`. **Save as a new revision.**
 
 **RDM relay**: create a second **Container App** in the same environment, named `<prefix>-rdm-relay`: same image and identity,
 **0.25 CPU / 0.5 Gi**, **Scale min 1 / max 1**, ingress **disabled**, liveness probe HTTP GET `/healthz` on 8080, secrets
-`rdm-kafka-username`, `rdm-kafka-password` and `eventhub-rdm-connection-string` as Key Vault references, and these environment variables:
+`rdm-kafka-username`, `rdm-kafka-password` and `eventhub-rdm-connection-string` as Key Vault references (or Container Apps secrets
+for the inline choice), and these environment variables:
 
 | Name | Value |
 |---|---|
@@ -368,7 +380,7 @@ Record which behaviour you saw (automatic catch-up or Custom time needed) in you
 | Custom time resume starts later than requested | Requested time is older than the retention | Same as above. Data older than the retention is gone |
 | Bridge or relay logs `Event Hub send failed … ServerBusy` / throttling | More than 1 MB/s or 1,000 events/s in (for example, `TD_ALL_SIG_AREA` bursts) | Raise `EVENTHUB_THROUGHPUT_UNITS` and re-run `create-eventhub` |
 | Morning catch-up is slow for the whole class | Egress (2 MB/s per TU) is shared by every reader | Temporarily raise to 2 TUs, then lower again |
-| Relay logs SASL authentication errors | Wrong RDM username or password, or the subscription expired | Update the Key Vault secrets `rdm-kafka-username` / `rdm-kafka-password`, then restart the revision |
+| Relay logs SASL authentication errors | Wrong RDM username or password, or the subscription expired | Update the Key Vault secrets `rdm-kafka-username` / `rdm-kafka-password` (inline choice: update `.env` and re-run `deploy-bridge`), then restart the revision |
 | Relay runs but `rdm-trust` gets only part of the data | Another consumer (your Lab 04 Eventstream Kafka source, or a local relay) uses the same RDM consumer group | Stop the other consumer. Only one reader per RDM consumer group |
 | Duplicated rows after a relay or bridge restart | Delivery is at-least-once | De-duplicate in queries, as above |
 | Students see each other's data | Expected: the Listen key works on every consumer group | Consumer groups separate *read positions*, not *access*. Rotate the key after the course |

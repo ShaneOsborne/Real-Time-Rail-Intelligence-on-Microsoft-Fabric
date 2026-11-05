@@ -112,9 +112,15 @@ ACR=$(az deployment group show -g $RG -n bridge-phase1 --query properties.output
 
 To do it in the portal instead, create the same resources: a *Managed identity*, a *Log Analytics workspace*, a *Key Vault* (RBAC mode; grant yourself
 *Key Vault Secrets Officer* and the identity *Key Vault Secrets User* – if you already created the vault in Lab 01, just add the identity's role), a *Container registry* (Basic; grant the identity *AcrPull*) and a
-*Container Apps environment* (Consumption) linked to Log Analytics.
+*Container Apps environment* (Consumption) with **Logging options → Azure Monitor**, then **Diagnostic settings → Add** sending
+*Container App console logs* and *system logs* to the Log Analytics workspace.
 
 ### B2. Secrets
+
+Pick **one** of the two ways – the same choice as `SECRETS_SOURCE` in Option A
+([why](#if-your-subscription-blocks-public-access-to-key-vault)).
+
+**Key Vault (default).** Store the secrets in the vault; the app reads them with its managed identity:
 
 ```bash
 # Skip these two if you already stored them in Lab 01:
@@ -125,6 +131,14 @@ az keyvault secret set --vault-name $KV -n eventstream-connection-string --value
 
 Typing secrets on the command line can leave them in your shell history. Use the portal (*Key Vault → Secrets → Generate/Import*) if you'd rather avoid that.
 
+**Inline (Container Apps secrets).** Use this if a policy blocks public access to your Key Vault. Skip the commands above:
+the values go straight into the container app in B4. Load them into your shell without typing them on the command line:
+
+```bash
+set -a; source .env; set +a                 # .env must quote values with $ ; or & (see Lab 05a)
+read -rsp "NROD password: " NROD_PASSWORD; echo   # optional: type it instead of reading it from .env
+```
+
 ### B3. Image
 
 ```bash
@@ -133,13 +147,29 @@ az acr build -r $ACR -t rail-bridge:v1 src/bridge
 
 ### B4. Container app
 
+**Key Vault (default):**
+
 ```bash
 az deployment group create -g $RG -n bridge-phase2 -f infra/main.bicep -p @infra/main.parameters.json \
   -p deployApp=true imageTag=v1 deployerPrincipalId=$ME
 ```
 
+**Inline (Container Apps secrets):**
+
+```bash
+az deployment group create -g $RG -n bridge-phase2 -f infra/main.bicep -p @infra/main.parameters.json \
+  -p deployApp=true imageTag=v1 deployerPrincipalId=$ME secretsSource=inline \
+     nrodUsernameValue="$NROD_USERNAME" nrodPasswordValue="$NROD_PASSWORD" \
+     bridgeConnectionStringValue="$EVENTSTREAM_CONNECTION_STRING"
+```
+
+The values come from shell variables, so they don't land in your shell history, but they're briefly visible to other
+processes on your machine while the command runs (Option A avoids that with a temporary parameters file). A value that
+starts with `@` would be read as a file name by `az`: use Option A in that case.
+
 In the portal, you'd create a *Container App* with: image `<acr>.azurecr.io/rail-bridge:v1` pulled with the managed identity;
-**0.25 CPU / 0.5 Gi**; **Scale min 1 / max 1**; ingress **disabled**; secrets as **Key Vault references** (identity = the UAMI);
+**0.25 CPU / 0.5 Gi**; **Scale min 1 / max 1**; ingress **disabled**; secrets as **Key Vault references** (identity = the UAMI) –
+or, for the inline choice, **Secrets → + Add → Type: Container Apps secret** with the value pasted in;
 environment variables `BRIDGE_SINK=eventstream`, `BRIDGE_SOURCE=stomp`, `NROD_TOPICS=…`, and `NROD_USERNAME`, `NROD_PASSWORD` and `EVENTSTREAM_CONNECTION_STRING` → *Reference a secret*;
 and a liveness probe of HTTP GET `/healthz` on port 8080. For the optional shared Event Hub, the portal steps for the bridge and the
 RDM relay app are in [Lab 05c, B6](05c-shared-event-hub.md#b6-container-apps).
@@ -159,20 +189,23 @@ last 60 seconds* between them is normal.
 In Log Analytics (the `railrti-logs` workspace, or the Container Apps environment → **Logs**):
 
 ```kusto
-// isfuzzy=true: runs whichever table your environment writes to, and doesn't fail if one doesn't exist.
-union isfuzzy=true
-    (ContainerAppConsoleLogs_CL | project TimeGenerated, App = ContainerAppName_s, Message = Log_s),
-    (ContainerAppConsoleLogs    | project TimeGenerated, App = ContainerAppName, Message = Log)
-| where App endswith "-bridge"
+ContainerAppConsoleLogs
+| where ContainerAppName endswith "-bridge"
+| project TimeGenerated, Log
 | order by TimeGenerated desc
 | take 50
 ```
 
-**The table doesn't exist yet?** Log Analytics only creates it when the first log line arrives, and the first lines from a
-new environment can take **10–20 minutes** to appear (later ones take a few minutes). Until then, use
-`az containerapp logs show` above, which streams directly from the app. If there's still nothing after 30 minutes, check
-the environment sends to this workspace: Container Apps environment → **Monitoring → Logging options** should show
-*Azure Log Analytics* and `railrti-logs`.
+The environment sends logs through **Azure Monitor** (a diagnostic setting on the environment) into the
+`ContainerAppConsoleLogs` and `ContainerAppSystemLogs` tables. Older guides use `ContainerAppConsoleLogs_CL`, from the
+previous *Log Analytics* destination, whose ingestion API reached end of support on 14 September 2026, so this lab
+doesn't use it.
+
+**The table doesn't exist yet?** Log Analytics only creates it when the first log line arrives, and a new diagnostic
+setting can take **up to 90 minutes** to start sending. Until then, use `az containerapp logs show` above, which streams
+directly from the app. If there's still nothing after 90 minutes, check the environment → **Monitoring → Logging
+options** shows *Azure Monitor*, and **Monitoring → Diagnostic settings** sends *Container App console logs* to
+`railrti-logs`.
 
 In Fabric, `RawFeed | summarize max(received_utc)` should advance every few seconds.
 
@@ -180,6 +213,7 @@ In Fabric, `RawFeed | summarize max(received_utc)` should advance every few seco
 
 | Symptom | Fix |
 |---|---|
+| No `ContainerAppConsoleLogs` (or `ContainerAppConsoleLogs_CL`) table, but `az containerapp logs show` and `RawFeed` show data | The environment was deployed with the older *Log Analytics* destination, which writes `_CL` tables through an API that reached end of support on 14 September 2026 (and fails where a policy disables workspace shared keys). Re-run `deploy-bridge` – the template now uses Azure Monitor with a diagnostic setting – or switch by hand: `az containerapp env update -g $RG -n <prefix>-env --logs-destination azure-monitor`, then `az monitor diagnostic-settings create --name <prefix>-env-logs --resource $(az containerapp env show -g $RG -n <prefix>-env --query id -o tsv) --workspace $(az monitor log-analytics workspace show -g $RG -n <prefix>-logs --query id -o tsv) --logs '[{"category":"ContainerAppConsoleLogs","enabled":true},{"category":"ContainerAppSystemLogs","enabled":true}]'`. Allow up to 90 minutes, then query `ContainerAppConsoleLogs` |
 | Phase 2 fails: **`Unable to get value using Managed identity … for secret nrod-password`** (or `nrod-username`) | Container Apps can't read the vault. Usually a policy has turned off the vault's public access or added a firewall: see [If your subscription blocks public access to Key Vault](#if-your-subscription-blocks-public-access-to-key-vault) and re-run with `SECRETS_SOURCE=inline`. Less often the role assignment is still propagating – the script already retries for about 3 minutes |
 | `--what-if` shows **`~ Microsoft.KeyVault/vaults/…` `publicNetworkAccess: "Disabled" => "Enabled"`**, or the deployment fails with **`RequestDisallowedByPolicy`** on the Key Vault, or the app logs a Key Vault secret error | An Azure Policy in your organisation turns off public network access on Key Vaults (common in corporate subscriptions). The Container App reads its secrets from Key Vault over the public endpoint, so it needs it on. Check: `az keyvault show -n <vault> --query properties.publicNetworkAccess` and `az policy state list --resource <vault-id> --filter "complianceState eq 'NonCompliant'" --query "[].policyDefinitionName"`. If the policy only **audits** or **modifies**, deploying turns access back on, but a *modify* policy may switch it off again later. If it **denies**, ask your subscription owner for an exemption for this lab vault, or use a subscription without the policy |
 | Logs show **`AMQ339009 Exception getting session`** | Usually a temporary NROD block after too many connection attempts, or a second connection on the same account (for example a local Lab 05a bridge). Stop the local bridge; the Container App waits 25 minutes by itself after this error and then reconnects. Full checklist in [Lab 05a troubleshooting](05a-bridge-local.md#troubleshooting) |

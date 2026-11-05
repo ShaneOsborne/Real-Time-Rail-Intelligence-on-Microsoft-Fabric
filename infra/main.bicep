@@ -216,18 +216,30 @@ resource env 'Microsoft.App/managedEnvironments@2024-03-01' = {
   location: location
   tags: tags
   properties: {
+    // Azure Monitor destination + the diagnostic setting below. The older 'log-analytics' destination used the HTTP Data
+    // Collector API (shared key, ContainerAppConsoleLogs_CL), whose support ended on 14 September 2026, and it fails where a
+    // policy disables workspace shared keys. New tables: ContainerAppConsoleLogs and ContainerAppSystemLogs.
     appLogsConfiguration: {
-      destination: 'log-analytics'
-      logAnalyticsConfiguration: {
-        customerId: law.properties.customerId
-        sharedKey: law.listKeys().primarySharedKey
-      }
+      destination: 'azure-monitor'
     }
     workloadProfiles: [
       {
         name: 'Consumption'
         workloadProfileType: 'Consumption'
       }
+    ]
+  }
+}
+
+// Routes the environment's console and system logs to the Log Analytics workspace. Can take up to 90 minutes to start.
+resource envLogs 'Microsoft.Insights/diagnosticSettings@2021-05-01-preview' = {
+  name: '${namePrefix}-env-logs'
+  scope: env
+  properties: {
+    workspaceId: law.id
+    logs: [
+      { category: 'ContainerAppConsoleLogs', enabled: true }
+      { category: 'ContainerAppSystemLogs', enabled: true }
     ]
   }
 }
