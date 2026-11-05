@@ -1,6 +1,6 @@
-# Foundry agent with the Fabric IQ (OneLake Catalog) tool (Lab 10)
+# Foundry agent with the Fabric IQ (OneLake Catalog) tool (Lab 2.6)
 
-The full steps are in [Lab 10](../docs/labs/10-foundry-agent.md). This folder holds:
+The full steps are in [Lab 2.6](../docs/build/2.6-foundry-agent.md). This folder holds:
 
 | File | Purpose |
 |---|---|
@@ -21,5 +21,5 @@ Key points (from [Microsoft Learn](https://learn.microsoft.com/azure/foundry/age
 |---|---|
 | `FOUNDRY_PROJECT_ENDPOINT` | Foundry portal → project overview (`https://<resource>.services.ai.azure.com/api/projects/<project>`) |
 | `FOUNDRY_MODEL_DEPLOYMENT_NAME` | Your gpt-5.4 / gpt-5.5 deployment name |
-| `FABRIC_IQ_PROJECT_CONNECTION_ID` | Full resource ID printed by the `az rest` command in Lab 10 Option A (or use `--connection-name`) |
+| `FABRIC_IQ_PROJECT_CONNECTION_ID` | Full resource ID printed by the `az rest` command in Lab 2.6 Option A (or use `--connection-name`) |
 | `FOUNDRY_AGENT_NAME` | `rail-network-agent` (classroom: your own name) |

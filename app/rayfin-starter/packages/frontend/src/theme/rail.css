@@ -1,4 +1,4 @@
-/* Lab 11 – RailPulse styles. Everything is scoped under .rp so it doesn't clash with the Rayfin template's own styles. */
+/* Lab 2.8 – RailPulse styles. Everything is scoped under .rp so it doesn't clash with the Rayfin template's own styles. */
 .rp {
   --rp-radius: 12px;
   --rp-shadow: 0 1px 2px rgba(11, 31, 58, 0.06), 0 4px 16px rgba(11, 31, 58, 0.06);

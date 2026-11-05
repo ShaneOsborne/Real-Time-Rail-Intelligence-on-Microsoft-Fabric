@@ -1,4 +1,4 @@
-// Lab 11 – "Ask the network": chat with the Foundry agent from Lab 10 through Rayfin functions.
+// Lab 2.8 – "Ask the network": chat with the Foundry agent from Lab 2.6 through Rayfin functions.
 // startRailAgent starts a background run and returns its id; pollRailAgent is called every few seconds until the answer
 // is ready. Each call is quick, so long data agent questions no longer hit "Request timed out after 120000ms".
 import { Fragment, useEffect, useRef, useState, type ReactNode } from 'react';

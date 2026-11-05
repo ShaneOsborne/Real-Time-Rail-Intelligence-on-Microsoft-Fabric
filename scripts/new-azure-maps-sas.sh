@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lab 11b: create an Azure Maps SAS token for the Rayfin app (max lifetime 24 hours, rate-limited).
+# Lab 2.9: create an Azure Maps SAS token for the Rayfin app (max lifetime 24 hours, rate-limited).
 #   ./scripts/new-azure-maps-sas.sh [hours=24] [maxRatePerSecond=50]
 # Prints the token. Store it in the app with:  npx rayfin secret set AZURE_MAPS_TOKEN
 # Requires .env: AZ_RESOURCE_GROUP, AZURE_MAPS_ACCOUNT_NAME, AZURE_MAPS_SAS_PRINCIPAL_ID (from create-azure-maps.sh).

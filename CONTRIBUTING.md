@@ -30,6 +30,6 @@ Scripts: keep the `.sh` and `.ps1` versions in step. CI runs ShellCheck and the 
 ## Pull requests
 
 1. Fork the repo and create a feature branch.
-2. Make small, focused changes. Update the relevant `docs/labs/*.md`.
+2. Make small, focused changes. Update the relevant page in `docs/solo/`, `docs/instructor/`, `docs/student/` or `docs/build/`. If a step changes in a solo page, check whether the student or instructor page that copies or links it needs the same change.
 3. Make sure CI is green (`bridge-ci`, `infra-validate`).
 4. Describe how you tested, including which Fabric and Azure regions you used.

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Lab 12: delete the Azure resource group and optionally the Fabric workspace.
+  Lab 2.10: delete the Azure resource group and optionally the Fabric workspace.
 #>
 param([switch]$Fabric)
 . "$PSScriptRoot/_common.ps1"
@@ -8,7 +8,7 @@ Import-DotEnv
 Assert-Command az
 Assert-Env @('AZ_RESOURCE_GROUP')
 
-$ans = Read-Host "Delete resource group '$($env:AZ_RESOURCE_GROUP)' and everything in it (incl. the optional Event Hubs namespace, Lab 05c)? [y/N]"
+$ans = Read-Host "Delete resource group '$($env:AZ_RESOURCE_GROUP)' and everything in it (incl. the optional Event Hubs namespace, Instructor 1.4 / Solo 1.8)? [y/N]"
 if ($ans -match '^[Yy]$') {
     Invoke-Az group delete -n $env:AZ_RESOURCE_GROUP --yes --no-wait
     Write-Host 'Deletion started. Key Vault is soft-deleted (7 days): az keyvault list-deleted; az keyvault purge -n <name>'

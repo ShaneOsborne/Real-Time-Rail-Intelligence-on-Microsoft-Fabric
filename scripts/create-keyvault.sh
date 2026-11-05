@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Create the shared Key Vault and store the NROD credentials (Lab 01, step 8).
-# Lab 03 (Fabric notebook) reads them from here; Lab 05b re-uses the same vault.
+# Create the shared Key Vault and store the NROD credentials (Solo 1.1, step 8).
+# Solo 1.3 (Fabric notebook) reads them from here; Solo 1.7 re-uses the same vault.
 #   ./scripts/create-keyvault.sh
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP, AZ_LOCATION, NROD_USERNAME, NROD_PASSWORD.
 source "$(dirname "$0")/_common.sh"
@@ -48,6 +48,6 @@ cat <<MSG
 Done. Add these to .env:
   KEY_VAULT_NAME=$KV_NAME
   KEY_VAULT_URL=$KV_URI
-Use KEY_VAULT_URL in the Lab 03 notebook. Lab 05b will re-use this vault and add the
+Use KEY_VAULT_URL in the Solo 1.3 notebook. Solo 1.7 will re-use this vault and add the
 eventstream-connection-string secret (keep AZ_RESOURCE_GROUP and NAME_PREFIX unchanged).
 MSG

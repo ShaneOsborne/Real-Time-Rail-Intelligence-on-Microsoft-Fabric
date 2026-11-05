@@ -1,4 +1,4 @@
-"""Lab 10: create (optionally) and chat with a Foundry prompt agent that calls the Fabric data agent
+"""Lab 2.6: create (optionally) and chat with a Foundry prompt agent that calls the Fabric data agent
 "Rail Network Analyst" through the Fabric IQ (OneLake Catalog) tool (preview).
 
 The older Microsoft Fabric data agent tool (MicrosoftFabricPreviewTool / fabric_dataagent_preview) stops
@@ -114,7 +114,7 @@ def main() -> int:
             if response.status != "completed":
                 print(f"\nAgent run ended with status '{response.status}': {getattr(response, 'error', None)}\n")
                 return
-        # The time helps find where answers are slow (Lab 10, "Make answers faster").
+        # The time helps find where answers are slow (Lab 2.6, "Make answers faster").
         print(f"\nAgent ({time.monotonic() - started:.0f} s): {response.output_text}\n")
 
     try:

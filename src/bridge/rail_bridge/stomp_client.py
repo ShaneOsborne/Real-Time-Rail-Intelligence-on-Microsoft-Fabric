@@ -106,7 +106,7 @@ class FrameHandler:
 
 
 def error_hint(message: str) -> str:
-    """Plain-language next step for the NROD broker errors people hit most often (see Lab 05a troubleshooting)."""
+    """Plain-language next step for the NROD broker errors people hit most often (see Solo 1.6 troubleshooting)."""
     if "AMQ339009" in message:
         return (
             "NROD refused the session. NROD support (CACI) says this is usually a TEMPORARY BLOCK: too many "

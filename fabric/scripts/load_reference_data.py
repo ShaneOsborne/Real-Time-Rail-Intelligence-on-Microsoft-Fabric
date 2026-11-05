@@ -1,4 +1,4 @@
-"""Lab 03 Option A: download NROD reference data (CORPUS, SMART) and NaPTAN rail stations,
+"""Solo 1.3 Option A: download NROD reference data (CORPUS, SMART) and NaPTAN rail stations,
 build a `locations` table (STANOX/TIPLOC/CRS -> name, lat/lon) and load it.
 
 Targets (combine as needed):

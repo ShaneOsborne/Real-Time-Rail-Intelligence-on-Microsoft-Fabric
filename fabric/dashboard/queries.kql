@@ -1,6 +1,6 @@
-// Lab 08 - Real-Time Dashboard tile queries. One tile per query; the suggested visual is in the comment.
+// Lab 2.3 - Real-Time Dashboard tile queries. One tile per query; the suggested visual is in the comment.
 // Visuals: use KPI for single numbers (Stat is legacy), Time chart / Table / Bar chart / Map (generally available).
-// Time series chart and Fabric map are PREVIEW - optional alternatives, see Lab 08.
+// Time series chart and Fabric map are PREVIEW - optional alternatives, see Lab 2.3.
 // Pages: 'Network overview' = tiles 2-10 (+ the attribution text box); 'Monitoring' = tiles 1 and 11.
 
 // Tile 1 [Page: Monitoring]: "Events per minute by feed"  (Time chart)
@@ -25,7 +25,7 @@ TrustMovements
 | where event_time > ago(1h)
 | summarize on_time_pct = round(100.0 * countif(variation_status == "ON TIME") / count(), 1)
 
-// Tile 5 [Page: Network overview] (optional, needs RTPPM from the Lab 05 bridge): "National PPM"  (KPI type Gauge, 0-100)
+// Tile 5 [Page: Network overview] (optional, needs RTPPM from the Solo 1.6/1.7 bridge): "National PPM"  (KPI type Gauge, 0-100)
 RtppmNational
 | top 1 by snapshot_time desc
 | project ppm
@@ -65,7 +65,7 @@ TrustMovements
 | where received_utc > ago(1h)
 | summarize p50 = percentile((received_utc - event_time) / 1s, 50), p95 = percentile((received_utc - event_time) / 1s, 95) by bin(received_utc, 5m)
 
-// ---- Optional: Darwin tiles (only if you did Lab 04b and DarwinLocations is filling) ----
+// ---- Optional: Darwin tiles (only if you did Solo 1.5 and DarwinLocations is filling) ----
 
 // Tile 12 [Page: Network overview]: "Unconfirmed platforms at Leeds (Darwin)"  (Table) - change the CRS code, or use a string parameter
 DarwinUnconfirmedPlatforms("LDS", 2h)

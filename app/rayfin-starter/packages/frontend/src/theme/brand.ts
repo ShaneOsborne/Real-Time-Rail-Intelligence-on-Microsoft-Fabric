@@ -1,4 +1,4 @@
-// Lab 11 – app branding in one place. Change the name, strapline and colours here; rail.css reads the colours as CSS
+// Lab 2.8 – app branding in one place. Change the name, strapline and colours here; rail.css reads the colours as CSS
 // variables (set in AppShell). Keep it clearly unofficial: don't use Network Rail / National Rail names or logos.
 export const BRAND = {
   name: 'RailPulse',
@@ -14,7 +14,7 @@ export const BRAND = {
     onTime: '#107c10',
     late: '#f2a33a',
     veryLate: '#d13438',
-    rail: '#5c2d91', // railway lines (Lab 11b)
+    rail: '#5c2d91', // railway lines (Lab 2.9)
   },
 } as const;
 

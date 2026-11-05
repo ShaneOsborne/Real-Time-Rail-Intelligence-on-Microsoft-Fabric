@@ -1,6 +1,6 @@
 """Rail Data Marketplace (RDM) Kafka -> sink relay (``BRIDGE_SOURCE=kafka``).
 
-Used in the optional shared Event Hub tier (Lab 05c): one instructor-run relay reads the RDM
+Used in the optional shared Event Hub tier (Instructor 1.4 / Solo 1.8): one instructor-run relay reads the RDM
 *NWR Train Movements* topic and forwards every message value to an Azure Event Hub
 (``BRIDGE_SINK=eventhub``), so many students can read it through their own consumer groups.
 

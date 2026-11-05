@@ -10,7 +10,7 @@ a class. It also covers how to stay within your capacity and what to do if it's 
 ## Why it matters
 
 Earlier versions of these labs said "F2 or higher". F2 is the **minimum**, not a tested size. In a proof of concept, two
-always-on Kafka Eventstreams (NWR Train Movements from Lab 04 and Darwin from Lab 04b), plus Eventhouse ingestion and some
+always-on Kafka Eventstreams (NWR Train Movements from Solo 1.4 and Darwin from Solo 1.5), plus Eventhouse ingestion and some
 back-fills, throttled an F2 overnight: the capacity showed as degraded the next morning.
 
 The reason is simple. An Eventstream with a live source runs **all day, every day**, so its charge never stops. An F2 has
@@ -47,12 +47,12 @@ more CUs. In these labs, that's the Eventhouse.
 
 | Component | Used in | Estimated continuous load | Share of an F2 (2 CUs) |
 |---|---|---|---|
-| Eventstream with an **Apache Kafka** source (Train Movements or Darwin) | Labs 04, 04b | ≈ **0.83 CU** (0.222 + 0.611), plus data traffic and any processor use | ≈ **42%** each |
-| **Two** Kafka Eventstreams (Train Movements + Darwin) | Labs 04 + 04b | ≈ **1.67 CU** | ≈ **83%**, before the Eventhouse does anything |
-| Eventstream with an **Azure Event Hubs** source | Lab 05c (students) | ≈ **1.0 CU** (0.222 + processor from 0.778 at *Low*) | ≈ 50% |
-| Eventstream with a **custom endpoint** source (the bridge) | Labs 05a, 05b | Flat 0.222 CU while events flow, plus data traffic at 0.342 CU hours per GB | Lighter, but depends on volume. The NROD TD feed is about **10×** the TRUST volume |
-| Eventhouse | Labs 04–11 | No fixed figure: autoscaled vCores while active, driven by ingestion and query load | Measure it during Lab 04 and budget the headroom that's left |
-| Fabric data agent, ontology, Copilot, Foundry agent with the Fabric tool | Labs 09–11 (and 09b) | Adds CU when used | Interactive load. The Foundry Fabric tool needs a **paid F2+** capacity (trial isn't supported) |
+| Eventstream with an **Apache Kafka** source (Train Movements or Darwin) | Solo 1.4, 1.5 | ≈ **0.83 CU** (0.222 + 0.611), plus data traffic and any processor use | ≈ **42%** each |
+| **Two** Kafka Eventstreams (Train Movements + Darwin) | Solo 1.4 + Solo 1.5 | ≈ **1.67 CU** | ≈ **83%**, before the Eventhouse does anything |
+| Eventstream with an **Azure Event Hubs** source | Student 1.4, Solo 1.8 | ≈ **1.0 CU** (0.222 + processor from 0.778 at *Low*) | ≈ 50% |
+| Eventstream with a **custom endpoint** source (the bridge) | Solo 1.6, 1.7 | Flat 0.222 CU while events flow, plus data traffic at 0.342 CU hours per GB | Lighter, but depends on volume. The NROD TD feed is about **10×** the TRUST volume |
+| Eventhouse | Solo 1.4 to Lab 2.8 | No fixed figure: autoscaled vCores while active, driven by ingestion and query load | Measure it during Solo 1.4 and budget the headroom that's left |
+| Fabric data agent, ontology, Copilot, Foundry agent with the Fabric tool | Labs 2.4–2.8 (and 2.5) | Adds CU when used | Interactive load. The Foundry Fabric tool needs a **paid F2+** capacity (trial isn't supported) |
 
 ## Sizing by scenario
 
@@ -60,8 +60,8 @@ more CUs. In these labs, that's the Eventhouse.
 
 | Scenario | Suggested capacity | Notes |
 |---|---|---|
-| Single builder, Train Movements only (Labs 01–11) | **F2** workable but tight; **F4** comfortable | About 42% goes on streaming. Leave room for the Eventhouse, dashboards and the agent |
-| Single builder + Darwin (Lab 04b) and/or the NROD bridge | **F4** minimum; **F8** with heavy dashboard refresh or agent use | Or deactivate `RailEventstreamDarwin` when you don't need it |
+| Single builder, Train Movements only (Solo 1.1 to Lab 2.8) | **F2** workable but tight; **F4** comfortable | About 42% goes on streaming. Leave room for the Eventhouse, dashboards and the agent |
+| Single builder + Darwin (Solo 1.5) and/or the NROD bridge | **F4** minimum; **F8** with heavy dashboard refresh or agent use | Or deactivate `RailEventstreamDarwin` when you don't need it |
 | Classroom: each student has their own Eventstream + Eventhouse on **one shared capacity** | Plan **~1.5–2 CU per student** (≈ 1 CU streaming + Eventhouse and queries): 5 students ≈ **F8–F16**, 10 ≈ **F16–F32**, 20 ≈ **F32–F64** | Apply workspace-level surge protection to each student workspace so one student can't starve the others. Scale up for the session, then scale down or pause afterwards |
 | Classroom: **shared instructor ingestion** (one Eventstream and Eventhouse); students query it and build dashboards and agents | Instructor **F4–F8** + light interactive load per student | Far cheaper. Students don't build their own ingestion |
 | Classroom: **separate capacity per student** (for example each student's own Fabric trial or F2) | Each student as a single builder | Full isolation. Trials don't support the Foundry Fabric tool or other paid-only features |
@@ -69,7 +69,7 @@ more CUs. In these labs, that's the Eventhouse.
 ## Classrooms and shared capacities
 
 **The key message: on a shared capacity, capacity needs grow roughly linearly with the number of student pipelines.**
-Each student who builds Labs 04–06 runs at least one always-on Eventstream and an Eventhouse. Ten students means roughly
+Each student who builds their own ingestion and Lab 2.1 runs at least one always-on Eventstream and an Eventhouse. Ten students means roughly
 ten times the streaming load of one.
 
 Three patterns work:
@@ -80,15 +80,15 @@ Three patterns work:
    blocks a workspace that goes over its limit. Workspaces marked *mission-critical* are exempt, so don't mark student
    workspaces that way. Scale the capacity up for the session and back down (or pause it) afterwards.
 2. **Shared instructor ingestion.** The instructor runs one Eventstream and one Eventhouse; students query it and build their
-   own dashboards, Activator rules and agents (see Lab 05c, *The alternative: one shared instructor Eventhouse*). This is
+   own dashboards, Activator rules and agents (see [Instructor 1.4, *The alternative: one shared instructor Eventhouse*](instructor/1.4-shared-event-hub.md#the-alternative-one-shared-instructor-eventhouse)). This is
    by far the cheapest, but students don't build ingestion themselves.
 3. **A separate capacity for each student** (their own trial or a small paid F SKU). Each student is sized as a single
-   builder and can't affect anyone else. Trials don't support the Foundry Fabric tool (Lab 10).
+   builder and can't affect anyone else. Trials don't support the Foundry Fabric tool (Lab 2.6).
 
 **Recommendation:** for more than about **5–10 students**, use shared instructor ingestion (pattern 2) or a separate
 capacity per student (pattern 3), rather than one large shared capacity.
 
-> **The shared Event Hub (Lab 05c) doesn't reduce Fabric capacity per student.** It solves the NROD one-connection limit and
+> **The shared Event Hub ([Instructor 1.4](instructor/1.4-shared-event-hub.md)) doesn't reduce Fabric capacity per student.** It solves the NROD one-connection limit and
 > per-user RDM subscriptions, and it buffers data while a capacity is paused. But each student still runs their own
 > Eventstream (an Azure Event Hubs source, ≈ 1 CU estimated) and their own Eventhouse, so the Fabric load per student is
 > the same.
@@ -100,9 +100,9 @@ capacity per student (pattern 3), rather than one large shared capacity.
 * **Set capacity alerts.** Use Capacity Overview Events (in Real-Time hub) with an Activator alert, so you're told about
   rising utilisation before you hit throttling.
 * **Deactivate Eventstreams you aren't using** (Eventstream → **Deactivate all**, or switch off a single source). Darwin
-  (Lab 04b) is the obvious candidate.
+  (Solo 1.5) is the obvious candidate.
 * **Pause the capacity overnight** if no-one needs live data. Pausing a capacity pauses the active Eventstream sources and
-  destinations; after you resume, they start again once they're activated. Use the shared Event Hub (Lab 05c) if you need
+  destinations; after you resume, they start again once they're activated. Use the shared Event Hub ([Solo 1.8](solo/1.8-shared-event-hub.md)) if you need
   the overnight data buffered. Be aware that **catching up after a resume adds load**.
 * **Set dashboard auto-refresh to 1 minute or longer** (Real-Time Dashboard and Power BI auto page refresh).
 * **Avoid repeated back-fills and large ad-hoc queries.** Run `08_backfill.kql` once, not on a loop.

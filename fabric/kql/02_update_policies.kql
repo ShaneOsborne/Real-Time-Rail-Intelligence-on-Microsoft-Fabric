@@ -1,9 +1,9 @@
-// Lab 06 - step 2: parsing functions + update policies.
+// Lab 2.1 - step 2: parsing functions + update policies.
 // Batched TRUST payloads (JSON arrays) from either source are expanded and routed by header.msg_type:
 //   0001 activation, 0002 cancellation, 0003 movement, 0004-0008 -> TrustOtherEvents.
 // Each RDM Kafka product lands in its own raw table; UnwrapRdmBody() removes the RDM envelope for both:
-//   RdmTrustRaw  = NWR Train Movements (TRUST) only (Lab 04)  -> UnwrapRdmTrust()  -> ExpandTrustRdm() -> Trust* tables.
-//   RdmDarwinRaw = Darwin Push Port (optional, Lab 04b)        -> UnwrapRdmDarwin() -> ParseDarwinBody() -> DarwinLocations.
+//   RdmTrustRaw  = NWR Train Movements (TRUST) only (Solo 1.4)  -> UnwrapRdmTrust()  -> ExpandTrustRdm() -> Trust* tables.
+//   RdmDarwinRaw = Darwin Push Port (optional, Solo 1.5)        -> UnwrapRdmDarwin() -> ParseDarwinBody() -> DarwinLocations.
 // Run 01_tables.kql first: this script references RdmTrustRaw and RdmDarwinRaw.
 // Update policies only process data ingested AFTER they exist. To back-fill, see fabric/kql/08_backfill.kql.
 // NOTE: TRUST timestamps are epoch milliseconds. The Open Rail Data wiki notes they reflect UK local
@@ -36,7 +36,7 @@
     | invoke UnwrapRdmBody()
 }
 
-.create-or-alter function with (folder="parsing", docstring="RDM Darwin Push Port messages from RdmDarwinRaw (Lab 04b), envelope removed") UnwrapRdmDarwin() {
+.create-or-alter function with (folder="parsing", docstring="RDM Darwin Push Port messages from RdmDarwinRaw (Solo 1.5), envelope removed") UnwrapRdmDarwin() {
     RdmDarwinRaw
     | project received_utc = ingestion_time(), payload
     | invoke UnwrapRdmBody()
@@ -109,7 +109,7 @@
         received_utc
 }
 
-.create-or-alter function with (folder="parsing", docstring="Darwin Push Port from RdmDarwinRaw (Lab 04b) -> DarwinLocations rows") ParseDarwinLocations() {
+.create-or-alter function with (folder="parsing", docstring="Darwin Push Port from RdmDarwinRaw (Solo 1.5) -> DarwinLocations rows") ParseDarwinLocations() {
     UnwrapRdmDarwin()
     | invoke ParseDarwinBody()
 }

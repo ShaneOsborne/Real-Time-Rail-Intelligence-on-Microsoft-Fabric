@@ -1,7 +1,7 @@
 <#
 .SYNOPSIS
-  Deploy the STOMP bridge to Azure Container Apps (Lab 05b, Option A).
-  Optional shared Event Hub tier (Lab 05c; run scripts/create-eventhub.ps1 first):
+  Deploy the STOMP bridge to Azure Container Apps (Solo 1.7, Option A).
+  Optional shared Event Hub tier (Instructor 1.4 / Solo 1.8; run scripts/create-eventhub.ps1 first):
     BRIDGE_TARGET=eventhub  -> the bridge uses Key Vault secret eventhub-nrod-connection-string
     DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
   Subscriptions whose policy blocks public access to Key Vault:
@@ -66,7 +66,7 @@ $common = @(
 
 if ($WhatIf) { Invoke-Az deployment group what-if @common --parameters deployApp=false; return }
 
-Write-Step 'Phase 1: identity, Log Analytics, Key Vault (re-used if created in Lab 01), ACR, Container Apps environment'
+Write-Step 'Phase 1: identity, Log Analytics, Key Vault (re-used if created in Solo 1.1), ACR, Container Apps environment'
 Invoke-Az deployment group create -n bridge-phase1 @common --parameters deployApp=false -o none
 $kv = az deployment group show -g $rg -n bridge-phase1 --query properties.outputs.keyVaultName.value -o tsv
 $acr = az deployment group show -g $rg -n bridge-phase1 --query properties.outputs.acrName.value -o tsv
@@ -103,7 +103,7 @@ else {
     function Assert-KvSecret([string]$Name) {
         # The shared Event Hub secrets are written by scripts/create-eventhub.ps1
         az keyvault secret show --vault-name $kv -n $Name --query id -o tsv 2>$null | Out-Null
-        if ($LASTEXITCODE -ne 0) { throw "Key Vault secret '$Name' not found in $kv. Run ./scripts/create-eventhub.ps1 first (Lab 05c)." }
+        if ($LASTEXITCODE -ne 0) { throw "Key Vault secret '$Name' not found in $kv. Run ./scripts/create-eventhub.ps1 first (Instructor 1.4 / Solo 1.8)." }
         Write-Host "  found $Name"
     }
     Set-KvSecret 'nrod-username' $env:NROD_USERNAME

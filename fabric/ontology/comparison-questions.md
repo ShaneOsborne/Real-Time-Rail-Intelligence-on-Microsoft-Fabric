@@ -1,9 +1,9 @@
-# Before and after: comparison questions (Lab 09b)
+# Before and after: comparison questions (Lab 2.5)
 
 Ask each question to **both** data agents, in a new chat each time:
 
-* **A** – `Rail Network Analyst` (Lab 09: KQL database, instructions and example queries)
-* **B** – `Rail Network Analyst (ontology)` (Lab 09b: the ontology)
+* **A** – `Rail Network Analyst` (Lab 2.4: KQL database, instructions and example queries)
+* **B** – `Rail Network Analyst (ontology)` (Lab 2.5: the ontology)
 
 Record the time each takes, whether the answer is right, and what the agent did (expand the steps to see the query and
 its language: KQL, GQL or other). Check "right" with the KQL in the last column, run in a KQL queryset on `RailKQL`.
@@ -34,5 +34,5 @@ its language: KQL, GQL or other). Check "right" with the KQL in the last column,
 
 **What to look for.** The ontology should win on *meaning*: stations rather than STANOX codes, operator names, headcodes,
 "active" and "late" used consistently, without you writing an example query for each. It won't usually be faster. If A
-and B are equally good, that tells you the Lab 09 instructions and examples already carry the meaning, and the
+and B are equally good, that tells you the Lab 2.4 instructions and examples already carry the meaning, and the
 ontology's value is that **other** agents (Foundry, Copilot Studio, operations agents) get the same definitions for free.

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Create one Event Hubs consumer group per student on the shared hubs (Lab 05c, optional shared tier).
+  Create one Event Hubs consumer group per student on the shared hubs (Instructor 1.4 / Solo 1.8, optional shared tier).
 .DESCRIPTION
   Idempotent: existing groups are skipped. Standard tier allows 20 consumer groups per event hub,
   including $Default (kept for the instructor), so at most 19 students per namespace.

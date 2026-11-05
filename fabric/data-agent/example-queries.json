@@ -36,15 +36,15 @@
     "query": "// Busiest = most TRUST movements (arrivals and departures) at stations, i.e. locations with a CRS code.\n// \"London\" = a box around Greater London (lat 51.28 to 51.70, lon -0.51 to 0.33). Change the box for another area.\n// Filter by time and summarise BEFORE the join, so only a small table is joined.\nlet area = Locations\n| where isnotempty(stanox) and isnotempty(crs) and lat between (51.28 .. 51.70) and lon between (-0.51 .. 0.33)\n| summarize station = take_any(name), crs = take_any(crs) by stanox;\nTrustMovements\n| where event_time > ago(30m)\n| summarize movements = count(), late = countif(delay_minutes > 0) by loc_stanox\n| join kind=inner area on $left.loc_stanox == $right.stanox\n| summarize movements = sum(movements), late = sum(late), station = take_any(station) by crs\n| top 10 by movements desc\n| project station, crs, movements, late"
   },
   {
-    "question": "(Optional – Darwin, Lab 04b) Which services at Leeds don't have a confirmed platform yet?",
+    "question": "(Optional – Darwin, Solo 1.5) Which services at Leeds don't have a confirmed platform yet?",
     "query": "// Darwin: latest state per service (rid) and location; Leeds = CRS LDS (join on TIPLOC).\nlet leeds = Locations | where crs =~ \"LDS\" and isnotempty(tiploc) | distinct tiploc;\nDarwinLocations\n| where received_utc > ago(2h) and tiploc in (leeds)\n| summarize arg_max(received_utc, *) by rid, tiploc\n| where isnotempty(platform) and coalesce(platform_confirmed, false) == false\n| project ssd, ptd, pta, rid, platform, platform_source, dep_delay_minutes\n| order by ssd asc, ptd asc\n| take 10"
   },
   {
-    "question": "(Optional – Darwin, Lab 04b) Which trains have the biggest predicted delays right now?",
+    "question": "(Optional – Darwin, Solo 1.5) Which trains have the biggest predicted delays right now?",
     "query": "DarwinLocations\n| where received_utc > ago(1h)\n| summarize arg_max(received_utc, *) by rid, tiploc\n| extend delay_minutes = max_of(coalesce(arr_delay_minutes, -1440), coalesce(dep_delay_minutes, -1440))\n| where delay_minutes > 0\n| join kind=leftouter (Locations | where isnotempty(tiploc) | summarize name = take_any(name), crs = take_any(crs) by tiploc) on tiploc\n| top 10 by delay_minutes desc\n| project name, crs, rid, pta, ptd, arr_et, dep_et, delay_minutes, platform"
   },
   {
-    "question": "(Optional – Darwin, Lab 04b) What is the expected departure time and platform of trains at York?",
+    "question": "(Optional – Darwin, Solo 1.5) What is the expected departure time and platform of trains at York?",
     "query": "let york = Locations | where crs =~ \"YRK\" and isnotempty(tiploc) | distinct tiploc;\nDarwinLocations\n| where received_utc > ago(2h) and tiploc in (york) and isnotempty(ptd)\n| summarize arg_max(received_utc, *) by rid, tiploc\n| project ssd, ptd, dep_et, dep_at, platform, platform_confirmed, dep_delay_minutes, rid\n| order by ssd asc, ptd asc\n| take 10"
   }
 ]

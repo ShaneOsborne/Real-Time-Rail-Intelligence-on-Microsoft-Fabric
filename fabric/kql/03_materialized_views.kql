@@ -1,4 +1,4 @@
-// Lab 06 - step 3: materialized views (latest state per train, delay/cancellation summaries).
+// Lab 2.1 - step 3: materialized views (latest state per train, delay/cancellation summaries).
 // `ifnotexists` makes the script safe to re-run; to change a view definition use
 // `.alter materialized-view` or drop and recreate it.
 .execute database script with (ContinueOnErrors=false) <|

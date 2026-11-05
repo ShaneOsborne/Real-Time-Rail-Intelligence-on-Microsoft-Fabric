@@ -1,4 +1,4 @@
-// Lab 11b: Azure Maps account (Gen2) for the Rayfin app's basemap (road, grayscale, night and satellite styles).
+// Lab 2.9: Azure Maps account (Gen2) for the Rayfin app's basemap (road, grayscale, night and satellite styles).
 // Also creates the user-assigned managed identity that SAS tokens are issued for. The data-role assignment for that
 // identity is done by scripts/create-azure-maps.* (by role name), so this file needs no role GUIDs.
 @description('Region for the Maps account and its identity (must be the same). Check Microsoft.Maps availability.')

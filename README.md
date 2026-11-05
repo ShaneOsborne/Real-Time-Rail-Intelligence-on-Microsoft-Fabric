@@ -11,15 +11,15 @@ You can use it in two ways:
 
 ## What you'll build
 
-**A live operations dashboard (Lab 08).** A Real-Time Dashboard over the KQL database: a network map, KPI tiles,
+**A live operations dashboard (Lab 2.3).** A Real-Time Dashboard over the KQL database: a network map, KPI tiles,
 gauges, delay trends by operator and a table of the most delayed trains, refreshing automatically.
 
-![Real-Time Dashboard built in Lab 08](docs/images/rtd-dashboard.png)
+![Real-Time Dashboard built in Lab 2.3](docs/images/rtd-dashboard.png)
 
-**RailPulse, a Rayfin (Fabric Apps) web app (Labs 10b, 11 and 11b).** A live map of trains with KPI tiles, plus
+**RailPulse, a Rayfin (Fabric Apps) web app (Labs 2.7, 2.8 and 2.9).** A live map of trains with KPI tiles, plus
 an "Ask the network" chat panel that answers questions through the Foundry agent and Fabric IQ.
 
-![RailPulse app built in Labs 11 and 11b](docs/images/railpulse-app.png)
+![RailPulse app built in Labs 2.8 and 2.9](docs/images/railpulse-app.png)
 
 ## Presentation
 
@@ -30,11 +30,14 @@ Use it to introduce the labs or to run a class. Download it from GitHub to open 
 
 ## Choose your path
 
-| You are… | Start here |
-|---|---|
-| **Solo builder** – your own accounts, doing everything yourself | [Lab 00](docs/labs/00-overview.md), then the labs in order |
-| **Instructor** – setting up a class | [Instructor guide](docs/instructor-guide.md) |
-| **Classroom student** – you've been given a handout by your instructor | [Student guide](docs/student-guide.md). You **skip Labs 04, 04b, 05a and 05b** |
+Part 1 gets live data into your Fabric workspace and comes in three versions. Pick **one** and follow its folder top to
+bottom. Part 2 is the same build for everyone. Read [Start here](docs/start-here.md) first.
+
+| You are… | Part 1 | Then |
+|---|---|---|
+| **Solo builder** – your own accounts, doing everything yourself | [`docs/solo/`](docs/solo/README.md) | [`docs/build/`](docs/build/README.md) |
+| **Instructor** – setting up a class | [`docs/instructor/`](docs/instructor/README.md) | Run [`docs/build/`](docs/build/README.md) yourself before the class |
+| **Classroom student** – you've been given a handout by your instructor | [`docs/student/`](docs/student/README.md) | [`docs/build/`](docs/build/README.md) |
 
 > **Size your Fabric capacity first.** Always-on Eventstreams use capacity all day, every day. F2 is the minimum for one
 > live feed; two Kafka feeds can throttle an F2. See [Capacity planning and sizing](docs/capacity-planning.md), especially for classes.
@@ -61,7 +64,7 @@ flowchart LR
   end
 
   subgraph Fabric["Microsoft Fabric workspace"]
-    ESR["Eventstream (RDM)<br/>Apache Kafka source<br/>+ optional Darwin Eventstream (Lab 04b)"]
+    ESR["Eventstream (RDM)<br/>Apache Kafka source<br/>+ optional Darwin Eventstream (Solo 1.5)"]
     ESN["Eventstream (NROD)<br/>Custom endpoint source"]
     EH[("Eventhouse / KQL DB<br/>RawFeed → update policies →<br/>TrustMovements · Cancellations<br/>materialized views")]
     LH[("Lakehouse<br/>locations · smart_berths")]
@@ -74,7 +77,7 @@ flowchart LR
 
   FOUNDRY["Azure AI Foundry agent<br/>+ Fabric IQ tool (preview)"]
 
-  subgraph Shared["Optional shared tier (Lab 05c)"]
+  subgraph Shared["Optional shared tier (Instructor 1.4 / Solo 1.8)"]
     EHNS[("Azure Event Hubs Standard<br/>nrod-feed · rdm-trust<br/>7-day retention<br/>1 consumer group per student")]
     RELAY["RDM relay<br/>(same image, BRIDGE_SOURCE=kafka)"]
   end
@@ -102,7 +105,7 @@ flowchart LR
 |---|---|---|
 | Kafka ingestion | Eventstream **Apache Kafka** source | Rail Data Marketplace exposes Kafka with SASL_SSL/PLAIN. No code needed |
 | STOMP ingestion | Python bridge → Eventstream **custom endpoint** (Event Hubs protocol) | Eventstream has no STOMP source |
-| Optional shared tier | **Azure Event Hubs Standard** between the sources and Fabric ([Lab 05c](docs/labs/05c-shared-event-hub.md)) | One instructor ingestion feeds many students' workspaces, and data keeps buffering (7 days) while a capacity is paused. Direct paths stay the default |
+| Optional shared tier | **Azure Event Hubs Standard** between the sources and Fabric ([Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) / [Solo 1.8](docs/solo/1.8-shared-event-hub.md)) | One instructor ingestion feeds many students' workspaces, and data keeps buffering (7 days) while a capacity is paused. Direct paths stay the default |
 | Bridge hosting | **Azure Container Apps**, exactly 1 replica | A long-lived connection that must be single-instance per durable client-id. Costs about $14/month at list price |
 | Storage and query | **Eventhouse** (KQL) and **Lakehouse** | Update policies parse batched TRUST JSON. Materialized views hold the current state |
 | Insight | Real-Time Dashboard, Power BI, Activator | Live tiles, history and alerts |
@@ -110,32 +113,63 @@ flowchart LR
 
 ## Lab index
 
-| Lab | Title | Time | Automated? | Classroom student |
-|---|---|---|---|---|
-| [00](docs/labs/00-overview.md) | Overview, architecture, costs, licensing, preview caveats | 20 min | – | ✅ |
-| [Ref](docs/capacity-planning.md) | *Reference:* Fabric capacity planning and sizing (single builder and classrooms) | 15 min | – | – |
-| [01](docs/labs/01-prerequisites.md) | Prerequisites and accounts (NROD, RDM, Azure, Fabric, tenant settings, tools) | 45 min (+ approval wait) | Manual | Student section only |
-| [02](docs/labs/02-fabric-workspace.md) | Fabric workspace, Eventhouse, KQL database, Lakehouse, Eventstreams | 20 min | ✅ `fabric-setup.sh/.ps1` | ✅ |
-| [03](docs/labs/03-reference-data.md) | Reference data (CORPUS, SMART, NaPTAN) → Lakehouse and KQL | 30 min | ✅ `load_reference_data.py` / notebook | Option C only |
-| [04](docs/labs/04-rdm-kafka-eventstream.md) | Ingest RDM Kafka Train Movements with Eventstream | 30 min | Manual (portal) | Skip |
-| [04b](docs/labs/04b-darwin-push-port.md) | *Optional:* Darwin Push Port: forecasts, platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` | Skip |
-| [05a](docs/labs/05a-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` | Skip |
-| [05b](docs/labs/05b-bridge-azure-container-apps.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` | Skip |
-| [05c](docs/labs/05c-shared-event-hub.md) | *Optional:* shared Azure Event Hub for classes and paused capacities (+ RDM Kafka relay) | 45 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1` (instructor); student Eventstream source manual | Student steps only |
-| [06](docs/labs/06-kql-transformations.md) | KQL tables, update policies, materialized views, functions | 40 min | ✅ `apply_kql.py` | ✅ |
-| [07](docs/labs/07-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) | ✅ |
-| [08](docs/labs/08-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) | ✅ |
-| [09](docs/labs/09-fabric-data-agent.md) | Fabric data agent (instructions and example queries) | 30 min | Manual (content supplied) | ✅ |
-| [09b](docs/labs/09b-rail-ontology.md) | *Optional:* rail ontology (Fabric IQ): stations, timing points, trains, operators and business rules, plus a data agent grounded in it, compared with Lab 09 | 50 min | ✅ `09_ontology_tables.kql`; ontology via the ontology agent or by hand | Optional, own workspace |
-| [10](docs/labs/10-foundry-agent.md) | Foundry agent with the Fabric IQ (OneLake Catalog) tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) | ✅ (shared project) |
-| [10b](docs/labs/10b-live-semantic-model.md) | Live semantic model (DirectQuery over `NetworkSnapshot`) for the app map | 25 min | Manual (Power BI Desktop) | If doing Lab 11 |
-| [11](docs/labs/11-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code | If region supports it |
-| [11b](docs/labs/11b-azure-maps.md) | *Optional:* Azure Maps basemap, satellite view and OS Open Zoomstack railway lines for the app map | 45 min | ✅ `create-azure-maps.sh/.ps1`, `new-azure-maps-sas.sh/.ps1`, `app/tools/build_gb_rail.py` | If your instructor provides a token |
-| [12](docs/labs/12-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` | Student section only |
+| Page | What it covers | Time | Automated? |
+|---|---|---|---|
+| [Start here](docs/start-here.md) | Overview, architecture, costs, licensing, preview caveats, choose your path | 20 min | – |
+| [Capacity planning](docs/capacity-planning.md) | *Reference:* Fabric capacity planning and sizing (single builder and classrooms) | 15 min | – |
+
+### Part 1 – Solo
+
+| Page | What it covers | Time | Automated? |
+|---|---|---|---|
+| [Solo 1.1](docs/solo/1.1-prerequisites.md) | Prerequisites and accounts (NROD, RDM, Azure, Fabric, tenant settings, tools, Key Vault) | 45 min (+ approval wait) | Key Vault: ✅ `create-keyvault.sh/.ps1` |
+| [Solo 1.2](docs/solo/1.2-fabric-workspace.md) | Fabric workspace, Eventhouse, KQL database, Lakehouse, Eventstreams | 20 min | ✅ `fabric-setup.sh/.ps1` |
+| [Solo 1.3](docs/solo/1.3-reference-data.md) | Reference data (CORPUS, SMART, NaPTAN) → Lakehouse and KQL | 30 min | ✅ `load_reference_data.py` / notebook |
+| [Solo 1.4](docs/solo/1.4-rdm-kafka-eventstream.md) | Ingest RDM Train Movements with Eventstream | 30 min | Manual (portal) |
+| [Solo 1.5](docs/solo/1.5-darwin-push-port.md) | *Optional:* Darwin Push Port: forecasts, platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` |
+| [Solo 1.6](docs/solo/1.6-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` |
+| [Solo 1.7](docs/solo/1.7-bridge-azure.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` |
+| [Solo 1.8](docs/solo/1.8-shared-event-hub.md) | *Optional:* shared Azure Event Hub, so data keeps buffering while your capacity is paused | 30 min | ✅ `create-eventhub.sh/.ps1`; Eventstream source manual |
+
+### Part 1 – Instructor
+
+| Page | What it covers | Time | Automated? |
+|---|---|---|---|
+| [Instructor 1.1](docs/instructor/1.1-prepare.md) | Solo 1.1, plus tenant settings for the student group, class capacity sizing, shared Foundry project and roles | 60 min (+ approval wait) | Manual |
+| [Instructor 1.2](docs/instructor/1.2-workspace-and-reference-data.md) | Solo 1.2 and Solo 1.3 (Option A2), then share the reference Lakehouse | 50 min | ✅ scripts / notebook; sharing manual |
+| [Instructor 1.3](docs/instructor/1.3-bridge.md) | Solo 1.6 (local test) and Solo 1.7 (deploy) | 70 min | ✅ `run-local`, `deploy-bridge` |
+| [Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) | Shared Azure Event Hub, consumer groups and RDM Kafka relay: the feed for the class | 30 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1`, `deploy-bridge` |
+| [Instructor 1.5](docs/instructor/1.5-student-workspaces-and-handout.md) | Student workspaces, Foundry access, the student handout, a dry run | 30 min | ✅ `fabric-setup.sh` loop; rest manual |
+| [Instructor 1.6](docs/instructor/1.6-running-the-class.md) | On the day: capacity, common problems, overnight pause checkpoint | – | Manual |
+| [Instructor 1.7](docs/instructor/1.7-after-the-class.md) | After the class: keys, Event Hub, Foundry roles, clean-up | 15 min | Partly (`cleanup.sh/.ps1`) |
+
+### Part 1 – Student
+
+| Page | What it covers | Time | Automated? |
+|---|---|---|---|
+| [Student 1.1](docs/student/1.1-get-ready.md) | Fabric access check, tools, clone and `.env` from the handout | 20 min | Manual |
+| [Student 1.2](docs/student/1.2-fabric-workspace.md) | Your workspace, Eventhouse, KQL database, Lakehouse, Eventstreams, raw tables | 20 min | ✅ `fabric-setup.sh/.ps1` |
+| [Student 1.3](docs/student/1.3-reference-data.md) | Reference data: shortcut to the instructor's Lakehouse | 10 min | Manual (portal) + KQL script |
+| [Student 1.4](docs/student/1.4-connect-to-the-class-feed.md) | Azure Event Hubs sources with your own consumer group | 15 min | Manual (portal) |
+
+### Part 2 – Build (everyone)
+
+| Page | What it covers | Time | Automated? |
+|---|---|---|---|
+| [Lab 2.1](docs/build/2.1-kql-transformations.md) | KQL tables, update policies, materialized views, functions | 40 min | ✅ `apply_kql.py` |
+| [Lab 2.2](docs/build/2.2-activator-alerts.md) | Activator alerts (late trains, cancellation spikes, stalled feed) | 30 min | Manual (portal) |
+| [Lab 2.3](docs/build/2.3-dashboard-powerbi.md) | Real-Time Dashboard and Power BI report | 45 min | Manual (queries supplied) |
+| [Lab 2.4](docs/build/2.4-fabric-data-agent.md) | Fabric data agent (instructions and example queries) | 30 min | Manual (content supplied) |
+| [Lab 2.5](docs/build/2.5-rail-ontology.md) | *Optional:* rail ontology (Fabric IQ): stations, timing points, trains, operators and business rules, plus a data agent grounded in it, compared with Lab 2.4 | 50 min | ✅ `09_ontology_tables.kql`; ontology via the ontology agent or by hand |
+| [Lab 2.6](docs/build/2.6-foundry-agent.md) | Foundry agent with the Fabric IQ (OneLake Catalog) tool and a Python client | 30 min | ✅ `foundry/agent_client.py` (after portal connection) |
+| [Lab 2.7](docs/build/2.7-live-semantic-model.md) | Live semantic model (DirectQuery over `NetworkSnapshot`) for the app map | 25 min | Manual (Power BI Desktop) |
+| [Lab 2.8](docs/build/2.8-rayfin-app.md) | Rayfin app: live map and "chat with the network" | 60 min | CLI + overlay code |
+| [Lab 2.9](docs/build/2.9-azure-maps.md) | *Optional:* Azure Maps basemap, satellite view and OS Open Zoomstack railway lines for the app map | 45 min | ✅ `create-azure-maps.sh/.ps1`, `new-azure-maps-sas.sh/.ps1`, `app/tools/build_gb_rail.py` |
+| [Lab 2.10](docs/build/2.10-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` |
 
 ## Quick start: deploy as-is
 
-You need the accounts and tenant settings from [Lab 01](docs/labs/01-prerequisites.md), and a Fabric capacity sized for
+You need the accounts and tenant settings from [Solo 1.1](docs/solo/1.1-prerequisites.md), and a Fabric capacity sized for
 the feeds you'll run ([Capacity planning and sizing](docs/capacity-planning.md)). You also need the Azure CLI (`az login`), Python 3.11+ and, if you want it, Docker.
 
 ```bash
@@ -145,36 +179,36 @@ cp .env.example .env            # fill in NROD_*, AZ_*, FABRIC_CAPACITY_ID ...
 # 0. Try the bridge offline. No accounts needed: it replays the bundled sample messages
 ./scripts/run-local.sh venv console --replay
 
-# 1. Shared Key Vault with your NROD credentials (Lab 01, step 8). Copy KEY_VAULT_* into .env
+# 1. Shared Key Vault with your NROD credentials (Solo 1.1, step 8). Copy KEY_VAULT_* into .env
 ./scripts/create-keyvault.sh
 
-# 2. Fabric items (Lab 02). Copy the IDs it prints into .env
+# 2. Fabric items (Solo 1.2). Copy the IDs it prints into .env
 ./scripts/fabric-setup.sh
 
-# 3. KQL schema, update policies and views (Lab 06; run before you send any data)
+# 3. KQL schema, update policies and views (Lab 2.1; run before you send any data)
 python -m pip install -r fabric/scripts/requirements.txt
 python fabric/scripts/apply_kql.py
 
-# 4. Reference data (Lab 03)
+# 4. Reference data (Solo 1.3)
 python fabric/scripts/load_reference_data.py --to-kql --to-onelake
 
 # 5. Portal step: add the custom endpoint source to RailEventstreamNrod and the
 #    Eventhouse destination (RawFeed table, RawFeedMapping). Copy the Event Hub connection
-#    string into EVENTSTREAM_CONNECTION_STRING (Lab 05a, section A2 "Connect to Fabric")
+#    string into EVENTSTREAM_CONNECTION_STRING (Solo 1.6, section A2 "Connect to Fabric")
 
-# 6. Bridge on Azure Container Apps (Lab 05b)
+# 6. Bridge on Azure Container Apps (Solo 1.7)
 ./scripts/deploy-bridge.sh
 
-# 7. OPTIONAL shared Event Hub for a class / paused capacities (Lab 05c, instructor)
+# 7. OPTIONAL shared Event Hub for a class / paused capacities (Instructor 1.4, or Solo 1.8 for one person)
 ./scripts/create-eventhub.sh                                   # namespace, hubs, Key Vault secrets, consumer groups
 BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
-#    Students then add an Azure Event Hubs source with their own consumer group (portal, Lab 05c)
+#    Students then add an Azure Event Hubs source with their own consumer group (portal, Student 1.4)
 ```
 
 On Windows, use the matching `.ps1` scripts, for example `./scripts/create-keyvault.ps1`, `./scripts/fabric-setup.ps1` and `./scripts/deploy-bridge.ps1`.
 
-Then follow Labs 04 and 07–11 for the portal-only parts: the RDM Kafka source, Activator, dashboards, the data agent, Foundry and Rayfin.
-For Darwin forecasts and platforms, add the optional [Lab 04b](docs/labs/04b-darwin-push-port.md): its own Eventstream (`RailEventstreamDarwin`, created empty by `fabric-setup`) and raw table (`RdmDarwinRaw`).
+Then follow Solo 1.4 and Labs 2.2–2.8 for the portal-only parts: the RDM Kafka source, Activator, dashboards, the data agent, Foundry and Rayfin.
+For Darwin forecasts and platforms, add the optional [Solo 1.5](docs/solo/1.5-darwin-push-port.md): its own Eventstream (`RailEventstreamDarwin`, created empty by `fabric-setup`) and raw table (`RdmDarwinRaw`).
 
 ### What is automated and what is manual
 
@@ -184,7 +218,7 @@ For Darwin forecasts and platforms, add the optional [Lab 04b](docs/labs/04b-dar
 | All KQL tables, mappings, update policies, materialized views and functions | Activator rules |
 | Reference data download, Lakehouse load and KQL load | Real-Time Dashboard tiles and the Power BI report |
 | Bridge: local venv/Docker, Azure infrastructure (Bicep), image build, Key Vault secrets | Fabric data agent creation and publishing |
-| *Optional (Lab 05c):* Event Hubs namespace, hubs, SAS rules, consumer groups, Key Vault secrets, RDM relay app | Each student's Eventstream **Azure Event Hubs** source and the overnight pause check |
+| *Optional (Instructor 1.4 / Solo 1.8):* Event Hubs namespace, hubs, SAS rules, consumer groups, Key Vault secrets, RDM relay app | Each student's Eventstream **Azure Event Hubs** source and the overnight pause check |
 | Foundry agent creation and chat (after the Fabric connection exists) | Foundry Fabric tool connection (portal, or an ARM REST call) |
 | CI: lint, tests, Docker build, GHCR push, Bicep lint | Rayfin scaffold and deploy (Rayfin CLI) |
 
@@ -194,15 +228,17 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 
 ```
 ├── README.md · LICENSE · CONTRIBUTING.md · .env.example · .gitignore
-├── docs/instructor-guide.md   Classroom set-up: timeline, shared Event Hub, reference data, student handout, clean-up
-├── docs/student-guide.md      Classroom student route through the labs (which to do, which to skip)
+├── docs/start-here.md         Overview, architecture, costs, licensing, preview caveats and "choose your path"
+├── docs/solo/                 Part 1 for a solo builder: Solo 1.1–1.8 (+ README index)
+├── docs/instructor/           Part 1 for an instructor: Instructor 1.1–1.7 – class set-up, shared Event Hub, handout, clean-up
+├── docs/student/              Part 1 for a classroom student: Student 1.1–1.4
+├── docs/build/                Part 2, the same for everyone: Lab 2.1–2.10
 ├── docs/capacity-planning.md  Fabric capacity sizing, classroom guidance and throttling recovery
 ├── docs/presentation/         Slide deck: architecture, PoC plan and one slide per lab
 ├── docs/images/               Screenshots of the finished dashboard and app (used in this README)
-├── docs/labs/                 00–12 lab guides (+ optional 04b Darwin, 05c shared Event Hub)
 ├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
-│                              optional shared Event Hubs namespace (eventhubs.bicep); optional Azure Maps account (azuremaps.bicep, Lab 11b)
+│                              optional shared Event Hubs namespace (eventhubs.bicep); optional Azure Maps account (azuremaps.bicep, Lab 2.9)
 ├── scripts/                   run-local / create-keyvault / deploy-bridge / fabric-setup / cleanup, optional create-eventhub /
 │                              add-student-consumer-groups (.sh and .ps1)
 ├── fabric/
@@ -210,11 +246,11 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 │   ├── notebooks/             Reference-data notebook (.ipynb)
 │   ├── scripts/               apply_kql.py, load_reference_data.py
 │   ├── data-agent/            Instructions + example question/KQL pairs
-│   ├── ontology/              Lab 09b: ontology definition (entities, relationships, rules, prompts) + comparison questions
+│   ├── ontology/              Lab 2.5: ontology definition (entities, relationships, rules, prompts) + comparison questions
 │   ├── dashboard/             Real-Time Dashboard tile queries
 │   └── activator/             Activator rule specifications
 ├── foundry/                   Foundry agent client (Python) + setup notes
-├── app/                       Rayfin app starter (overlay files + guide); rayfin-maps-addon/ (Lab 11b Azure Maps map); tools/build_gb_rail.py
+├── app/                       Rayfin app starter (overlay files + guide); rayfin-maps-addon/ (Lab 2.9 Azure Maps map); tools/build_gb_rail.py
 └── .github/workflows/         bridge-ci, infra-validate
 ```
 
@@ -223,11 +259,11 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 | Item | Indicative cost | Notes |
 |---|---|---|
 | Azure Container Apps bridge (0.25 vCPU / 0.5 GiB, always on) | **~$14/month** list-price estimate after the monthly free grant | Size up to 0.5 vCPU / 1 GiB for `TD_ALL_SIG_AREA` (~6,000 msgs/min) |
-| *Optional:* Event Hubs Standard, 1 TU (Lab 05c) | **~$22/month** ($0.03/hour) + ingress $0.028 per million events (≈ $1–4/month for TRUST) | List-price estimates. Basic ($0.015/hour) is unsuitable: 1 consumer group, 1-day retention |
-| *Optional:* RDM relay container app (Lab 05c) | **~$14/month** | Same size as the bridge. Only with `DEPLOY_RDM_RELAY=true` |
+| *Optional:* Event Hubs Standard, 1 TU (Instructor 1.4 / Solo 1.8) | **~$22/month** ($0.03/hour) + ingress $0.028 per million events (≈ $1–4/month for TRUST) | List-price estimates. Basic ($0.015/hour) is unsuitable: 1 consumer group, 1-day retention |
+| *Optional:* RDM relay container app (Instructor 1.4 / Solo 1.8) | **~$14/month** | Same size as the bridge. Only with `DEPLOY_RDM_RELAY=true` |
 | Log Analytics | Pay per GB ingested | The bridge logs a small amount at INFO. Retention is 30 days by default |
 | Key Vault, ACR Basic | Small | Use GHCR (`CONTAINER_IMAGE=ghcr.io/...`) to skip ACR |
-| Fabric capacity | **F2 minimum for one live feed**; F4 recommended with Darwin (Lab 04b) or the bridge; classes need more (trial works for most labs) | Always-on Eventstreams use capacity continuously. See [Capacity planning and sizing](docs/capacity-planning.md). Pause pay-as-you-go capacity when you're not using it. The Foundry Fabric tool needs **paid F2+** |
+| Fabric capacity | **F2 minimum for one live feed**; F4 recommended with Darwin (Solo 1.5) or the bridge; classes need more (trial works for most labs) | Always-on Eventstreams use capacity continuously. See [Capacity planning and sizing](docs/capacity-planning.md). Pause pay-as-you-go capacity when you're not using it. The Foundry Fabric tool needs **paid F2+** |
 | Azure AI Foundry | Model tokens | The Fabric tool adds a data agent query for each question |
 | *Alternative rejected:* Azure Functions Premium/Flex always-ready | ~$80–150+/month | Functions only suit the daily reference-file pull |
 
@@ -238,7 +274,7 @@ For Fabric capacity sizing (estimates per Eventstream, sizing by scenario, class
 ## Preview and experimental features
 
 * Fabric IQ (OneLake Catalog) tool in Azure AI Foundry: **preview**. It replaces the Fabric data agent tool, which stops being supported on **6 November 2026**. Calls run as the signed-in user; use a background-mode model (gpt-5.4/5.5 recommended).
-* Fabric Apps / Rayfin: **preview**. Rayfin 1.36.2 can't query a KQL database (no Kusto connector or token), so Lab 11's map reads a DirectQuery semantic model over `RailKQL` (Lab 10b) through the preview `fabric-semanticmodel` connector; the chat uses a Rayfin function, and functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Lab 01, and see Lab 11 for the workaround.
+* Fabric Apps / Rayfin: **preview**. Rayfin 1.36.2 can't query a KQL database (no Kusto connector or token), so Lab 2.8's map reads a DirectQuery semantic model over `RailKQL` (Lab 2.7) through the preview `fabric-semanticmodel` connector; the chat uses a Rayfin function, and functions aren't available in every tenant or region. **Fabric Apps itself isn't available in every Fabric region.** Check *New item → App (preview)* during Part 1 (Solo 1.1 or Instructor 1.1), and see Lab 2.8 for the workaround.
 * RDM "NWR Train Movements" is a **beta** product with no SLA.
 * Lakehouse "Load Table" REST API: **preview**.
 
@@ -246,7 +282,7 @@ For Fabric capacity sizing (estimates per Eventstream, sizing by scenario, class
 
 * Code: [MIT](LICENSE).
 * Data: Network Rail open data (Network Rail Infrastructure Limited, Open Government Licence). Rail Data Marketplace products are under the licence shown on each product page. NaPTAN is © Crown copyright (OGL v3.0). You must **attribute** the source wherever you show the data. Don't describe anything as "official", and don't use Network Rail or National Rail logos.
-* NROD accounts are capped (about 1,000 users). Use **one** connection for each account, and don't run the local and cloud bridges together with the same client-id. For a class, use the optional shared Event Hub ([Lab 05c](docs/labs/05c-shared-event-hub.md)) so one connection feeds everyone; check that sharing the data with your students fits the licence terms of each feed.
+* NROD accounts are capped (about 1,000 users). Use **one** connection for each account, and don't run the local and cloud bridges together with the same client-id. For a class, use the optional shared Event Hub ([Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) / [Solo 1.8](docs/solo/1.8-shared-event-hub.md)) so one connection feeds everyone; check that sharing the data with your students fits the licence terms of each feed.
 
 ## Contributing
 

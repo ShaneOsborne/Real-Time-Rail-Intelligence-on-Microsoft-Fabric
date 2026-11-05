@@ -1,5 +1,5 @@
-// Lab 11 – dependency-free map: plots train positions (lat/lon) inside a Great Britain bounding box as SVG.
-// Lab 11b swaps this for an Azure Maps map with satellite imagery and railway lines.
+// Lab 2.8 – dependency-free map: plots train positions (lat/lon) inside a Great Britain bounding box as SVG.
+// Lab 2.9 swaps this for an Azure Maps map with satellite imagery and railway lines.
 import { useState } from 'react';
 import { delayColour, DELAY_BANDS } from '../../theme/brand';
 import { useSnapshot } from './useSnapshot';

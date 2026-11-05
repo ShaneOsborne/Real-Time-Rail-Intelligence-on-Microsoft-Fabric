@@ -2,7 +2,7 @@
 
 Paste the **Agent instructions** below into *Data agent > Agent instructions*, and the
 **Data source instructions** into the KQL database data source settings. Then add the
-example queries from `example-queries.md` (Lab 09) – it has copy-paste-ready blocks.
+example queries from `example-queries.md` (Lab 2.4) – it has copy-paste-ready blocks.
 
 ## Agent instructions
 
@@ -58,10 +58,10 @@ Joins: `TrustMovements.loc_stanox == Locations.stanox` (one station can have sev
 Origin: `TrustActivations.sched_origin_stanox` for the same `train_id`. Headcode: `substring(train_id, 2, 4)`.
 Time columns are `datetime`; filter with `ago()` for relative windows.
 
-## Optional: Darwin addendum (only if you did Lab 04b)
+## Optional: Darwin addendum (only if you did Solo 1.5)
 
-Add this to the data source instructions **only** if `DarwinLocations` is filling (Lab 04b). Otherwise leave it out, and
-leave out the example queries marked *(Optional – Darwin, Lab 04b)*.
+Add this to the data source instructions **only** if `DarwinLocations` is filling (Solo 1.5). Otherwise leave it out, and
+leave out the example queries marked *(Optional – Darwin, Solo 1.5)*.
 
 | Object | Grain | Important columns |
 |---|---|---|

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Create one Event Hubs consumer group per student on the shared hubs (Lab 05c, optional shared tier).
+# Create one Event Hubs consumer group per student on the shared hubs (Instructor 1.4 / Solo 1.8, optional shared tier).
 #   ./scripts/add-student-consumer-groups.sh --prefix student --count 15          # student01 ... student15
 #   ./scripts/add-student-consumer-groups.sh --prefix student --count 5 --start 16 # student16 ... student20 (!)
 #   ./scripts/add-student-consumer-groups.sh --names alice,bob

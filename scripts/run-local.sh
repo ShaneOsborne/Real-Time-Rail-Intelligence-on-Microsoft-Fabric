@@ -3,7 +3,7 @@
 #   ./scripts/run-local.sh venv   [console|file|eventstream|eventhub] [--replay|--kafka]
 #   ./scripts/run-local.sh docker [console|file|eventstream|eventhub] [--replay|--kafka]
 #   ./scripts/run-local.sh test
-# --kafka runs the optional RDM Kafka relay (BRIDGE_SOURCE=kafka, Lab 05c) instead of the NROD STOMP source.
+# --kafka runs the optional RDM Kafka relay (BRIDGE_SOURCE=kafka, Instructor 1.4 / Solo 1.8) instead of the NROD STOMP source.
 source "$(dirname "$0")/_common.sh"
 load_env
 
@@ -22,7 +22,7 @@ pick_python() {
       PYTHON="$c"; return 0
     fi
   done
-  echo "ERROR: Python 3.11+ not found. Install it (Lab 01, step 6) and make sure 'python' or 'python3' is on PATH." >&2
+  echo "ERROR: Python 3.11+ not found. Install it (Solo 1.1, step 6) and make sure 'python' or 'python3' is on PATH." >&2
   exit 1
 }
 

@@ -1,4 +1,4 @@
-"""Lab 11b: build the GB railway-lines overlay for the Rayfin map from OS Open Zoomstack.
+"""Lab 2.9: build the GB railway-lines overlay for the Rayfin map from OS Open Zoomstack.
 
 Reads the `rail` layer of the OS Open Zoomstack GeoPackage (British National Grid, EPSG:27700), keeps the
 types the map draws, simplifies the lines, reprojects to WGS84 and writes a compact GeoJSON for the app:

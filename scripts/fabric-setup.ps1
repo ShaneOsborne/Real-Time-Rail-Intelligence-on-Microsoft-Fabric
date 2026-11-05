@@ -1,8 +1,8 @@
 <#
 .SYNOPSIS
-  Lab 02 Option A: create Fabric workspace items via the Fabric REST API (az rest).
-  Also creates the optional, empty Darwin Eventstream (Lab 04b).
-  Eventstream sources/destinations are configured manually (Labs 04/04b/05).
+  Solo 1.2 Option A: create Fabric workspace items via the Fabric REST API (az rest).
+  Also creates the optional, empty Darwin Eventstream (Solo 1.5).
+  Eventstream sources/destinations are configured manually (Solo 1.4/1.5/1.6/1.7).
 #>
 . "$PSScriptRoot/_common.ps1"
 Import-DotEnv
@@ -82,5 +82,5 @@ FABRIC_EVENTSTREAM_NROD_ID=$esNrodId
 FABRIC_EVENTSTREAM_DARWIN_ID=$esDarwinId
 KUSTO_QUERY_URI=$queryUri
 
-Next: python fabric/scripts/apply_kql.py   (Lab 06)
+Next: python fabric/scripts/apply_kql.py   (Lab 2.1)
 "@

@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# OPTIONAL shared Event Hub tier (Lab 05c, instructor). Creates an Event Hubs Standard namespace with the
+# OPTIONAL shared Event Hub tier (Instructor 1.4, or Solo 1.8 for one person). Creates an Event Hubs Standard namespace with the
 # event hubs nrod-feed and rdm-trust (7-day retention), a Send rule per hub and a namespace Listen rule for
 # students; writes the send connection strings into the shared Key Vault; creates student consumer groups;
 # and prints what students need for their Eventstream "Azure Event Hubs" source.
@@ -52,7 +52,7 @@ if [[ -z "$DEPLOYER_ID" ]]; then
   DEPLOYER_TYPE=ServicePrincipal
 fi
 
-# Same template and deployment name as scripts/create-keyvault.sh: re-uses the shared vault (Lab 01 step 8).
+# Same template and deployment name as scripts/create-keyvault.sh: re-uses the shared vault (Solo 1.1 step 8).
 log "Shared Key Vault (created or re-used) + Key Vault Secrets Officer for you"
 az deployment group create -g "$AZ_RESOURCE_GROUP" -n shared-keyvault \
   --template-file "$REPO_ROOT/infra/keyvault.bicep" \
@@ -103,7 +103,7 @@ cat <<MSG
 
 Done. Add to .env:
   EVENTHUB_NAMESPACE=$NS
-Then point the Azure apps at the hub (Lab 05b):
+Then point the Azure apps at the hub (Solo 1.7):
   BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
 
 Share with students over a private channel (never in a public repo or chat) - Eventstream > Azure Event Hubs source:

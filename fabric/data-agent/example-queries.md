@@ -1,11 +1,11 @@
-# Data agent example queries (Lab 09)
+# Data agent example queries (Lab 2.4)
 
 Copy each **question** into the *Question* box and each **query** block into the *Query* box of the data agent's
 **Example queries** on the `RailKQL` data source. The queries are multi-line and paste as-is (`example-queries.json` holds
 the same pairs for scripts and the SDK).
 
 The queries use **only tables and materialized views** (no custom functions), so they pass the data agent's schema
-validation as long as the tables in Lab 09 step 2 are selected. Add the *(Optional – Darwin, Lab 04b)* pairs only if
+validation as long as the tables in Lab 2.4 step 2 are selected. Add the *(Optional – Darwin, Solo 1.5)* pairs only if
 `DarwinLocations` is selected.
 
 ## 1. Which trains are more than 15 minutes late right now?
@@ -194,7 +194,7 @@ TrustMovements
 | project station, crs, movements, late
 ```
 
-## 10. (Optional – Darwin, Lab 04b) Which services at Leeds don't have a confirmed platform yet?
+## 10. (Optional – Darwin, Solo 1.5) Which services at Leeds don't have a confirmed platform yet?
 
 **Question**
 
@@ -216,7 +216,7 @@ DarwinLocations
 | take 10
 ```
 
-## 11. (Optional – Darwin, Lab 04b) Which trains have the biggest predicted delays right now?
+## 11. (Optional – Darwin, Solo 1.5) Which trains have the biggest predicted delays right now?
 
 **Question**
 
@@ -237,7 +237,7 @@ DarwinLocations
 | project name, crs, rid, pta, ptd, arr_et, dep_et, delay_minutes, platform
 ```
 
-## 12. (Optional – Darwin, Lab 04b) What is the expected departure time and platform of trains at York?
+## 12. (Optional – Darwin, Solo 1.5) What is the expected departure time and platform of trains at York?
 
 **Question**
 

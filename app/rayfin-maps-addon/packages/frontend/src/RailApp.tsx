@@ -1,5 +1,5 @@
-// Lab 11b version of the app: uses the Azure Maps map when the AZURE_MAPS_TOKEN secret is set, otherwise the simple
-// Lab 11 map. Same branded layout (AppShell). Render <RailApp /> from App.tsx as in Lab 11.
+// Lab 2.9 version of the app: uses the Azure Maps map when the AZURE_MAPS_TOKEN secret is set, otherwise the simple
+// Lab 2.8 map. Same branded layout (AppShell). Render <RailApp /> from App.tsx as in Lab 2.8.
 import { useEffect, useState } from 'react';
 import { AppShell } from './AppShell';
 import { NetworkMap } from './features/network/NetworkMap';

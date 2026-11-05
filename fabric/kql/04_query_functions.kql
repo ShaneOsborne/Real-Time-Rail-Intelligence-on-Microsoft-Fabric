@@ -1,4 +1,4 @@
-// Lab 06 - step 4: reusable query functions (used by dashboards, data agent and the Rayfin app).
+// Lab 2.1 - step 4: reusable query functions (used by dashboards, data agent and the Rayfin app).
 .execute database script with (ContinueOnErrors=false) <|
 .create-or-alter function with (folder="query", docstring="Location lookup keyed by STANOX (one row per STANOX)") LocationByStanox() {
     Locations
@@ -60,7 +60,7 @@
               arr_delay_minutes, dep_delay_minutes, platform, platform_confirmed, lat, lon
 }
 
-.create-or-alter function with (folder="query", docstring="Darwin (Lab 04b): services at a CRS code whose latest platform isn't confirmed yet, e.g. DarwinUnconfirmedPlatforms('LDS')") DarwinUnconfirmedPlatforms(crs:string, lookback:timespan = 2h) {
+.create-or-alter function with (folder="query", docstring="Darwin (Solo 1.5): services at a CRS code whose latest platform isn't confirmed yet, e.g. DarwinUnconfirmedPlatforms('LDS')") DarwinUnconfirmedPlatforms(crs:string, lookback:timespan = 2h) {
     let crs_code = crs;
     let tiplocs = Locations | where crs =~ crs_code and isnotempty(tiploc) | summarize arg_max(iff(isnotnull(lat), 1, 0), name, crs, lat, lon) by tiploc;
     DarwinLocations
@@ -72,7 +72,7 @@
     | order by ssd asc, coalesce(ptd, pta) asc
 }
 
-.create-or-alter function with (folder="query", docstring="Darwin (Lab 04b): biggest predicted or actual delays per service and location, with station names (TIPLOC join)") DarwinBiggestDelays(lookback:timespan = 1h, top_n:int = 20) {
+.create-or-alter function with (folder="query", docstring="Darwin (Solo 1.5): biggest predicted or actual delays per service and location, with station names (TIPLOC join)") DarwinBiggestDelays(lookback:timespan = 1h, top_n:int = 20) {
     DarwinLocations
     | where received_utc > ago(lookback)
     | summarize arg_max(received_utc, *) by rid, tiploc

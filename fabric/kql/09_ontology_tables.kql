@@ -1,6 +1,6 @@
-// Lab 09b – keyed entity tables for the rail ontology (Fabric IQ).
+// Lab 2.5 – keyed entity tables for the rail ontology (Fabric IQ).
 //   python fabric/scripts/apply_kql.py --file fabric/kql/09_ontology_tables.kql
-// Safe to rerun. Rerun it after you reload reference data (Lab 03) or fill TocCodes (07_toc_codes_seed.kql).
+// Safe to rerun. Rerun it after you reload reference data (Solo 1.3) or fill TocCodes (07_toc_codes_seed.kql).
 //
 // Why these tables? An ontology entity type needs ONE row per thing and a string or integer key. Locations has several
 // rows per station and per STANOX, so it can't be bound directly. These tables give each entity a clean key.
@@ -8,7 +8,7 @@
 // (station_, point_, operator_). Train (live) is bound to the TrainLatest materialized view in the lab, not copied here.
 .execute database script with (ContinueOnErrors=false) <|
 // Station: one row per passenger station (CRS code, e.g. LDS = Leeds). A station can have several timing points.
-.set-or-replace OntStations with (folder="ontology", docstring="Lab 09b: one row per station (CRS code) for the rail ontology") <|
+.set-or-replace OntStations with (folder="ontology", docstring="Lab 2.5: one row per station (CRS code) for the rail ontology") <|
     Locations
     | where isnotempty(crs)
     | extend crs = toupper(crs)
@@ -20,7 +20,7 @@
 
 // Timing point: one row per STANOX – the code TRUST reports movements against. point_crs links it to its station
 // (blank for junctions, sidings and other non-station points).
-.set-or-replace OntTimingPoints with (folder="ontology", docstring="Lab 09b: one row per STANOX timing point for the rail ontology") <|
+.set-or-replace OntTimingPoints with (folder="ontology", docstring="Lab 2.5: one row per STANOX timing point for the rail ontology") <|
     Locations
     | where isnotempty(stanox)
     | extend crs = toupper(crs)
@@ -32,7 +32,7 @@
         by point_stanox = stanox
 
 // Operator: every TRUST operator code seen in the last 30 days, with its name from TocCodes when you've filled it in.
-.set-or-replace OntOperators with (folder="ontology", docstring="Lab 09b: one row per train operator (TRUST toc_id) for the rail ontology") <|
+.set-or-replace OntOperators with (folder="ontology", docstring="Lab 2.5: one row per train operator (TRUST toc_id) for the rail ontology") <|
     TrustMovements
     | where event_time > ago(30d) and isnotempty(toc_id)
     | distinct operator_id = toc_id

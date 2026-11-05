@@ -22,7 +22,7 @@ out/
 *.gz
 
 # Node / Rayfin
-# Lab 11: the Rayfin app belongs in its own folder/repo, not this one
+# Lab 2.8: the Rayfin app belongs in its own folder/repo, not this one
 rail-app/
 node_modules/
 dist/

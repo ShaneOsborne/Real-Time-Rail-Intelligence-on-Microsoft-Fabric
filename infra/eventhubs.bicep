@@ -1,4 +1,4 @@
-// OPTIONAL shared Azure Event Hubs tier (Lab 05c).
+// OPTIONAL shared Azure Event Hubs tier (Instructor 1.4 / Solo 1.8).
 // One instructor-run ingestion (NROD bridge + optional RDM relay) sends here; every student's
 // Eventstream reads through its own consumer group. Event Hubs keeps buffering (up to 7 days on
 // Standard) while a Fabric capacity is paused, and each Eventstream catches up when it resumes.

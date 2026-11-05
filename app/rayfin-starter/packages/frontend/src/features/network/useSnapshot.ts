@@ -1,4 +1,4 @@
-// Lab 11 – one shared poller for the train snapshot, so the KPI strip and the map make ONE query per refresh
+// Lab 2.8 – one shared poller for the train snapshot, so the KPI strip and the map make ONE query per refresh
 // (each query runs DirectQuery DAX → KQL on your Fabric capacity). Components subscribe with useSnapshot().
 import { useEffect, useState } from 'react';
 import { loadSnapshot, type TrainPosition } from './loadSnapshot';

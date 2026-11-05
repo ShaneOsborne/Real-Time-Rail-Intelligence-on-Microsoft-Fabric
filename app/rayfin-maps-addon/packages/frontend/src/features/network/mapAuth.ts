@@ -1,4 +1,4 @@
-// Lab 11b: gets the Azure Maps credential from the getMapAuth Rayfin function (secret AZURE_MAPS_TOKEN).
+// Lab 2.9: gets the Azure Maps credential from the getMapAuth Rayfin function (secret AZURE_MAPS_TOKEN).
 import { railFunctions } from '../../services/railClient';
 
 export type MapAuth = { configured: boolean; authType: 'sas' | 'subscriptionKey' | 'none'; token: string };

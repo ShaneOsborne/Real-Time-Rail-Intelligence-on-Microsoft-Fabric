@@ -1,4 +1,4 @@
-# Activator rules (Lab 07)
+# Activator rules (Lab 2.2)
 
 Activator rules are created in the Fabric portal. They cannot be reliably scripted from this repo,
 so each rule is described here so you can recreate it exactly.

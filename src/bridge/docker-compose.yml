@@ -21,7 +21,7 @@ services:
     restart: unless-stopped
     stop_grace_period: 20s
 
-  # Optional RDM Kafka -> Event Hub relay (Lab 05c). Same image, BRIDGE_SOURCE=kafka.
+  # Optional RDM Kafka -> Event Hub relay (Instructor 1.4 / Solo 1.8). Same image, BRIDGE_SOURCE=kafka.
   #   ./scripts/run-local.sh docker eventhub --kafka      (exports .env, then runs this service)
   # Needs RDM_KAFKA_* and EVENTHUB_RDM_CONNECTION_STRING (the rdm-trust send connection string) in .env.
   # Stop it before starting the Azure relay: both would share the RDM consumer group.

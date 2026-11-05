@@ -1,4 +1,4 @@
-# Rail ontology – definition to build (Lab 09b)
+# Rail ontology – definition to build (Lab 2.5)
 
 Everything to paste or enter when you build the `RailNetworkOntology` item: entity types, keys, properties,
 relationships, business rules, the ontology agent prompt and the data agent instructions.

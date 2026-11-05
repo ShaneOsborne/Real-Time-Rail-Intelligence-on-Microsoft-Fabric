@@ -1,4 +1,4 @@
-// Lab 11 – headline figures computed in the browser from the same snapshot the map uses (no extra query).
+// Lab 2.8 – headline figures computed in the browser from the same snapshot the map uses (no extra query).
 import type { CSSProperties } from 'react';
 import { BRAND } from '../../theme/brand';
 import { useSnapshot } from './useSnapshot';

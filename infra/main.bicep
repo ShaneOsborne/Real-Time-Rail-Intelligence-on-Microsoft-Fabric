@@ -3,7 +3,7 @@
 //   1. deployApp=false -> identity, Log Analytics, Key Vault, ACR, Container Apps environment
 //   2. secrets are written to Key Vault and the image is built/pushed
 //   3. deployApp=true  -> the single-replica container app that reads secrets from Key Vault
-// Optional shared Event Hub tier (Lab 05c, infra/eventhubs.bicep):
+// Optional shared Event Hub tier (Instructor 1.4 / Solo 1.8, infra/eventhubs.bicep):
 //   bridgeTarget='eventhub' -> the NROD bridge sends to the nrod-feed event hub instead of a Fabric Eventstream
 //   deployRdmRelay=true     -> a second app (<prefix>-rdm-relay, same image) relays RDM Kafka to the rdm-trust event hub
 targetScope = 'resourceGroup'
@@ -56,11 +56,11 @@ param tags object = {
   project: 'rail-fabric-rti'
 }
 
-@description('Where the NROD bridge sends: a Fabric Eventstream custom endpoint (default) or the shared Azure Event Hub (Lab 05c).')
+@description('Where the NROD bridge sends: a Fabric Eventstream custom endpoint (default) or the shared Azure Event Hub (Instructor 1.4 / Solo 1.8).')
 @allowed([ 'eventstream', 'eventhub' ])
 param bridgeTarget string = 'eventstream'
 
-@description('Deploy the optional RDM Kafka -> Event Hub relay as a second container app (Lab 05c).')
+@description('Deploy the optional RDM Kafka -> Event Hub relay as a second container app (Instructor 1.4 / Solo 1.8).')
 param deployRdmRelay bool = false
 
 @description('RDM Kafka bootstrap servers (host:port[,host:port]) for the relay. Not a secret.')
@@ -72,7 +72,7 @@ param rdmKafkaTopic string = ''
 @description('RDM Kafka consumer group issued by Rail Data Marketplace.')
 param rdmKafkaConsumerGroup string = ''
 
-@description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Lab 01). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
+@description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Solo 1.1). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
 param keyVaultName string = ''
 
 @description('Where the container apps get their secrets. keyvault (default): Key Vault references read by the managed identity - needs the vault reachable from Container Apps (public network access on, no firewall). inline: the values are stored as encrypted Container Apps secrets, for subscriptions whose policy blocks public access to Key Vault.')
@@ -323,7 +323,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
   ]
 }
 
-// Optional RDM Kafka -> Event Hub relay (Lab 05c): same image, BRIDGE_SOURCE=kafka, BRIDGE_SINK=eventhub.
+// Optional RDM Kafka -> Event Hub relay (Instructor 1.4 / Solo 1.8): same image, BRIDGE_SOURCE=kafka, BRIDGE_SINK=eventhub.
 resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deployRdmRelay) {
   name: '${namePrefix}-rdm-relay'
   location: location

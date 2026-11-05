@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
-# Deploy the STOMP bridge to Azure Container Apps (Lab 05b, Option A).
+# Deploy the STOMP bridge to Azure Container Apps (Solo 1.7, Option A).
 #   ./scripts/deploy-bridge.sh            # build image in ACR and deploy
 #   ./scripts/deploy-bridge.sh --what-if  # preview phase-1 infrastructure only
 # Requires: az CLI (logged in), .env with NROD_* and EVENTSTREAM_CONNECTION_STRING.
-# Optional shared Event Hub tier (Lab 05c; run scripts/create-eventhub.sh first):
+# Optional shared Event Hub tier (Instructor 1.4 / Solo 1.8; run scripts/create-eventhub.sh first):
 #   BRIDGE_TARGET=eventhub  -> the bridge uses Key Vault secret eventhub-nrod-connection-string instead
 #   DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
 # Subscriptions whose policy blocks public access to Key Vault:
@@ -66,7 +66,7 @@ if [[ "$WHAT_IF" == "--what-if" ]]; then
   exit 0
 fi
 
-log "Phase 1: identity, Log Analytics, Key Vault (re-used if created in Lab 01), ACR, Container Apps environment"
+log "Phase 1: identity, Log Analytics, Key Vault (re-used if created in Solo 1.1), ACR, Container Apps environment"
 az deployment group create -n bridge-phase1 "${common_params[@]}" --parameters deployApp=false -o none
 KV_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase1 --query properties.outputs.keyVaultName.value -o tsv)"
 ACR_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase1 --query properties.outputs.acrName.value -o tsv)"
@@ -110,7 +110,7 @@ set_secret() {
 # require_secret <name>: the shared Event Hub secrets are written by scripts/create-eventhub.sh
 require_secret() {
   if ! az keyvault secret show --vault-name "$KV_NAME" -n "$1" --query id -o tsv >/dev/null 2>&1; then
-    echo "ERROR: Key Vault secret '$1' not found in $KV_NAME. Run ./scripts/create-eventhub.sh first (Lab 05c)." >&2
+    echo "ERROR: Key Vault secret '$1' not found in $KV_NAME. Run ./scripts/create-eventhub.sh first (Instructor 1.4 / Solo 1.8)." >&2
     exit 1
   fi
   echo "  found $1"

@@ -1,8 +1,8 @@
-// Loads the latest position of every active train from the Lab 10b semantic model "RailLiveMap" (DirectQuery over
+// Loads the latest position of every active train from the Lab 2.7 semantic model "RailLiveMap" (DirectQuery over
 // NetworkSnapshot(4h) in RailKQL) through the Rayfin fabric-semanticmodel connector. Runs as the signed-in user.
 import { railMap } from '../../services/railClient';
 
-// The table name in the semantic model (Lab 10b). Change it if your model's table has another name.
+// The table name in the semantic model (Lab 2.7). Change it if your model's table has another name.
 const MODEL_TABLE = 'TrainPositions';
 
 export type TrainPosition = {

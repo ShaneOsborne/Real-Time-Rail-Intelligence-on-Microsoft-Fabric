@@ -1,12 +1,12 @@
-// Shared Key Vault for the labs (Lab 01, step 8).
-// Created early so Lab 03 (Fabric notebook) can read the NROD credentials before the bridge exists.
-// The name, properties and role-assignment names deliberately MATCH infra/main.bicep, so Lab 05b
+// Shared Key Vault for the labs (Solo 1.1, step 8).
+// Created early so Solo 1.3 (Fabric notebook) can read the NROD credentials before the bridge exists.
+// The name, properties and role-assignment names deliberately MATCH infra/main.bicep, so Solo 1.7
 // re-uses this vault instead of creating a second one (same resource group + namePrefix).
 targetScope = 'resourceGroup'
 
 param location string = resourceGroup().location
 
-@description('Prefix used for resource names. Must match NAME_PREFIX used later in Lab 05b.')
+@description('Prefix used for resource names. Must match NAME_PREFIX used later in Solo 1.7.')
 param namePrefix string = 'railrti'
 
 @description('Optional: explicit vault name. Leave empty to use the generated name shared with main.bicep.')

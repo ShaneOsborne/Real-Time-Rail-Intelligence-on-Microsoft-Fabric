@@ -6,7 +6,7 @@ import os
 from dataclasses import dataclass, field
 
 # "eventhub" uses the same Event Hubs producer as "eventstream", just pointed at an Azure Event Hub
-# (the optional shared tier in Lab 05c) instead of a Fabric Eventstream custom endpoint.
+# (the optional shared tier in Instructor 1.4 / Solo 1.8) instead of a Fabric Eventstream custom endpoint.
 VALID_SINKS = ("console", "file", "eventstream", "eventhub")
 VALID_SOURCES = ("stomp", "replay", "kafka")
 KAFKA_OFFSET_RESETS = ("latest", "earliest")
@@ -36,7 +36,7 @@ class BridgeConfig:
     nrod_port: int = 61618
     nrod_username: str = ""
     nrod_password: str = field(default="", repr=False)
-    topics: list[str] = field(default_factory=lambda: ["RTPPM_ALL"])  # Train Movements comes from RDM in Lab 04
+    topics: list[str] = field(default_factory=lambda: ["RTPPM_ALL"])  # Train Movements comes from RDM in Solo 1.4
     durable: bool = True
     client_id: str = ""
     subscription_prefix: str = "rail-fabric-rti"

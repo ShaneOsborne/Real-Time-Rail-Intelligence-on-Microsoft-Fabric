@@ -1,9 +1,9 @@
-// Lab 06 - step 1: tables, ingestion mappings and retention.
+// Lab 2.1 - step 1: tables, ingestion mappings and retention.
 // Run the WHOLE file at once: select all (Ctrl+A) in a KQL queryset and press Run,
 // or run `python fabric/scripts/apply_kql.py`. Commands inside a database script
 // must be separated by a blank line and must not contain blank lines themselves.
-// RdmTrustRaw   = RDM 'NWR Train Movements' (TRUST) Kafka messages only (Lab 04).
-// RdmDarwinRaw  = RDM 'Darwin Real Time Train Information (Push)' Kafka messages (optional, Lab 04b).
+// RdmTrustRaw   = RDM 'NWR Train Movements' (TRUST) Kafka messages only (Solo 1.4).
+// RdmDarwinRaw  = RDM 'Darwin Real Time Train Information (Push)' Kafka messages (optional, Solo 1.5).
 // DarwinLocations = parsed Darwin Push Port, one row per location update (filled from RdmDarwinRaw).
 .execute database script with (ContinueOnErrors=false) <|
 .create-merge table RawFeed (source:string, topic:string, feed:string, msg_type:string, message_id:string, batch_index:int, received_utc:datetime, payload:dynamic)

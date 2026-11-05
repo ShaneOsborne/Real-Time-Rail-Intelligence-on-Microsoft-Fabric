@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Lab 11b: create the Azure Maps account (Gen2) + SAS identity, and grant that identity
+# Lab 2.9: create the Azure Maps account (Gen2) + SAS identity, and grant that identity
 # "Azure Maps Search and Render Data Reader" on the account.
 #   ./scripts/create-azure-maps.sh
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP and AZ_LOCATION (or AZURE_MAPS_LOCATION).

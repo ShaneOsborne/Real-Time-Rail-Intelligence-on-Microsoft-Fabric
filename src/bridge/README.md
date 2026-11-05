@@ -3,7 +3,7 @@
 This bridge connects to the Network Rail Open Data ActiveMQ broker over STOMP and forwards every message to a
 **Fabric Eventstream custom endpoint** using the Event Hubs protocol (`azure-eventhub`). It can also write to the console or to a JSONL file, so you can run it without Fabric.
 
-In the optional shared tier ([Lab 05c](../../docs/labs/05c-shared-event-hub.md)) the same image does two more jobs:
+In the optional shared tier ([Instructor 1.4](../../docs/instructor/1.4-shared-event-hub.md) / [Solo 1.8](../../docs/solo/1.8-shared-event-hub.md)) the same image does two more jobs:
 
 * **Sink `eventhub`**: the same producer, sending to an **Azure Event Hub** (`nrod-feed`) instead of an Eventstream.
 * **Source `kafka`**: an **RDM Kafka → Event Hub relay** (`confluent-kafka` consumer, `SASL_SSL` / `PLAIN`). It forwards each message
@@ -55,7 +55,7 @@ The repo-root scripts `scripts/run-local.sh` and `scripts/run-local.ps1` wrap al
 | `BRIDGE_SINK` | `console` | `console`, `file`, `eventstream` or `eventhub` |
 | `NROD_HOST` / `NROD_STOMP_PORT` | `publicdatafeeds.networkrail.co.uk` / `61618` | |
 | `NROD_USERNAME` / `NROD_PASSWORD` | – | Your NROD login (email and password) |
-| `NROD_TOPICS` | `RTPPM_ALL` | Comma-separated, e.g. `RTPPM_ALL,VSTP_ALL,TSR_ALL_ROUTE,TD_ALL_SIG_AREA`. Add `TRAIN_MVT_ALL_TOC` only if Train Movements isn't already coming from RDM (Lab 04) |
+| `NROD_TOPICS` | `RTPPM_ALL` | Comma-separated, e.g. `RTPPM_ALL,VSTP_ALL,TSR_ALL_ROUTE,TD_ALL_SIG_AREA`. Add `TRAIN_MVT_ALL_TOC` only if Train Movements isn't already coming from RDM (Solo 1.4) |
 | `NROD_DURABLE` | `true` | |
 | `NROD_CLIENT_ID` | = username | Only **one** live connection may use a given client-id |
 | `NROD_SUBSCRIPTION_PREFIX` | `rail-fabric-rti` | |

@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Lab 11b: create an Azure Maps SAS token for the Rayfin app (max lifetime 24 hours, rate-limited).
+  Lab 2.9: create an Azure Maps SAS token for the Rayfin app (max lifetime 24 hours, rate-limited).
   Prints the token. Store it in the app with:  npx rayfin secret set AZURE_MAPS_TOKEN
 .EXAMPLE
   ./scripts/new-azure-maps-sas.ps1 -Hours 24 -MaxRatePerSecond 50

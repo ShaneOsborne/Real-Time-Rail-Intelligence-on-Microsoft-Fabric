@@ -1,4 +1,4 @@
-# Helper scripts for Labs 03 and 06 (run on your machine after `az login`)
+# Helper scripts for Solo 1.3 and Lab 2.1 (run on your machine after `az login`)
 azure-identity>=1.15
 azure-kusto-data>=4.3
 azure-storage-file-datalake>=12.14

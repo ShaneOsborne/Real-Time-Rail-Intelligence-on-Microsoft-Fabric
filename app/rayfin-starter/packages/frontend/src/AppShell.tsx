@@ -1,4 +1,4 @@
-// Lab 11 – branded page layout: header with live status, KPI strip, map + chat, and the attribution footer.
+// Lab 2.8 – branded page layout: header with live status, KPI strip, map + chat, and the attribution footer.
 // Branding (name, strapline, colours) lives in theme/brand.ts.
 import type { CSSProperties, ReactNode } from 'react';
 import './theme/rail.css';

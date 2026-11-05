@@ -1,4 +1,4 @@
-// Lab 03 (optional path): populate Locations from a OneLake shortcut to the Lakehouse table
+// Solo 1.3 (optional path): populate Locations from a OneLake shortcut to the Lakehouse table
 // `locations` created by the reference-data notebook.
 // 1. In the KQL database: New > OneLake shortcut > Microsoft OneLake > RailLakehouse > Tables > locations
 // 2. Run the command below (the shortcut is queried with external_table()).

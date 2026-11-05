@@ -1,6 +1,6 @@
 <#
 .SYNOPSIS
-  Lab 11b: create the Azure Maps account (Gen2) + SAS identity, and grant that identity
+  Lab 2.9: create the Azure Maps account (Gen2) + SAS identity, and grant that identity
   "Azure Maps Search and Render Data Reader" on the account.
 .EXAMPLE
   ./scripts/create-azure-maps.ps1

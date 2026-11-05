@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
-# Lab 02 Option A: create the Fabric workspace items with the Fabric REST API (via `az rest`).
+# Solo 1.2 Option A: create the Fabric workspace items with the Fabric REST API (via `az rest`).
 # Creates (idempotently): workspace (optional), Eventhouse, KQL database, Lakehouse, empty Eventstreams
-# (RDM, NROD and the optional Darwin one for Lab 04b).
-# The Eventstream SOURCES/DESTINATIONS are configured manually in the portal (Labs 04/04b/05).
+# (RDM, NROD and the optional Darwin one for Solo 1.5).
+# The Eventstream SOURCES/DESTINATIONS are configured manually in the portal (Solo 1.4/1.5/1.6/1.7).
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
@@ -63,7 +63,7 @@ DB_ID="$(ensure_item kqlDatabases "$DB_NAME" \
   "{\"displayName\":\"$DB_NAME\",\"creationPayload\":{\"databaseType\":\"ReadWrite\",\"parentEventhouseItemId\":\"$EH_ID\"}}")"
 log "Lakehouse"
 LH_ID="$(ensure_item lakehouses "$LH_NAME" "{\"displayName\":\"$LH_NAME\"}")"
-log "Eventstreams (empty - configure sources/destinations in the portal, Labs 04/04b/05)"
+log "Eventstreams (empty - configure sources/destinations in the portal, Solo 1.4/1.5/1.6/1.7)"
 ES_RDM_ID="$(ensure_item eventstreams "$ES_RDM" "{\"displayName\":\"$ES_RDM\"}")"
 ES_NROD_ID="$(ensure_item eventstreams "$ES_NROD" "{\"displayName\":\"$ES_NROD\"}")"
 ES_DARWIN_ID="$(ensure_item eventstreams "$ES_DARWIN" "{\"displayName\":\"$ES_DARWIN\"}")"
@@ -82,5 +82,5 @@ FABRIC_EVENTSTREAM_NROD_ID=$ES_NROD_ID
 FABRIC_EVENTSTREAM_DARWIN_ID=$ES_DARWIN_ID
 KUSTO_QUERY_URI=$QUERY_URI
 
-Next: python fabric/scripts/apply_kql.py   (Lab 06 - creates tables, mappings, policies, views)
+Next: python fabric/scripts/apply_kql.py   (Lab 2.1 - creates tables, mappings, policies, views)
 OUT

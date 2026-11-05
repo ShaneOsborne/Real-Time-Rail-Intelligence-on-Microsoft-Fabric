@@ -1,11 +1,11 @@
 <#
 .SYNOPSIS
-  Run the STOMP bridge locally (Lab 05a).
+  Run the STOMP bridge locally (Solo 1.6).
 .EXAMPLE
   ./scripts/run-local.ps1 -Mode venv -Sink console -Replay
   ./scripts/run-local.ps1 -Mode docker -Sink eventstream
   ./scripts/run-local.ps1 -Mode test
-  ./scripts/run-local.ps1 -Mode venv -Sink eventhub -Kafka   # optional RDM Kafka relay (Lab 05c)
+  ./scripts/run-local.ps1 -Mode venv -Sink eventhub -Kafka   # optional RDM Kafka relay (Instructor 1.4 / Solo 1.8)
 #>
 param(
     [ValidateSet('venv', 'docker', 'test')][string]$Mode = 'venv',

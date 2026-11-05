@@ -1,4 +1,4 @@
-// Lab 11b: live train map on Azure Maps – grayscale/road/night/satellite basemaps, GB railway lines from OS Open Zoomstack,
+// Lab 2.9: live train map on Azure Maps – grayscale/road/night/satellite basemaps, GB railway lines from OS Open Zoomstack,
 // and trains coloured by delay. Uses the shared snapshot (useSnapshot), so the KPIs and the map share one query.
 import { useEffect, useRef, useState } from 'react';
 import * as atlas from 'azure-maps-control';
@@ -29,7 +29,7 @@ export function AzureNetworkMap() {
     (async () => {
       try {
         const auth = await getMapAuth();
-        if (!auth.configured) throw new Error('Azure Maps is not configured (secret AZURE_MAPS_TOKEN). See Lab 11b.');
+        if (!auth.configured) throw new Error('Azure Maps is not configured (secret AZURE_MAPS_TOKEN). See Lab 2.9.');
         if (disposed || !container.current) return;
 
         map = new atlas.Map(container.current, {
@@ -59,7 +59,7 @@ export function AzureNetworkMap() {
           // Railway lines (OS Open Zoomstack), under the map labels.
           const rail = new atlas.source.DataSource();
           map.sources.add(rail);
-          rail.importDataFromUrl(RAIL_URL).catch(() => setMapError('Railway lines file not found (data/gb-rail.geojson). See Lab 11b.'));
+          rail.importDataFromUrl(RAIL_URL).catch(() => setMapError('Railway lines file not found (data/gb-rail.geojson). See Lab 2.9.'));
           const width: atlas.Expression = ['interpolate', ['linear'], ['zoom'], 5, 0.6, 9, 1.5, 13, 3];
           map.layers.add(
             [
