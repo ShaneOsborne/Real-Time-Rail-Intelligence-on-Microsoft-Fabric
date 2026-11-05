@@ -8,6 +8,7 @@
 
 * Host the bridge 24×7 on **Azure Container Apps**, with **exactly one replica** (min = max = 1) at **0.25 vCPU / 0.5 GiB**.
 * Keep secrets in **Key Vault**, read through a **user-assigned managed identity**, and send logs to **Log Analytics**.
+  (If your subscription blocks public access to Key Vault, use `SECRETS_SOURCE=inline` – see [below](#if-your-subscription-blocks-public-access-to-key-vault).)
 * Build the image in **Azure Container Registry**, or use a public **GHCR** image built by CI.
 * *Optional:* point the bridge at the shared **Azure Event Hub** (`BRIDGE_TARGET=eventhub`) and deploy the **RDM Kafka relay** as a second app (`DEPLOY_RDM_RELAY=true`). See [Lab 05c](05c-shared-event-hub.md).
 
@@ -36,6 +37,40 @@ What it does:
 2. Writes `nrod-username`, `nrod-password` and `eventstream-connection-string` to Key Vault, retrying while RBAC propagates.
 3. Runs `az acr build`, so you don't need Docker locally.
 4. Phase 2 Bicep (`deployApp=true`) deploys the container app with Key Vault secret references, probes on `/healthz` and 1 replica.
+
+### If your subscription blocks public access to Key Vault
+
+By default the Container App reads its secrets through **Key Vault references**: at deploy time and on every restart,
+Container Apps fetches them from the vault's **public endpoint** using the managed identity. Many corporate subscriptions
+(including Microsoft internal ones) have an Azure Policy that turns public access off or adds a vault firewall, so phase 2
+fails with:
+
+```
+Invalid value: "nrod-password": Unable to get value using Managed identity …/railrti-bridge-id for secret nrod-password
+```
+
+Check the vault (replace the name):
+
+```bash
+az keyvault show -n <vault> --query "{public:properties.publicNetworkAccess, firewall:properties.networkAcls.defaultAction}"
+```
+
+`public: Disabled` or `firewall: Deny` confirms it. Writing secrets from your own machine can still work (your network
+may be allowed), which is why phase 1 succeeds.
+
+**Fix for the lab:** store the secrets as **Container Apps secrets** instead. They're encrypted at rest and only visible to
+people with access to the app, but they live in the app rather than in Key Vault, and you update them by re-running the
+script.
+
+```bash
+SECRETS_SOURCE=inline ./scripts/deploy-bridge.sh          # PowerShell: $env:SECRETS_SOURCE='inline'; ./scripts/deploy-bridge.ps1
+```
+
+The script reads the values from `.env` and passes them in a temporary parameters file that it deletes afterwards. To keep
+it for every run, add `SECRETS_SOURCE=inline` to `.env`.
+
+The production-grade alternative keeps Key Vault and adds a **private endpoint**, with the Container Apps environment in
+a virtual network. That's out of scope for this lab.
 
 ### Optional: shared Event Hub target and RDM relay (Lab 05c)
 
@@ -135,6 +170,7 @@ In Fabric, `RawFeed | summarize max(received_utc)` should advance every few seco
 
 | Symptom | Fix |
 |---|---|
+| Phase 2 fails: **`Unable to get value using Managed identity … for secret nrod-password`** (or `nrod-username`) | Container Apps can't read the vault. Usually a policy has turned off the vault's public access or added a firewall: see [If your subscription blocks public access to Key Vault](#if-your-subscription-blocks-public-access-to-key-vault) and re-run with `SECRETS_SOURCE=inline`. Less often the role assignment is still propagating – the script already retries for about 3 minutes |
 | `--what-if` shows **`~ Microsoft.KeyVault/vaults/…` `publicNetworkAccess: "Disabled" => "Enabled"`**, or the deployment fails with **`RequestDisallowedByPolicy`** on the Key Vault, or the app logs a Key Vault secret error | An Azure Policy in your organisation turns off public network access on Key Vaults (common in corporate subscriptions). The Container App reads its secrets from Key Vault over the public endpoint, so it needs it on. Check: `az keyvault show -n <vault> --query properties.publicNetworkAccess` and `az policy state list --resource <vault-id> --filter "complianceState eq 'NonCompliant'" --query "[].policyDefinitionName"`. If the policy only **audits** or **modifies**, deploying turns access back on, but a *modify* policy may switch it off again later. If it **denies**, ask your subscription owner for an exemption for this lab vault, or use a subscription without the policy |
 | Logs show **`AMQ339009 Exception getting session`** | Usually a temporary NROD block after too many connection attempts, or a second connection on the same account (for example a local Lab 05a bridge). Stop the local bridge; the Container App waits 25 minutes by itself after this error and then reconnects. Full checklist in [Lab 05a troubleshooting](05a-bridge-local.md#troubleshooting) |
 | Phase 2 fails with a Key Vault reference error | RBAC propagation can take a few minutes. The script retries. Re-run it if needed |

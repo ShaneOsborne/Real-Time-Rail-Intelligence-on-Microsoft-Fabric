@@ -75,11 +75,35 @@ param rdmKafkaConsumerGroup string = ''
 @description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Lab 01). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
 param keyVaultName string = ''
 
+@description('Where the container apps get their secrets. keyvault (default): Key Vault references read by the managed identity - needs the vault reachable from Container Apps (public network access on, no firewall). inline: the values are stored as encrypted Container Apps secrets, for subscriptions whose policy blocks public access to Key Vault.')
+@allowed([ 'keyvault', 'inline' ])
+param secretsSource string = 'keyvault'
+
+@secure()
+@description('secretsSource=inline only: NROD username.')
+param nrodUsernameValue string = ''
+@secure()
+@description('secretsSource=inline only: NROD password.')
+param nrodPasswordValue string = ''
+@secure()
+@description('secretsSource=inline only: Eventstream (or shared Event Hub nrod-feed) connection string for the bridge.')
+param bridgeConnectionStringValue string = ''
+@secure()
+@description('secretsSource=inline and deployRdmRelay only: RDM Kafka username.')
+param rdmKafkaUsernameValue string = ''
+@secure()
+@description('secretsSource=inline and deployRdmRelay only: RDM Kafka password.')
+param rdmKafkaPasswordValue string = ''
+@secure()
+@description('secretsSource=inline and deployRdmRelay only: rdm-trust hub connection string.')
+param eventhubRdmConnectionStringValue string = ''
+
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var kvName = !empty(keyVaultName) ? keyVaultName : take('${namePrefix}kv${suffix}', 24)
 var acrName = take('${namePrefix}acr${suffix}', 50)
 var acrImage = createAcr ? '${acr!.properties.loginServer}/rail-bridge:${imageTag}' : ''
 var image = !empty(containerImage) ? containerImage : acrImage
+var useKeyVault = secretsSource == 'keyvault'
 var bridgeSecretName = bridgeTarget == 'eventhub' ? 'eventhub-nrod-connection-string' : 'eventstream-connection-string'
 var bridgeSecretEnv = bridgeTarget == 'eventhub' ? 'EVENTHUB_CONNECTION_STRING' : 'EVENTSTREAM_CONNECTION_STRING'
 var healthProbes = [
@@ -108,7 +132,7 @@ var healthProbes = [
 // Built-in role definition IDs
 var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var roleKvSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
-var roleKvSecretsOfficer = 'b86a8fe4-95b2-4a9a-9c4d-7de2ae5e7b32'
+var roleKvSecretsOfficer = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${namePrefix}-bridge-id'
@@ -225,7 +249,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
       activeRevisionsMode: 'Single'
       // No ingress: the bridge only makes outbound connections. Probes still reach the container.
       registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
-      secrets: [
+      secrets: useKeyVault ? [
         {
           name: 'nrod-username'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/nrod-username'
@@ -242,6 +266,11 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
           keyVaultUrl: '${kv.properties.vaultUri}secrets/${bridgeSecretName}'
           identity: uami.id
         }
+      ] : [
+        // secretsSource=inline: encrypted Container Apps secrets, no Key Vault access needed at runtime
+        { name: 'nrod-username', value: nrodUsernameValue }
+        { name: 'nrod-password', value: nrodPasswordValue }
+        { name: bridgeSecretName, value: bridgeConnectionStringValue }
       ]
     }
     template: {
@@ -299,7 +328,7 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
     configuration: {
       activeRevisionsMode: 'Single'
       registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
-      secrets: [
+      secrets: useKeyVault ? [
         {
           name: 'rdm-kafka-username'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/rdm-kafka-username'
@@ -315,6 +344,10 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
           keyVaultUrl: '${kv.properties.vaultUri}secrets/eventhub-rdm-connection-string'
           identity: uami.id
         }
+      ] : [
+        { name: 'rdm-kafka-username', value: rdmKafkaUsernameValue }
+        { name: 'rdm-kafka-password', value: rdmKafkaPasswordValue }
+        { name: 'eventhub-rdm-connection-string', value: eventhubRdmConnectionStringValue }
       ]
     }
     template: {

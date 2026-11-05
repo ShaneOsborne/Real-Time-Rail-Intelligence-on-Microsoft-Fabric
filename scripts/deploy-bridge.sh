@@ -6,6 +6,8 @@
 # Optional shared Event Hub tier (Lab 05c; run scripts/create-eventhub.sh first):
 #   BRIDGE_TARGET=eventhub  -> the bridge uses Key Vault secret eventhub-nrod-connection-string instead
 #   DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
+# Subscriptions whose policy blocks public access to Key Vault:
+#   SECRETS_SOURCE=inline   -> store the secrets as encrypted Container Apps secrets instead of Key Vault references
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
@@ -13,13 +15,17 @@ need_cmd az
 WHAT_IF="${1:-}"
 BRIDGE_TARGET="${BRIDGE_TARGET:-eventstream}"
 DEPLOY_RDM_RELAY="${DEPLOY_RDM_RELAY:-false}"
+SECRETS_SOURCE="${SECRETS_SOURCE:-keyvault}"
+case "$SECRETS_SOURCE" in keyvault|inline) ;; *) echo "ERROR: SECRETS_SOURCE must be 'keyvault' or 'inline'" >&2; exit 1 ;; esac
 case "$BRIDGE_TARGET" in
   eventstream) require AZ_RESOURCE_GROUP AZ_LOCATION NROD_USERNAME NROD_PASSWORD EVENTSTREAM_CONNECTION_STRING ;;
-  eventhub)    require AZ_RESOURCE_GROUP AZ_LOCATION NROD_USERNAME NROD_PASSWORD ;;
+  eventhub)    require AZ_RESOURCE_GROUP AZ_LOCATION NROD_USERNAME NROD_PASSWORD
+               [[ "$SECRETS_SOURCE" == "inline" ]] && require EVENTHUB_CONNECTION_STRING ;;
   *) echo "ERROR: BRIDGE_TARGET must be 'eventstream' or 'eventhub'" >&2; exit 1 ;;
 esac
 if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
   require RDM_KAFKA_BOOTSTRAP_SERVERS RDM_KAFKA_TOPIC RDM_KAFKA_CONSUMER_GROUP RDM_KAFKA_USERNAME RDM_KAFKA_PASSWORD
+  [[ "$SECRETS_SOURCE" == "inline" ]] && require EVENTHUB_RDM_CONNECTION_STRING
 fi
 
 NAME_PREFIX="${NAME_PREFIX:-railrti}"
@@ -52,7 +58,7 @@ common_params=(
                nrodTopics="$TOPICS" deployerPrincipalId="$DEPLOYER_ID" deployerPrincipalType="$DEPLOYER_TYPE"
                keyVaultName="${KEY_VAULT_NAME:-}" bridgeTarget="$BRIDGE_TARGET" deployRdmRelay="$DEPLOY_RDM_RELAY"
                rdmKafkaBootstrapServers="${RDM_KAFKA_BOOTSTRAP_SERVERS:-}" rdmKafkaTopic="${RDM_KAFKA_TOPIC:-}"
-               rdmKafkaConsumerGroup="${RDM_KAFKA_CONSUMER_GROUP:-}"
+               rdmKafkaConsumerGroup="${RDM_KAFKA_CONSUMER_GROUP:-}" secretsSource="$SECRETS_SOURCE"
 )
 
 if [[ "$WHAT_IF" == "--what-if" ]]; then
@@ -65,6 +71,31 @@ az deployment group create -n bridge-phase1 "${common_params[@]}" --parameters d
 KV_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase1 --query properties.outputs.keyVaultName.value -o tsv)"
 ACR_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase1 --query properties.outputs.acrName.value -o tsv)"
 
+phase2_params=()
+if [[ "$SECRETS_SOURCE" == "inline" ]]; then
+  log "Secrets: inline (encrypted Container Apps secrets from .env - Key Vault not used at runtime)"
+  # Secure values go in a temporary parameters file (not on the command line), deleted when the script exits.
+  SECRETS_FILE="$(mktemp)"; chmod 600 "$SECRETS_FILE"; trap 'rm -f "$SECRETS_FILE"' EXIT
+  # Git Bash on Windows: Windows python/az need a Windows path (C:/...), not /tmp/...
+  SECRETS_ARG="$SECRETS_FILE"; command -v cygpath >/dev/null 2>&1 && SECRETS_ARG="$(cygpath -m "$SECRETS_FILE")"
+  PY="$(command -v python3 || command -v python || true)"
+  [[ -n "$PY" ]] || { echo "ERROR: SECRETS_SOURCE=inline needs Python on the PATH (activate the .venv)" >&2; exit 1; }
+  if [[ "$BRIDGE_TARGET" == "eventhub" ]]; then BRIDGE_CS="$EVENTHUB_CONNECTION_STRING"; else BRIDGE_CS="$EVENTSTREAM_CONNECTION_STRING"; fi
+  BRIDGE_CS="$BRIDGE_CS" "$PY" - "$SECRETS_ARG" <<'PYEOF'
+import json, os, sys
+v = lambda k: os.environ.get(k, "")
+params = {
+    "nrodUsernameValue": v("NROD_USERNAME"), "nrodPasswordValue": v("NROD_PASSWORD"),
+    "bridgeConnectionStringValue": v("BRIDGE_CS"),
+    "rdmKafkaUsernameValue": v("RDM_KAFKA_USERNAME"), "rdmKafkaPasswordValue": v("RDM_KAFKA_PASSWORD"),
+    "eventhubRdmConnectionStringValue": v("EVENTHUB_RDM_CONNECTION_STRING"),
+}
+doc = {"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
+       "contentVersion": "1.0.0.0", "parameters": {k: {"value": x} for k, x in params.items()}}
+open(sys.argv[1], "w", encoding="utf-8").write(json.dumps(doc))
+PYEOF
+  phase2_params=(--parameters "@$SECRETS_ARG")
+else
 log "Writing secrets to Key Vault $KV_NAME (retrying while RBAC propagates)"
 set_secret() {
   local name="$1" value="$2" i
@@ -97,6 +128,8 @@ if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
   require_secret eventhub-rdm-connection-string
 fi
 
+fi
+
 if [[ "$CREATE_ACR" == "true" ]]; then
   log "Building image rail-bridge:$IMAGE_TAG in ACR $ACR_NAME (az acr build - no local Docker needed)"
   az acr build -r "$ACR_NAME" -t "rail-bridge:$IMAGE_TAG" -t "rail-bridge:latest" "$REPO_ROOT/src/bridge" -o none
@@ -104,10 +137,14 @@ fi
 
 log "Phase 2: container app (1 replica, ${CPU} vCPU / ${MEMORY}, target=$BRIDGE_TARGET, RDM relay=$DEPLOY_RDM_RELAY)"
 for attempt in 1 2 3; do
-  if az deployment group create -n bridge-phase2 "${common_params[@]}" --parameters deployApp=true -o none; then
+  if az deployment group create -n bridge-phase2 "${common_params[@]}" "${phase2_params[@]}" --parameters deployApp=true -o none; then
     break
   fi
-  [[ $attempt -eq 3 ]] && { echo "ERROR: phase 2 failed" >&2; exit 1; }
+  if [[ $attempt -eq 3 ]]; then
+    echo "ERROR: phase 2 failed." >&2
+    [[ "$SECRETS_SOURCE" == "keyvault" ]] && echo "If the error says 'unable to fetch secret ... using Managed identity', Container Apps can't reach Key Vault (often a policy that disables public access or adds a firewall). Re-run with: SECRETS_SOURCE=inline ./scripts/deploy-bridge.sh" >&2
+    exit 1
+  fi
   echo "  phase 2 failed (often RBAC propagation for Key Vault/ACR); retrying in 60s..."; sleep 60
 done
 

@@ -24,7 +24,7 @@ param tags object = {
 
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var kvName = !empty(keyVaultName) ? keyVaultName : take('${namePrefix}kv${suffix}', 24)
-var roleKvSecretsOfficer = 'b86a8fe4-95b2-4a9a-9c4d-7de2ae5e7b32'
+var roleKvSecretsOfficer = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
 
 resource kv 'Microsoft.KeyVault/vaults@2023-07-01' = {
   name: kvName
