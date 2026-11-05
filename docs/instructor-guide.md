@@ -40,11 +40,13 @@ Do these in order, from your own clone with your own `.env`.
    open `RailLakehouse` → **Share** → add the student security group → tick **Read all OneLake data** → **Grant**.
    Students shortcut to it in [Lab 03 Option C](labs/03-reference-data.md#option-c--classroom-shortcut-to-the-instructors-reference-data).
    *Check this in your tenant with one test student before the class.*
-4. **Bridge.** [Lab 05a](labs/05a-bridge-local.md) to test locally, then [Lab 05b](labs/05b-bridge-azure-container-apps.md) to deploy it.
+4. **Bridge.** [Lab 05a](labs/05a-bridge-local.md) to test locally (Option A steps 1–6; skip A4/B3b for now), then
+   [Lab 05b](labs/05b-bridge-azure-container-apps.md) to deploy it. Stop the local bridge before the Azure one starts.
 5. **Shared Event Hub, consumer groups and RDM relay.** [Lab 05c – instructor parts](labs/05c-shared-event-hub.md#option-a--automated-instructor):
    set `STUDENT_CONSUMER_GROUP_COUNT` to the class size (max 19 per namespace), run `create-eventhub`, then
-   `BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh`. Stop any Apache Kafka source in your own
-   workspace that uses the same RDM consumer group.
+   `BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh` (add `SECRETS_SOURCE=inline` if you used it in
+   Lab 05b). This re-points the Azure bridge at the hub – it's what feeds the class. Stop any Apache Kafka source in your own
+   workspace that uses the same RDM consumer group. Lab 05a's local Event Hub mode (A4/B3b) is only an optional test.
 6. **Student workspaces (optional but recommended).** Either let students create their own in Lab 02 (they need
    permission to assign workspaces to the capacity: *Capacity settings → Contributor permissions*), or create them for them:
 

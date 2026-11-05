@@ -131,6 +131,11 @@ The same bridge in a container – also the image that Lab 05b deploys. Needs th
 
 ### A4. Optional: shared Event Hub mode ([Lab 05c](05c-shared-event-hub.md))
 
+> **Instructors: optional, and only after Lab 05c.** The class is fed by the **Azure** bridge and relay, which Lab 05c
+> step 4 points at the shared Event Hub (`BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh`). That's
+> the required step. Use this local mode only to test the hub before deploying, or as a stand-in if the Azure bridge is
+> down – and stop it again afterwards: NROD allows one connection per account, and an RDM consumer group one reader.
+
 Needs the Event Hub from Lab 05c and its connection strings in `.env` (see [B3b](#b3b-optional-send-to-the-shared-event-hub-sink-eventhub)).
 
 | Step | bash | PowerShell |
@@ -187,6 +192,11 @@ python -m rail_bridge --sink eventstream
 > `.env` as plain text and need neither.
 
 ### B3b. Optional: send to the shared Event Hub (sink `eventhub`)
+
+> **Instructors: optional, and only after Lab 05c.** The class is fed by the **Azure** bridge and relay, which Lab 05c
+> step 4 points at the shared Event Hub (`BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh`). That's
+> the required step. Use this local mode only to test the hub before deploying, or as a stand-in if the Azure bridge is
+> down – and stop it again afterwards: NROD allows one connection per account, and an RDM consumer group one reader.
 
 In shared mode ([Lab 05c](05c-shared-event-hub.md)) the instructor's bridge sends to an Azure Event Hub instead of an Eventstream.
 `eventhub` is the same Event Hubs producer as `eventstream`; only the connection string differs.
