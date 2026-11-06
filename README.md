@@ -167,10 +167,19 @@ flowchart LR
 | [Lab 2.9](docs/build/2.9-azure-maps.md) | *Optional:* Azure Maps basemap, satellite view and OS Open Zoomstack railway lines for the app map | 45 min | ✅ `create-azure-maps.sh/.ps1`, `new-azure-maps-sas.sh/.ps1`, `app/tools/build_gb_rail.py` |
 | [Lab 2.10](docs/build/2.10-cleanup.md) | Clean-up | 10 min | ✅ `cleanup.sh/.ps1` |
 
-## Quick start: deploy as-is
+## Fast track (solo builders who've done this before)
 
-You need the accounts and tenant settings from [Solo 1.1](docs/solo/1.1-prerequisites.md), and a Fabric capacity sized for
-the feeds you'll run ([Capacity planning and sizing](docs/capacity-planning.md)). You also need the Azure CLI (`az login`), Python 3.11+ and, if you want it, Docker.
+**Who this is for:** a solo builder who already has their own NROD and RDM accounts, an Azure subscription and a Fabric
+capacity, and wants the scripted parts done quickly. It runs the same scripts as the [solo path](docs/solo/README.md) without
+the explanations or checkpoints. **First time? Use [Start here](docs/start-here.md) instead.**
+
+- **Running a class?** Use the [Instructor path](docs/instructor/README.md).
+- **A classroom student?** Use the [Student path](docs/student/README.md). You don't need any of the commands below.
+
+Before you start you need:
+- the accounts and tenant settings from [Solo 1.1](docs/solo/1.1-prerequisites.md);
+- a Fabric capacity sized for the feeds you'll run ([Capacity planning and sizing](docs/capacity-planning.md));
+- the Azure CLI (`az login`) and Python 3.11+. Docker is optional.
 
 ```bash
 git clone https://github.com/<you>/rail-fabric-rti.git && cd rail-fabric-rti
@@ -179,35 +188,49 @@ cp .env.example .env            # fill in NROD_*, AZ_*, FABRIC_CAPACITY_ID ...
 # 0. Try the bridge offline. No accounts needed: it replays the bundled sample messages
 ./scripts/run-local.sh venv console --replay
 
-# 1. Shared Key Vault with your NROD credentials (Solo 1.1, step 8). Copy KEY_VAULT_* into .env
+# 1. Key Vault with your NROD credentials (Solo 1.1, step 8). Copy KEY_VAULT_* into .env
 ./scripts/create-keyvault.sh
 
 # 2. Fabric items (Solo 1.2). Copy the IDs it prints into .env
 ./scripts/fabric-setup.sh
 
-# 3. KQL schema, update policies and views (Lab 2.1; run before you send any data)
+# 3. KQL schema, update policies and views (Lab 2.1, Option A; run before you send any data)
 python -m pip install -r fabric/scripts/requirements.txt
 python fabric/scripts/apply_kql.py
 
 # 4. Reference data (Solo 1.3)
 python fabric/scripts/load_reference_data.py --to-kql --to-onelake
 
-# 5. Portal step: add the custom endpoint source to RailEventstreamNrod and the
-#    Eventhouse destination (RawFeed table, RawFeedMapping). Copy the Event Hub connection
-#    string into EVENTSTREAM_CONNECTION_STRING (Solo 1.6, section A2 "Connect to Fabric")
+# 5. PORTAL: in RailEventstreamNrod add a Custom endpoint source, copy its Event Hub connection string
+#    into EVENTSTREAM_CONNECTION_STRING, add an Eventhouse destination (RailKQL, Direct ingestion) and
+#    publish. Don't pick the table yet (Solo 1.6, section A2, steps 1-4)
 
-# 6. Bridge on Azure Container Apps (Solo 1.7)
+# 6. Bridge on Azure Container Apps (Solo 1.7). It starts sending data to the Eventstream
 ./scripts/deploy-bridge.sh
 
-# 7. OPTIONAL shared Event Hub for a class / paused capacities (Instructor 1.4, or Solo 1.8 for one person)
-./scripts/create-eventhub.sh                                   # namespace, hubs, Key Vault secrets, consumer groups
-BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
-#    Students then add an Azure Event Hubs source with their own consumer group (portal, Student 1.4)
+# 7. PORTAL, once data is arriving: Configure the Eventhouse destination -> existing table RawFeed,
+#    JSON, existing mapping RawFeedMapping -> Finish (Solo 1.6, section A2, step 6)
 ```
 
-On Windows, use the matching `.ps1` scripts, for example `./scripts/create-keyvault.ps1`, `./scripts/fabric-setup.ps1` and `./scripts/deploy-bridge.ps1`.
+On Windows, use the matching `.ps1` scripts, for example `./scripts/create-keyvault.ps1`, `./scripts/fabric-setup.ps1` and
+`./scripts/deploy-bridge.ps1`.
 
-Then follow Solo 1.4 and Labs 2.2–2.8 for the portal-only parts: the RDM Kafka source, Activator, dashboards, the data agent, Foundry and Rayfin.
+Behind a corporate network that blocks Key Vault public access? Set `SECRETS_SOURCE=inline` in `.env` before step 6
+(see [Solo 1.7](docs/solo/1.7-bridge-azure.md)).
+
+### Now continue with
+
+1. [Solo 1.4 – RDM Kafka into Eventstream](docs/solo/1.4-rdm-kafka-eventstream.md): the Train Movements feed (portal only).
+2. [Solo 1.5 – Darwin Push Port](docs/solo/1.5-darwin-push-port.md) *(optional)*.
+3. [Lab 2.1 – KQL transformations](docs/build/2.1-kql-transformations.md): skip the set-up you ran in step 3 and go to the
+   **Checkpoint** to confirm the parsed tables are filling.
+4. [Lab 2.2](docs/build/2.2-activator-alerts.md) to [Lab 2.8](docs/build/2.8-rayfin-app.md): Activator, dashboard and
+   Power BI, data agent, ontology *(2.5, optional)*, Foundry agent, live semantic model and the RailPulse app.
+5. [Lab 2.9 – Azure Maps](docs/build/2.9-azure-maps.md) *(optional)*.
+6. [Lab 2.10 – Clean-up](docs/build/2.10-cleanup.md) when you've finished, so capacity and Azure costs stop.
+
+Want a shared Event Hub so the feed keeps buffering while your capacity is paused overnight? See
+[Solo 1.8](docs/solo/1.8-shared-event-hub.md).
 For Darwin forecasts and platforms, add the optional [Solo 1.5](docs/solo/1.5-darwin-push-port.md): its own Eventstream (`RailEventstreamDarwin`, created empty by `fabric-setup`) and raw table (`RdmDarwinRaw`).
 
 ### What is automated and what is manual
