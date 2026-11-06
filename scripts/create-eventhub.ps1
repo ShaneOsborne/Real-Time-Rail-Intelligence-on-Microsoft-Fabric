@@ -16,12 +16,18 @@
   ./scripts/create-eventhub.ps1 -WhatIf
   ./scripts/create-eventhub.ps1 -HideKey
   ./scripts/create-eventhub.ps1 -SecretsSource inline
+  ./scripts/create-eventhub.ps1 -Auth entra     # no keys: policy disables key sign-in on Event Hubs
 #>
-param([switch]$WhatIf, [switch]$HideKey, [ValidateSet('', 'keyvault', 'inline')][string]$SecretsSource = '')
+param([switch]$WhatIf, [switch]$HideKey, [ValidateSet('', 'keyvault', 'inline')][string]$SecretsSource = '',
+      [ValidateSet('', 'key', 'entra')][string]$Auth = '')
 . "$PSScriptRoot/_common.ps1"
 Import-DotEnv
 if (-not $SecretsSource) { $SecretsSource = if ($env:SECRETS_SOURCE) { $env:SECRETS_SOURCE } else { 'keyvault' } }
 if ($SecretsSource -notin @('keyvault', 'inline')) { throw "SECRETS_SOURCE must be 'keyvault' or 'inline'" }
+if (-not $Auth) { $Auth = if ($env:EVENTHUB_AUTH) { $env:EVENTHUB_AUTH } else { 'key' } }
+if ($Auth -notin @('key', 'entra')) { throw "EVENTHUB_AUTH must be 'key' or 'entra'" }
+# Where the send connection strings go: Key Vault, .env (inline), or nowhere (entra - no keys)
+$mode = if ($Auth -eq 'entra') { 'entra' } else { $SecretsSource }
 Assert-Command az
 Assert-Env @('AZ_RESOURCE_GROUP', 'AZ_LOCATION')
 
@@ -46,7 +52,6 @@ Invoke-Az group create -n $rg -l $env:AZ_LOCATION -o none
 
 if ($WhatIf) { Invoke-Az deployment group what-if @ehParams; return }
 
-if ($SecretsSource -eq 'keyvault') {
 $deployerId = az ad signed-in-user show --query id -o tsv 2>$null
 $deployerType = 'User'
 if (-not $deployerId) {
@@ -54,6 +59,8 @@ if (-not $deployerId) {
     $deployerId = az ad sp show --id $appId --query id -o tsv
     $deployerType = 'ServicePrincipal'
 }
+
+if ($mode -eq 'keyvault') {
 
 # Same template and deployment name as scripts/create-keyvault.ps1: re-uses the shared vault (Solo 1.1 step 8).
 Write-Step 'Shared Key Vault (created or re-used) + Key Vault Secrets Officer for you'
@@ -63,8 +70,11 @@ Invoke-Az deployment group create -g $rg -n shared-keyvault `
     "deployerPrincipalId=$deployerId" "deployerPrincipalType=$deployerType" -o none
 $kv = az deployment group show -g $rg -n shared-keyvault --query properties.outputs.keyVaultName.value -o tsv
 }
-else {
+elseif ($mode -eq 'inline') {
     Write-Step 'SECRETS_SOURCE=inline: Key Vault skipped (connection strings go into .env instead)'
+}
+else {
+    Write-Step 'EVENTHUB_AUTH=entra: no keys - Key Vault and connection strings skipped'
 }
 
 Write-Step "Event Hubs Standard namespace, hubs $nrodHub + $rdmHub, SAS rules (infra/eventhubs.bicep)"
@@ -97,26 +107,67 @@ function Set-DotEnvValue([string]$Name, [string]$Value) {
     [System.IO.File]::WriteAllLines($path, [string[]]$lines, (New-Object System.Text.UTF8Encoding $false))
     Write-Host "  set $Name in .env"
 }
-$nrodCs = Get-SendConnectionString $nrodHub
-$rdmCs = Get-SendConnectionString $rdmHub
-if ($SecretsSource -eq 'keyvault') {
+if ($mode -eq 'entra') {
+    Write-Step 'Writing EVENTHUB_NAMESPACE and EVENTHUB_AUTH=entra to .env'
+    Set-DotEnvValue 'EVENTHUB_NAMESPACE' $ns
+    Set-DotEnvValue 'EVENTHUB_AUTH' 'entra'
+    $nsId = az eventhubs namespace show -g $rg -n $ns --query id -o tsv
+    Write-Step 'Azure Event Hubs Data Sender for you (only needed to run the bridge locally against the hub)'
+    az role assignment create --assignee-object-id $deployerId --assignee-principal-type $deployerType `
+        --role 'Azure Event Hubs Data Sender' --scope $nsId -o none 2>$null
+    if ($LASTEXITCODE -eq 0) { Write-Host '  assigned' }
+    else { Write-Warning 'Could not assign it (you need Owner or User Access Administrator). Only local runs need it.' }
+    Write-Host '  The Container Apps identity gets the same role from deploy-bridge (EVENTHUB_AUTH=entra).'
+}
+else {
+    $nrodCs = Get-SendConnectionString $nrodHub
+    $rdmCs = Get-SendConnectionString $rdmHub
+}
+if ($mode -eq 'keyvault') {
     Write-Step "Writing send connection strings to Key Vault $kv (retrying while RBAC propagates)"
     Set-KvSecret 'eventhub-nrod-connection-string' $nrodCs
     Set-KvSecret 'eventhub-rdm-connection-string' $rdmCs
 }
-else {
+elseif ($mode -eq 'inline') {
     Write-Step 'Writing the namespace and send connection strings to .env (keep .env private; never commit it)'
     Set-DotEnvValue 'EVENTHUB_NAMESPACE' $ns
     Set-DotEnvValue 'EVENTHUB_CONNECTION_STRING' $nrodCs
     Set-DotEnvValue 'EVENTHUB_RDM_CONNECTION_STRING' $rdmCs
 }
 
-if ([int]("0$($env:STUDENT_CONSUMER_GROUP_COUNT)") -gt 0) {
+$cgCount = 0
+if ("$($env:STUDENT_CONSUMER_GROUP_COUNT)".Trim() -match '^\d+$') { $cgCount = [int]$env:STUDENT_CONSUMER_GROUP_COUNT.Trim() }
+if ($cgCount -gt 0) {
     Write-Step "Student consumer groups ($($cgPrefix)01..)"
-    & (Join-Path $PSScriptRoot 'add-student-consumer-groups.ps1') -Namespace $ns -Prefix $cgPrefix -Count ([int]$env:STUDENT_CONSUMER_GROUP_COUNT)
+    & (Join-Path $PSScriptRoot 'add-student-consumer-groups.ps1') -Namespace $ns -Prefix $cgPrefix -Count $cgCount
 }
 else {
-    Write-Host 'STUDENT_CONSUMER_GROUP_COUNT not set: add groups later with ./scripts/add-student-consumer-groups.ps1 -Prefix student -Count N'
+    Write-Host "No student consumer groups created: STUDENT_CONSUMER_GROUP_COUNT is '$($env:STUDENT_CONSUMER_GROUP_COUNT)' (needs a number from 1 to 19)."
+    Write-Host "Add them now with: ./scripts/add-student-consumer-groups.ps1 -Namespace $ns -Prefix $cgPrefix -Count N"
+}
+
+if ($mode -eq 'entra') {
+    Write-Host @"
+
+Done. .env now has EVENTHUB_NAMESPACE=$ns and EVENTHUB_AUTH=entra.
+Then point the Azure apps at the hub (Solo 1.7): set EVENTHUB_AUTH=entra, BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true
+in .env (plus SECRETS_SOURCE=inline if Key Vault is blocked by policy), then ./scripts/deploy-bridge.ps1
+Their managed identity gets 'Azure Event Hubs Data Sender'.
+
+Students (and you, for your own workspace) connect with WORKSPACE IDENTITY - no key to share:
+  1. Each student: Fabric workspace > Workspace settings > Workspace identity > enable it, and send you the
+     workspace NAME (or the identity ID shown there).
+  2. You give each workspace read access to the hubs:
+       ./scripts/grant-eventhub-reader.ps1 -Workspace '<workspace name>','<another>'
+       ./scripts/grant-eventhub-reader.ps1 -Id <identity id>
+  3. Eventstream > Azure Event Hubs source:
+       Event Hub namespace : $ns
+       Event hubs          : $nrodHub (-> RawFeed)   $rdmHub (-> RdmTrustRaw)
+       Authentication kind : Workspace identity
+       Consumer group      : their own, e.g. $($cgPrefix)01 (never `$Default, never shared)
+       Data format         : JSON
+"@
+    return
 }
 
 $listenKey = if ($HideKey) {

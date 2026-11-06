@@ -19,6 +19,11 @@ log = logging.getLogger(__name__)
 def sink_error_hint(message: str) -> str:
     """Plain-language next step for the Event Hubs / Eventstream send errors people hit most often."""
     m = message.lower()
+    if "localauthdisabled" in m or "local authentication" in m:
+        return (
+            "Key (shared access) authentication is disabled on this Event Hubs namespace, often by an Azure Policy. "
+            "Use Microsoft Entra ID instead: EVENTHUB_AUTH=entra (see Solo 1.8 / Instructor 1.4)."
+        )
     if "claim" in m and "send" in m:
         return "The key has no Send right. Use the bridge-send rule's connection string, not students-listen."
     if "cbs token" in m or "unauthorized" in m or "invalidsignature" in m:
@@ -28,7 +33,11 @@ def sink_error_hint(message: str) -> str:
             "the NROD bridge the nrod-feed one (EVENTHUB_CONNECTION_STRING) or the Eventstream custom endpoint's string; "
             "that the namespace name and EntityPath are exact; and that the key hasn't been regenerated since. On Azure "
             "Container Apps a changed secret only takes effect after a restart: "
-            "az containerapp revision restart -g <resource group> -n <app> --revision <active revision>."
+            "az containerapp revision restart -g <resource group> -n <app> --revision <active revision>. "
+            "If the key is right, key sign-in may be switched off on the namespace (often by an Azure Policy): "
+            "az eventhubs namespace show -g <rg> -n <namespace> --query disableLocalAuth. If that says true, use "
+            "EVENTHUB_AUTH=entra (Solo 1.8 / Instructor 1.4). With EVENTHUB_AUTH=entra, this error means the identity "
+            "has no 'Azure Event Hubs Data Sender' role on the namespace yet (role assignments can take a few minutes)."
         )
     if "could not be found" in m or ("entity" in m and "not found" in m):
         return (
@@ -98,17 +107,30 @@ class EventstreamSink:
     works identically, only the ``label`` used in errors and logs differs.
     """
 
-    def __init__(self, connection_string: str, entity_name: str = "", label: str = "Eventstream") -> None:
+    def __init__(
+        self,
+        connection_string: str = "",
+        entity_name: str = "",
+        label: str = "Eventstream",
+        fully_qualified_namespace: str = "",
+        credential: Any = None,
+    ) -> None:
         self.label = label
         try:
             from azure.eventhub import EventData, EventHubProducerClient
         except ImportError as exc:  # pragma: no cover - dependency present in image
             raise SinkError("azure-eventhub is not installed") from exc
         self._EventData = EventData
-        kwargs: dict[str, Any] = {}
-        if entity_name:
-            kwargs["eventhub_name"] = entity_name
-        self._client = EventHubProducerClient.from_connection_string(connection_string, **kwargs)
+        if credential is not None:
+            # Microsoft Entra ID: no key; the identity needs 'Azure Event Hubs Data Sender' on the namespace or hub.
+            self._client = EventHubProducerClient(
+                fully_qualified_namespace=fully_qualified_namespace, eventhub_name=entity_name, credential=credential
+            )
+        else:
+            kwargs: dict[str, Any] = {}
+            if entity_name:
+                kwargs["eventhub_name"] = entity_name
+            self._client = EventHubProducerClient.from_connection_string(connection_string, **kwargs)
         self._lock = threading.Lock()
 
     def send(self, events: list[dict[str, Any]]) -> None:
@@ -139,7 +161,24 @@ class EventstreamSink:
             self._client.close()
 
 
-def build_sink(kind: str, output_file: str = "", connection_string: str = "", entity_name: str = "") -> Sink:
+def entra_credential() -> Any:
+    """DefaultAzureCredential: the managed identity on Azure (AZURE_CLIENT_ID selects a user-assigned one),
+    az login / VS Code / environment credentials when you run locally."""
+    try:
+        from azure.identity import DefaultAzureCredential
+    except ImportError as exc:  # pragma: no cover - dependency present in image
+        raise SinkError("azure-identity is not installed (pip install -r requirements.txt)") from exc
+    return DefaultAzureCredential(exclude_interactive_browser_credential=True)
+
+
+def build_sink(
+    kind: str,
+    output_file: str = "",
+    connection_string: str = "",
+    entity_name: str = "",
+    fully_qualified_namespace: str = "",
+    credential: Any = None,
+) -> Sink:
     if kind == "console":
         return ConsoleSink()
     if kind == "file":
@@ -147,5 +186,8 @@ def build_sink(kind: str, output_file: str = "", connection_string: str = "", en
     if kind == "eventstream":
         return EventstreamSink(connection_string, entity_name)
     if kind == "eventhub":
-        return EventstreamSink(connection_string, entity_name, label="Event Hub")
+        return EventstreamSink(
+            connection_string, entity_name, label="Event Hub",
+            fully_qualified_namespace=fully_qualified_namespace, credential=credential,
+        )
     raise ValueError(f"Unknown sink '{kind}'")

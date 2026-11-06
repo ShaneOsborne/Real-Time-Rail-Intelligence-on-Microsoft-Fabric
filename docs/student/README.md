@@ -9,6 +9,7 @@ Working alone with your own accounts? Use the [solo path](../solo/README.md) ins
 
 Get your **handout** from the instructor before you start. It has your workspace name, the Event Hubs namespace, key name
 and key, **your own consumer group**, the reference Lakehouse location and the Foundry details. Keep the key private.
+If your handout says **Workspace identity** instead of a key, there's no key: [Student 1.4](1.4-connect-to-the-class-feed.md) shows what to do.
 
 ## Part 1 – get data in
 

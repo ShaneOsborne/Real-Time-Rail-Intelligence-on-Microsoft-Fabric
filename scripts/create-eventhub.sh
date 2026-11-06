@@ -7,12 +7,16 @@
 # EVENTHUB_NAMESPACE, EVENTHUB_CONNECTION_STRING and EVENTHUB_RDM_CONNECTION_STRING straight into .env instead.
 #   ./scripts/create-eventhub.sh
 #   SECRETS_SOURCE=inline ./scripts/create-eventhub.sh
+# With EVENTHUB_AUTH=entra (a policy disables key sign-in on Event Hubs) no keys are used at all: it skips Key Vault
+# and the connection strings, gives you 'Azure Event Hubs Data Sender' (for local bridge runs) and writes
+# EVENTHUB_NAMESPACE and EVENTHUB_AUTH=entra into .env. Students' Eventstreams then use workspace identity.
+#   EVENTHUB_AUTH=entra ./scripts/create-eventhub.sh
 #   ./scripts/create-eventhub.sh --what-if
 #   ./scripts/create-eventhub.sh --hide-key     # don't print the students' Listen key
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP and AZ_LOCATION.
 # Optional .env: EVENTHUB_NAMESPACE, EVENTHUB_THROUGHPUT_UNITS, EVENTHUB_RETENTION_DAYS,
 #                STUDENT_CONSUMER_GROUP_PREFIX, STUDENT_CONSUMER_GROUP_COUNT, KEY_VAULT_NAME, NAME_PREFIX,
-#                SECRETS_SOURCE (keyvault | inline).
+#                SECRETS_SOURCE (keyvault | inline), EVENTHUB_AUTH (key | entra).
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
@@ -31,6 +35,10 @@ done
 NAME_PREFIX="${NAME_PREFIX:-railrti}"
 SECRETS_SOURCE="${SECRETS_SOURCE:-keyvault}"
 case "$SECRETS_SOURCE" in keyvault|inline) ;; *) echo "ERROR: SECRETS_SOURCE must be 'keyvault' or 'inline'" >&2; exit 1 ;; esac
+EVENTHUB_AUTH="${EVENTHUB_AUTH:-key}"
+case "$EVENTHUB_AUTH" in key|entra) ;; *) echo "ERROR: EVENTHUB_AUTH must be 'key' or 'entra'" >&2; exit 1 ;; esac
+# Where the send connection strings go: Key Vault, .env (inline), or nowhere (entra - no keys)
+MODE="$SECRETS_SOURCE"; [[ "$EVENTHUB_AUTH" == "entra" ]] && MODE=entra
 NROD_HUB=nrod-feed
 RDM_HUB=rdm-trust
 [[ -n "${AZ_SUBSCRIPTION_ID:-}" ]] && az account set --subscription "$AZ_SUBSCRIPTION_ID"
@@ -51,13 +59,15 @@ if [[ "$WHAT_IF" == "true" ]]; then
   exit 0
 fi
 
-if [[ "$SECRETS_SOURCE" == "keyvault" ]]; then
 DEPLOYER_ID="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)"
 DEPLOYER_TYPE=User
 if [[ -z "$DEPLOYER_ID" ]]; then
   DEPLOYER_ID="$(az ad sp show --id "$(az account show --query user.name -o tsv)" --query id -o tsv)"
   DEPLOYER_TYPE=ServicePrincipal
 fi
+DEPLOYER_ID="${DEPLOYER_ID//$'\r'/}"
+
+if [[ "$MODE" == "keyvault" ]]; then
 
 # Same template and deployment name as scripts/create-keyvault.sh: re-uses the shared vault (Solo 1.1 step 8).
 log "Shared Key Vault (created or re-used) + Key Vault Secrets Officer for you"
@@ -66,8 +76,10 @@ az deployment group create -g "$AZ_RESOURCE_GROUP" -n shared-keyvault \
   --parameters location="$AZ_LOCATION" namePrefix="$NAME_PREFIX" keyVaultName="${KEY_VAULT_NAME:-}" \
                deployerPrincipalId="$DEPLOYER_ID" deployerPrincipalType="$DEPLOYER_TYPE" -o none
 KV_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n shared-keyvault --query properties.outputs.keyVaultName.value -o tsv)"
-else
+elif [[ "$MODE" == "inline" ]]; then
   log "SECRETS_SOURCE=inline: Key Vault skipped (connection strings go into .env instead)"
+else
+  log "EVENTHUB_AUTH=entra: no keys - Key Vault and connection strings skipped"
 fi
 
 log "Event Hubs Standard namespace, hubs $NROD_HUB + $RDM_HUB, SAS rules (infra/eventhubs.bicep)"
@@ -104,14 +116,29 @@ set_env_var() {
   cat "$tmp" > "$file"; rm -f "$tmp"
   echo "  set $1 in .env"
 }
+if [[ "$MODE" == "entra" ]]; then
+  log "Writing EVENTHUB_NAMESPACE and EVENTHUB_AUTH=entra to .env"
+  set_env_var EVENTHUB_NAMESPACE "$NS"
+  set_env_var EVENTHUB_AUTH entra
+  NS_ID="$(az eventhubs namespace show -g "$AZ_RESOURCE_GROUP" -n "$NS" --query id -o tsv | tr -d '\r')"
+  log "Azure Event Hubs Data Sender for you (only needed to run the bridge locally against the hub)"
+  if MSYS_NO_PATHCONV=1 az role assignment create --assignee-object-id "$DEPLOYER_ID" --assignee-principal-type "$DEPLOYER_TYPE" \
+       --role "Azure Event Hubs Data Sender" --scope "$NS_ID" -o none 2>/dev/null; then
+    echo "  assigned"
+  else
+    echo "  WARNING: could not assign it (you need Owner or User Access Administrator). Only local runs need it." >&2
+  fi
+  echo "  The Container Apps identity gets the same role from deploy-bridge (EVENTHUB_AUTH=entra)."
+else
 NROD_CS="$(send_cs "$NROD_HUB")"
 RDM_CS="$(send_cs "$RDM_HUB")"
 [[ -n "$NROD_CS" && -n "$RDM_CS" ]] || { echo "ERROR: could not read the bridge-send connection strings" >&2; exit 1; }
-if [[ "$SECRETS_SOURCE" == "keyvault" ]]; then
+fi
+if [[ "$MODE" == "keyvault" ]]; then
   log "Writing send connection strings to Key Vault $KV_NAME (retrying while RBAC propagates)"
   set_secret eventhub-nrod-connection-string "$NROD_CS"
   set_secret eventhub-rdm-connection-string "$RDM_CS"
-else
+elif [[ "$MODE" == "inline" ]]; then
   log "Writing the namespace and send connection strings to .env (keep .env private; never commit it)"
   set_env_var EVENTHUB_NAMESPACE "$NS"
   set_env_var EVENTHUB_CONNECTION_STRING "$NROD_CS"
@@ -123,7 +150,32 @@ if [[ "${STUDENT_CONSUMER_GROUP_COUNT:-0}" =~ ^[1-9][0-9]*$ ]]; then
   bash "$REPO_ROOT/scripts/add-student-consumer-groups.sh" --namespace "$NS" \
     --prefix "${STUDENT_CONSUMER_GROUP_PREFIX:-student}" --count "$STUDENT_CONSUMER_GROUP_COUNT"
 else
-  echo "STUDENT_CONSUMER_GROUP_COUNT not set: add groups later with ./scripts/add-student-consumer-groups.sh --prefix student --count N"
+  echo "No student consumer groups created: STUDENT_CONSUMER_GROUP_COUNT is '${STUDENT_CONSUMER_GROUP_COUNT:-}' (needs a number from 1 to 19)."
+  echo "Add them now with: ./scripts/add-student-consumer-groups.sh --namespace $NS --prefix ${STUDENT_CONSUMER_GROUP_PREFIX:-student} --count N"
+fi
+
+if [[ "$MODE" == "entra" ]]; then
+  cat <<MSG
+
+Done. .env now has EVENTHUB_NAMESPACE=$NS and EVENTHUB_AUTH=entra.
+Then point the Azure apps at the hub (Solo 1.7). Their managed identity gets 'Azure Event Hubs Data Sender':
+  EVENTHUB_AUTH=entra BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
+  (add SECRETS_SOURCE=inline as well if Key Vault is blocked by policy - it still holds the NROD and RDM credentials)
+
+Students (and you, for your own workspace) connect with WORKSPACE IDENTITY - no key to share:
+  1. Each student: Fabric workspace > Workspace settings > Workspace identity > enable it, and send you the
+     workspace NAME (or the identity ID shown there).
+  2. You give each workspace read access to the hubs:
+       ./scripts/grant-eventhub-reader.sh --workspace "<workspace name>" [--workspace "<another>" ...]
+       ./scripts/grant-eventhub-reader.sh --id <identity id>
+  3. Eventstream > Azure Event Hubs source:
+       Event Hub namespace : $NS
+       Event hubs          : $NROD_HUB (-> RawFeed)   $RDM_HUB (-> RdmTrustRaw)
+       Authentication kind : Workspace identity
+       Consumer group      : their own, e.g. ${STUDENT_CONSUMER_GROUP_PREFIX:-student}01 (never \$Default, never shared)
+       Data format         : JSON
+MSG
+  exit 0
 fi
 
 if [[ "$SHOW_KEY" == "true" ]]; then

@@ -4,6 +4,7 @@
 //   2. secrets are written to Key Vault and the image is built/pushed
 //   3. deployApp=true  -> the single-replica container app that reads secrets from Key Vault
 // Optional shared Event Hub tier (Instructor 1.4 / Solo 1.8, infra/eventhubs.bicep):
+//   eventhubAuth='entra'    -> no Event Hub keys: the apps sign in with their managed identity (Azure Event Hubs Data Sender)
 //   bridgeTarget='eventhub' -> the NROD bridge sends to the nrod-feed event hub instead of a Fabric Eventstream
 //   deployRdmRelay=true     -> a second app (<prefix>-rdm-relay, same image) relays RDM Kafka to the rdm-trust event hub
 targetScope = 'resourceGroup'
@@ -72,6 +73,17 @@ param rdmKafkaTopic string = ''
 @description('RDM Kafka consumer group issued by Rail Data Marketplace.')
 param rdmKafkaConsumerGroup string = ''
 
+@description('How the bridge and relay sign in to the shared Event Hub (bridgeTarget=eventhub / deployRdmRelay). key: connection strings with a shared access key. entra: the apps\' managed identity with the Azure Event Hubs Data Sender role - for namespaces where a policy disables local (key) authentication.')
+@allowed([ 'key', 'entra' ])
+param eventhubAuth string = 'key'
+
+@description('eventhubAuth=entra only: name of the Event Hubs namespace in this resource group (scripts/create-eventhub output).')
+param eventhubNamespace string = ''
+
+@description('Event hub names used by the bridge and the relay.')
+param nrodHubName string = 'nrod-feed'
+param rdmHubName string = 'rdm-trust'
+
 @description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Solo 1.1). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
 param keyVaultName string = ''
 
@@ -106,6 +118,10 @@ var image = !empty(containerImage) ? containerImage : acrImage
 var useKeyVault = secretsSource == 'keyvault'
 var bridgeSecretName = bridgeTarget == 'eventhub' ? 'eventhub-nrod-connection-string' : 'eventstream-connection-string'
 var bridgeSecretEnv = bridgeTarget == 'eventhub' ? 'EVENTHUB_CONNECTION_STRING' : 'EVENTSTREAM_CONNECTION_STRING'
+var useEntra = eventhubAuth == 'entra'
+// The bridge only uses Entra ID when it sends to the shared Event Hub; a Fabric Eventstream custom endpoint keeps its key.
+var bridgeUsesEntra = useEntra && bridgeTarget == 'eventhub'
+var ehFqdn = '${eventhubNamespace}.servicebus.windows.net'
 var healthProbes = [
   {
     type: 'Liveness'
@@ -133,11 +149,27 @@ var healthProbes = [
 var roleAcrPull = '7f951dda-4ed3-4680-a7ca-43fe172d538d'
 var roleKvSecretsUser = '4633458b-17de-408a-b874-0445c86b69e6'
 var roleKvSecretsOfficer = 'b86a8fe4-44ce-4948-aee5-eccb2c155cd7'
+var roleEventHubsDataSender = '2b629674-e913-4c01-ae53-ef4638d8f975'
 
 resource uami 'Microsoft.ManagedIdentity/userAssignedIdentities@2023-01-31' = {
   name: '${namePrefix}-bridge-id'
   location: location
   tags: tags
+}
+
+// eventhubAuth=entra: the apps' identity may send to every hub in the shared namespace (no keys anywhere).
+resource ehns 'Microsoft.EventHub/namespaces@2024-01-01' existing = {
+  name: empty(eventhubNamespace) ? 'not-used' : eventhubNamespace
+}
+
+resource ehSender 'Microsoft.Authorization/roleAssignments@2022-04-01' = if (useEntra && !empty(eventhubNamespace)) {
+  name: guid(resourceGroup().id, eventhubNamespace, uami.id, roleEventHubsDataSender)
+  scope: ehns
+  properties: {
+    roleDefinitionId: subscriptionResourceId('Microsoft.Authorization/roleDefinitions', roleEventHubsDataSender)
+    principalId: uami.properties.principalId
+    principalType: 'ServicePrincipal'
+  }
 }
 
 resource law 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
@@ -261,7 +293,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
       activeRevisionsMode: 'Single'
       // No ingress: the bridge only makes outbound connections. Probes still reach the container.
       registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
-      secrets: useKeyVault ? [
+      secrets: concat(useKeyVault ? [
         {
           name: 'nrod-username'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/nrod-username'
@@ -272,6 +304,11 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
           keyVaultUrl: '${kv.properties.vaultUri}secrets/nrod-password'
           identity: uami.id
         }
+      ] : [
+        // secretsSource=inline: encrypted Container Apps secrets, no Key Vault access needed at runtime
+        { name: 'nrod-username', value: nrodUsernameValue }
+        { name: 'nrod-password', value: nrodPasswordValue }
+      ], bridgeUsesEntra ? [] : (useKeyVault ? [
         {
           // eventstream-connection-string (default) or eventhub-nrod-connection-string (bridgeTarget=eventhub)
           name: bridgeSecretName
@@ -279,11 +316,8 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
           identity: uami.id
         }
       ] : [
-        // secretsSource=inline: encrypted Container Apps secrets, no Key Vault access needed at runtime
-        { name: 'nrod-username', value: nrodUsernameValue }
-        { name: 'nrod-password', value: nrodPasswordValue }
         { name: bridgeSecretName, value: bridgeConnectionStringValue }
-      ]
+      ]))
     }
     template: {
       containers: [
@@ -294,7 +328,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
             cpu: json(cpu)
             memory: memory
           }
-          env: [
+          env: concat([
             { name: 'BRIDGE_SOURCE', value: 'stomp' }
             { name: 'BRIDGE_SINK', value: bridgeTarget }
             { name: 'NROD_TOPICS', value: nrodTopics }
@@ -305,8 +339,14 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
             { name: 'LOG_LEVEL', value: 'INFO' }
             { name: 'NROD_USERNAME', secretRef: 'nrod-username' }
             { name: 'NROD_PASSWORD', secretRef: 'nrod-password' }
+          ], bridgeUsesEntra ? [
+            { name: 'EVENTHUB_AUTH', value: 'entra' }
+            { name: 'EVENTHUB_NAMESPACE', value: ehFqdn }
+            { name: 'EVENTHUB_NAME', value: nrodHubName }
+            { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
+          ] : [
             { name: bridgeSecretEnv, secretRef: bridgeSecretName }
-          ]
+          ])
           probes: healthProbes
         }
       ]
@@ -320,6 +360,7 @@ resource app 'Microsoft.App/containerApps@2024-03-01' = if (deployApp) {
   dependsOn: [
     kvSecretsUser
     acrPull
+    ehSender
   ]
 }
 
@@ -340,7 +381,7 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
     configuration: {
       activeRevisionsMode: 'Single'
       registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
-      secrets: useKeyVault ? [
+      secrets: concat(useKeyVault ? [
         {
           name: 'rdm-kafka-username'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/rdm-kafka-username'
@@ -351,16 +392,18 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
           keyVaultUrl: '${kv.properties.vaultUri}secrets/rdm-kafka-password'
           identity: uami.id
         }
+      ] : [
+        { name: 'rdm-kafka-username', value: rdmKafkaUsernameValue }
+        { name: 'rdm-kafka-password', value: rdmKafkaPasswordValue }
+      ], useEntra ? [] : (useKeyVault ? [
         {
           name: 'eventhub-rdm-connection-string'
           keyVaultUrl: '${kv.properties.vaultUri}secrets/eventhub-rdm-connection-string'
           identity: uami.id
         }
       ] : [
-        { name: 'rdm-kafka-username', value: rdmKafkaUsernameValue }
-        { name: 'rdm-kafka-password', value: rdmKafkaPasswordValue }
         { name: 'eventhub-rdm-connection-string', value: eventhubRdmConnectionStringValue }
-      ]
+      ]))
     }
     template: {
       containers: [
@@ -371,7 +414,7 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
             cpu: json('0.25')
             memory: '0.5Gi'
           }
-          env: [
+          env: concat([
             { name: 'BRIDGE_SOURCE', value: 'kafka' }
             { name: 'BRIDGE_SINK', value: 'eventhub' }
             { name: 'RDM_KAFKA_BOOTSTRAP_SERVERS', value: rdmKafkaBootstrapServers }
@@ -383,8 +426,14 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
             { name: 'LOG_LEVEL', value: 'INFO' }
             { name: 'RDM_KAFKA_USERNAME', secretRef: 'rdm-kafka-username' }
             { name: 'RDM_KAFKA_PASSWORD', secretRef: 'rdm-kafka-password' }
+          ], useEntra ? [
+            { name: 'EVENTHUB_AUTH', value: 'entra' }
+            { name: 'EVENTHUB_NAMESPACE', value: ehFqdn }
+            { name: 'EVENTHUB_NAME', value: rdmHubName }
+            { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
+          ] : [
             { name: 'EVENTHUB_CONNECTION_STRING', secretRef: 'eventhub-rdm-connection-string' }
-          ]
+          ])
           probes: healthProbes
         }
       ]
@@ -398,6 +447,7 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
   dependsOn: [
     kvSecretsUser
     acrPull
+    ehSender
   ]
 }
 

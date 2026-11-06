@@ -68,6 +68,11 @@ class BridgeConfig:
     eventstream_entity_name: str = ""
     eventhub_connection_string: str = field(default="", repr=False)
     eventhub_name: str = ""
+    # key (default): connection string with a shared access key. entra: Microsoft Entra ID - the app's managed identity
+    # on Azure (AZURE_CLIENT_ID picks a user-assigned one) or your az login locally. Needed where a policy disables
+    # local (key) authentication on the Event Hubs namespace.
+    eventhub_auth: str = "key"
+    eventhub_namespace: str = ""
     split_batches: bool = True
 
     # Ops
@@ -113,6 +118,8 @@ class BridgeConfig:
             eventstream_entity_name=e.get("EVENTSTREAM_ENTITY_NAME", ""),
             eventhub_connection_string=e.get("EVENTHUB_CONNECTION_STRING", ""),
             eventhub_name=e.get("EVENTHUB_NAME", ""),
+            eventhub_auth=(e.get("EVENTHUB_AUTH", "") or "key").lower(),
+            eventhub_namespace=e.get("EVENTHUB_NAMESPACE", ""),
             split_batches=_bool(e.get("BRIDGE_SPLIT_BATCHES"), True),
             health_port=int(e.get("HEALTH_PORT", "8080")),
             log_level=e.get("LOG_LEVEL", "INFO").upper(),
@@ -123,6 +130,19 @@ class BridgeConfig:
     def subscription_name(self, topic: str) -> str:
         """Unique durable subscription name per feed (activemq.subscriptionName)."""
         return f"{self.subscription_prefix}-{topic}"
+
+    @property
+    def eventhub_fqdn(self) -> str:
+        """EVENTHUB_NAMESPACE as a fully qualified name (a bare namespace name gets .servicebus.windows.net)."""
+        ns = self.eventhub_namespace.strip()
+        if ns.startswith("sb://"):
+            ns = ns[len("sb://"):]
+        ns = ns.rstrip("/")
+        return ns if (not ns or "." in ns) else f"{ns}.servicebus.windows.net"
+
+    @property
+    def uses_entra(self) -> bool:
+        return self.sink == "eventhub" and self.eventhub_auth == "entra"
 
     def sink_target(self) -> tuple[str, str]:
         """(connection string, entity name) for the Event Hubs-protocol sinks.
@@ -164,7 +184,14 @@ class BridgeConfig:
                 errors.append("KAFKA_MAX_BATCH must be >= 1")
         if self.sink == "eventstream" and not self.eventstream_connection_string:
             errors.append("EVENTSTREAM_CONNECTION_STRING is required for BRIDGE_SINK=eventstream")
-        if self.sink == "eventhub" and not self.sink_target()[0]:
+        if self.eventhub_auth not in ("key", "entra"):
+            errors.append("EVENTHUB_AUTH must be 'key' or 'entra'")
+        if self.uses_entra:
+            if not self.eventhub_namespace:
+                errors.append("EVENTHUB_NAMESPACE is required for EVENTHUB_AUTH=entra")
+            if not self.eventhub_name:
+                errors.append("EVENTHUB_NAME (nrod-feed or rdm-trust) is required for EVENTHUB_AUTH=entra")
+        elif self.sink == "eventhub" and not self.sink_target()[0]:
             errors.append(
                 "EVENTHUB_CONNECTION_STRING is required for BRIDGE_SINK=eventhub "
                 "(the NROD bridge also accepts EVENTSTREAM_CONNECTION_STRING; the Kafka relay does not)"

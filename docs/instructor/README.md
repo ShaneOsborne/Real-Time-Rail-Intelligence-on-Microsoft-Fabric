@@ -36,10 +36,10 @@ Follow these in order. Several pages ask you to run a **solo** page yourself, th
 | [Instructor 1.1 – Prepare](1.1-prepare.md) | Accounts, tenant settings for the student group, capacity sizing, shared Foundry project | [Solo 1.1](../solo/1.1-prerequisites.md) | 60 min (+ approval wait) |
 | [Instructor 1.2 – Workspace and reference data](1.2-workspace-and-reference-data.md) | Your workspace, the reference Lakehouse, sharing it with students | [Solo 1.2](../solo/1.2-fabric-workspace.md), [Solo 1.3](../solo/1.3-reference-data.md) (Option A2) | 50 min |
 | [Instructor 1.3 – Bridge](1.3-bridge.md) | Test the bridge locally, then deploy it to Azure | [Solo 1.6](../solo/1.6-bridge-local.md), [Solo 1.7](../solo/1.7-bridge-azure.md) | 70 min |
-| [Instructor 1.4 – Shared Event Hub](1.4-shared-event-hub.md) | Event Hubs namespace, consumer groups, RDM relay: **the feed for the class** | – | 30 min |
+| [Instructor 1.4 – Shared Event Hub](1.4-shared-event-hub.md) | Event Hubs namespace, consumer groups, RDM relay: **the feed for the class** (key sign-in, or workspace identity if a policy blocks keys) | – | 30 min |
 | [Instructor 1.5 – Student workspaces and handout](1.5-student-workspaces-and-handout.md) | Student workspaces, Foundry access, the handout, a dry run as a student | [Student 1.1–1.4](../student/README.md) (dry run) | 30 min |
 | [Instructor 1.6 – Running the class](1.6-running-the-class.md) | Capacity watch, common student problems, overnight pause | – | – |
-| [Instructor 1.7 – After the class](1.7-after-the-class.md) | Keys, Event Hub, Foundry roles, your own clean-up | [Lab 2.10](../build/2.10-cleanup.md) | 15 min |
+| [Instructor 1.7 – After the class](1.7-after-the-class.md) | Keys (or workspace identity roles), Event Hub, Foundry roles, your own clean-up | [Lab 2.10](../build/2.10-cleanup.md) | 15 min |
 
 Students follow [the student path](../student/README.md): Student 1.1–1.4, then Part 2.
 

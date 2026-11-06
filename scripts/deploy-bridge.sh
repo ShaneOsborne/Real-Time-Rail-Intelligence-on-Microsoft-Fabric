@@ -8,6 +8,9 @@
 #   DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
 # Subscriptions whose policy blocks public access to Key Vault:
 #   SECRETS_SOURCE=inline   -> store the secrets as encrypted Container Apps secrets instead of Key Vault references
+# Event Hubs namespaces whose policy disables key (shared access) sign-in:
+#   EVENTHUB_AUTH=entra     -> the bridge/relay sign in to the shared Event Hub with their managed identity
+#                              (Azure Event Hubs Data Sender on EVENTHUB_NAMESPACE); no Event Hub connection strings
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
@@ -17,15 +20,21 @@ BRIDGE_TARGET="${BRIDGE_TARGET:-eventstream}"
 DEPLOY_RDM_RELAY="${DEPLOY_RDM_RELAY:-false}"
 SECRETS_SOURCE="${SECRETS_SOURCE:-keyvault}"
 case "$SECRETS_SOURCE" in keyvault|inline) ;; *) echo "ERROR: SECRETS_SOURCE must be 'keyvault' or 'inline'" >&2; exit 1 ;; esac
+EVENTHUB_AUTH="${EVENTHUB_AUTH:-key}"
+case "$EVENTHUB_AUTH" in key|entra) ;; *) echo "ERROR: EVENTHUB_AUTH must be 'key' or 'entra'" >&2; exit 1 ;; esac
+# Event Hub connection strings are only needed with key sign-in
+EH_KEYS=false; [[ "$EVENTHUB_AUTH" == "key" ]] && EH_KEYS=true
 case "$BRIDGE_TARGET" in
   eventstream) require AZ_RESOURCE_GROUP AZ_LOCATION NROD_USERNAME NROD_PASSWORD EVENTSTREAM_CONNECTION_STRING ;;
   eventhub)    require AZ_RESOURCE_GROUP AZ_LOCATION NROD_USERNAME NROD_PASSWORD
-               [[ "$SECRETS_SOURCE" == "inline" ]] && require EVENTHUB_CONNECTION_STRING ;;
+               [[ "$SECRETS_SOURCE" == "inline" && "$EH_KEYS" == "true" ]] && require EVENTHUB_CONNECTION_STRING
+               [[ "$EH_KEYS" == "false" ]] && require EVENTHUB_NAMESPACE ;;
   *) echo "ERROR: BRIDGE_TARGET must be 'eventstream' or 'eventhub'" >&2; exit 1 ;;
 esac
 if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
   require RDM_KAFKA_BOOTSTRAP_SERVERS RDM_KAFKA_TOPIC RDM_KAFKA_CONSUMER_GROUP RDM_KAFKA_USERNAME RDM_KAFKA_PASSWORD
-  [[ "$SECRETS_SOURCE" == "inline" ]] && require EVENTHUB_RDM_CONNECTION_STRING
+  [[ "$SECRETS_SOURCE" == "inline" && "$EH_KEYS" == "true" ]] && require EVENTHUB_RDM_CONNECTION_STRING
+  [[ "$EH_KEYS" == "false" ]] && require EVENTHUB_NAMESPACE
   # The relay feeds rdm-trust -> RdmTrustRaw, which expects NWR Train Movements (TRUST). Darwin has its own path (Solo 1.5).
   topic_lc="$(printf '%s' "$RDM_KAFKA_TOPIC" | tr '[:upper:]' '[:lower:]')"
   if [[ "$topic_lc" == *darwin* || "$topic_lc" == *push-port* || "$topic_lc" == *pushport* ]] && [[ "${ALLOW_DARWIN_RELAY:-false}" != "true" ]]; then
@@ -68,6 +77,7 @@ common_params=(
                keyVaultName="${KEY_VAULT_NAME:-}" bridgeTarget="$BRIDGE_TARGET" deployRdmRelay="$DEPLOY_RDM_RELAY"
                rdmKafkaBootstrapServers="${RDM_KAFKA_BOOTSTRAP_SERVERS:-}" rdmKafkaTopic="${RDM_KAFKA_TOPIC:-}"
                rdmKafkaConsumerGroup="${RDM_KAFKA_CONSUMER_GROUP:-}" secretsSource="$SECRETS_SOURCE"
+               eventhubAuth="$EVENTHUB_AUTH" eventhubNamespace="${EVENTHUB_NAMESPACE:-}"
 )
 
 if [[ "$WHAT_IF" == "--what-if" ]]; then
@@ -89,7 +99,7 @@ if [[ "$SECRETS_SOURCE" == "inline" ]]; then
   SECRETS_ARG="$SECRETS_FILE"; command -v cygpath >/dev/null 2>&1 && SECRETS_ARG="$(cygpath -m "$SECRETS_FILE")"
   PY="$(command -v python3 || command -v python || true)"
   [[ -n "$PY" ]] || { echo "ERROR: SECRETS_SOURCE=inline needs Python on the PATH (activate the .venv)" >&2; exit 1; }
-  if [[ "$BRIDGE_TARGET" == "eventhub" ]]; then BRIDGE_CS="$EVENTHUB_CONNECTION_STRING"; else BRIDGE_CS="$EVENTSTREAM_CONNECTION_STRING"; fi
+  if [[ "$BRIDGE_TARGET" == "eventhub" ]]; then BRIDGE_CS="${EVENTHUB_CONNECTION_STRING:-}"; else BRIDGE_CS="${EVENTSTREAM_CONNECTION_STRING:-}"; fi
   BRIDGE_CS="$BRIDGE_CS" "$PY" - "$SECRETS_ARG" <<'PYEOF'
 import json, os, sys
 v = lambda k: os.environ.get(k, "")
@@ -127,14 +137,14 @@ require_secret() {
 set_secret nrod-username "$NROD_USERNAME"
 set_secret nrod-password "$NROD_PASSWORD"
 if [[ "$BRIDGE_TARGET" == "eventhub" ]]; then
-  require_secret eventhub-nrod-connection-string
+  [[ "$EH_KEYS" == "true" ]] && require_secret eventhub-nrod-connection-string
 else
   set_secret eventstream-connection-string "$EVENTSTREAM_CONNECTION_STRING"
 fi
 if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
   set_secret rdm-kafka-username "$RDM_KAFKA_USERNAME"
   set_secret rdm-kafka-password "$RDM_KAFKA_PASSWORD"
-  require_secret eventhub-rdm-connection-string
+  [[ "$EH_KEYS" == "true" ]] && require_secret eventhub-rdm-connection-string
 fi
 
 fi
@@ -171,9 +181,29 @@ restart_app() {
     fi
   done
 }
-log "Restarting the apps so the latest secrets are used"
+# A deployment doesn't start an app that someone stopped (portal Stop / az containerapp stop). Start it again.
+# Uses the REST API because older az CLI versions have no 'az containerapp start'.
+start_if_stopped() {
+  local app="$1" id status
+  status="$(az containerapp show -g "$AZ_RESOURCE_GROUP" -n "$app" --query properties.runningStatus -o tsv 2>/dev/null | tr -d '\r')"
+  if [[ "$status" == "Stopped" ]]; then
+    id="$(az containerapp show -g "$AZ_RESOURCE_GROUP" -n "$app" --query id -o tsv | tr -d '\r')"
+    if MSYS_NO_PATHCONV=1 az rest --method post --url "https://management.azure.com${id}/start?api-version=2024-03-01" -o none; then
+      echo "  started $app (it was stopped)"
+    else
+      echo "  WARNING: $app is stopped and could not be started. Start it in the portal: Container App > Overview > Start" >&2
+    fi
+  fi
+}
+log "Starting stopped apps and restarting running ones so the latest secrets and settings are used"
+start_if_stopped "$APP_NAME"
+[[ -n "$RELAY_NAME" ]] && start_if_stopped "$RELAY_NAME"
 restart_app "$APP_NAME"
 [[ -n "$RELAY_NAME" ]] && restart_app "$RELAY_NAME"
+if [[ "$EH_KEYS" == "false" ]]; then
+  echo "  Entra ID sign-in: the apps' identity has 'Azure Event Hubs Data Sender' on $EVENTHUB_NAMESPACE."
+  echo "  A new role assignment can take a few minutes; until then the logs show 'sink send failed' and the app retries."
+fi
 
 log "Done. Container app: $APP_NAME${RELAY_NAME:+ (RDM relay: $RELAY_NAME)}"
 cat <<MSG

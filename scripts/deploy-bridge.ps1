@@ -6,6 +6,8 @@
     DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
   Subscriptions whose policy blocks public access to Key Vault:
     SECRETS_SOURCE=inline   -> store the secrets as encrypted Container Apps secrets instead of Key Vault references
+  Event Hubs namespaces whose policy disables key (shared access) sign-in:
+    EVENTHUB_AUTH=entra     -> the bridge/relay sign in with their managed identity (Azure Event Hubs Data Sender)
 .EXAMPLE
   ./scripts/deploy-bridge.ps1
   ./scripts/deploy-bridge.ps1 -WhatIf
@@ -18,17 +20,22 @@ $target = if ($env:BRIDGE_TARGET) { $env:BRIDGE_TARGET } else { 'eventstream' }
 $deployRelay = if ($env:DEPLOY_RDM_RELAY -eq 'true') { 'true' } else { 'false' }
 $secretsSource = if ($env:SECRETS_SOURCE) { $env:SECRETS_SOURCE } else { 'keyvault' }
 if ($secretsSource -notin @('keyvault', 'inline')) { throw "SECRETS_SOURCE must be 'keyvault' or 'inline'" }
+$ehAuth = if ($env:EVENTHUB_AUTH) { $env:EVENTHUB_AUTH } else { 'key' }
+if ($ehAuth -notin @('key', 'entra')) { throw "EVENTHUB_AUTH must be 'key' or 'entra'" }
+$ehKeys = $ehAuth -eq 'key'   # Event Hub connection strings are only needed with key sign-in
 switch ($target) {
     'eventstream' { Assert-Env @('AZ_RESOURCE_GROUP', 'AZ_LOCATION', 'NROD_USERNAME', 'NROD_PASSWORD', 'EVENTSTREAM_CONNECTION_STRING') }
     'eventhub' {
         Assert-Env @('AZ_RESOURCE_GROUP', 'AZ_LOCATION', 'NROD_USERNAME', 'NROD_PASSWORD')
-        if ($secretsSource -eq 'inline') { Assert-Env @('EVENTHUB_CONNECTION_STRING') }
+        if ($secretsSource -eq 'inline' -and $ehKeys) { Assert-Env @('EVENTHUB_CONNECTION_STRING') }
+        if (-not $ehKeys) { Assert-Env @('EVENTHUB_NAMESPACE') }
     }
     default { throw "BRIDGE_TARGET must be 'eventstream' or 'eventhub'" }
 }
 if ($deployRelay -eq 'true') {
     Assert-Env @('RDM_KAFKA_BOOTSTRAP_SERVERS', 'RDM_KAFKA_TOPIC', 'RDM_KAFKA_CONSUMER_GROUP', 'RDM_KAFKA_USERNAME', 'RDM_KAFKA_PASSWORD')
-    if ($secretsSource -eq 'inline') { Assert-Env @('EVENTHUB_RDM_CONNECTION_STRING') }
+    if ($secretsSource -eq 'inline' -and $ehKeys) { Assert-Env @('EVENTHUB_RDM_CONNECTION_STRING') }
+    if (-not $ehKeys) { Assert-Env @('EVENTHUB_NAMESPACE') }
     # The relay feeds rdm-trust -> RdmTrustRaw, which expects NWR Train Movements (TRUST). Darwin has its own path (Solo 1.5).
     if ($env:RDM_KAFKA_TOPIC -match '(?i)darwin|push-?port' -and $env:ALLOW_DARWIN_RELAY -ne 'true') {
         throw ("RDM_KAFKA_TOPIC looks like the Darwin Push Port topic: $($env:RDM_KAFKA_TOPIC). The RDM relay sends to rdm-trust " +
@@ -68,7 +75,8 @@ $common = @(
     "nrodTopics=$topics", "deployerPrincipalId=$deployerId", "deployerPrincipalType=$deployerType",
     "keyVaultName=$($env:KEY_VAULT_NAME)", "bridgeTarget=$target", "deployRdmRelay=$deployRelay",
     "rdmKafkaBootstrapServers=$($env:RDM_KAFKA_BOOTSTRAP_SERVERS)", "rdmKafkaTopic=$($env:RDM_KAFKA_TOPIC)",
-    "rdmKafkaConsumerGroup=$($env:RDM_KAFKA_CONSUMER_GROUP)", "secretsSource=$secretsSource"
+    "rdmKafkaConsumerGroup=$($env:RDM_KAFKA_CONSUMER_GROUP)", "secretsSource=$secretsSource",
+    "eventhubAuth=$ehAuth", "eventhubNamespace=$($env:EVENTHUB_NAMESPACE)"
 )
 
 if ($WhatIf) { Invoke-Az deployment group what-if @common --parameters deployApp=false; return }
@@ -115,12 +123,12 @@ else {
     }
     Set-KvSecret 'nrod-username' $env:NROD_USERNAME
     Set-KvSecret 'nrod-password' $env:NROD_PASSWORD
-    if ($target -eq 'eventhub') { Assert-KvSecret 'eventhub-nrod-connection-string' }
+    if ($target -eq 'eventhub') { if ($ehKeys) { Assert-KvSecret 'eventhub-nrod-connection-string' } }
     else { Set-KvSecret 'eventstream-connection-string' $env:EVENTSTREAM_CONNECTION_STRING }
     if ($deployRelay -eq 'true') {
         Set-KvSecret 'rdm-kafka-username' $env:RDM_KAFKA_USERNAME
         Set-KvSecret 'rdm-kafka-password' $env:RDM_KAFKA_PASSWORD
-        Assert-KvSecret 'eventhub-rdm-connection-string'
+        if ($ehKeys) { Assert-KvSecret 'eventhub-rdm-connection-string' }
     }
 }
 
@@ -159,9 +167,25 @@ function Restart-App([string]$Name) {
         else { Write-Warning "Could not restart $Name ($rev). Restart it in the portal: Container App > Revisions and replicas > Restart" }
     }
 }
-Write-Step 'Restarting the apps so the latest secrets are used'
+# A deployment doesn't start an app that someone stopped. Start it again (REST API: older az CLI has no 'containerapp start').
+function Start-IfStopped([string]$Name) {
+    $status = az containerapp show -g $rg -n $Name --query properties.runningStatus -o tsv 2>$null
+    if ($status -eq 'Stopped') {
+        $id = az containerapp show -g $rg -n $Name --query id -o tsv
+        az rest --method post --url "https://management.azure.com$id/start?api-version=2024-03-01" -o none
+        if ($LASTEXITCODE -eq 0) { Write-Host "  started $Name (it was stopped)" }
+        else { Write-Warning "$Name is stopped and could not be started. Start it in the portal: Container App > Overview > Start" }
+    }
+}
+Write-Step 'Starting stopped apps and restarting running ones so the latest secrets and settings are used'
+Start-IfStopped $app
+if ($relay) { Start-IfStopped $relay }
 Restart-App $app
 if ($relay) { Restart-App $relay }
+if (-not $ehKeys) {
+    Write-Host "  Entra ID sign-in: the apps' identity has 'Azure Event Hubs Data Sender' on $($env:EVENTHUB_NAMESPACE)."
+    Write-Host "  A new role assignment can take a few minutes; until then the logs show 'sink send failed' and the app retries."
+}
 
 Write-Step "Done. Container app: $app"
 Write-Host "Logs:     az containerapp logs show -g $rg -n $app --follow --format text"

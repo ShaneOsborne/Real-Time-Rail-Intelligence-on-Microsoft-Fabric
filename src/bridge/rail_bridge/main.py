@@ -15,7 +15,7 @@ from . import __version__
 from .config import VALID_SINKS, VALID_SOURCES, BridgeConfig
 from .health import BridgeState, start_health_server
 from .kafka_relay import run_kafka
-from .sinks import build_sink
+from .sinks import build_sink, entra_credential
 from .stomp_client import run_replay, run_stomp
 
 _RESERVED = set(vars(logging.LogRecord("", 0, "", 0, "", (), None)).keys()) | {"message", "asctime"}
@@ -108,8 +108,15 @@ def main(argv: list[str] | None = None) -> int:
 
     state = BridgeState(stale_after_s=cfg.stale_after_s)
     server = start_health_server(state, cfg.health_port)
-    connection_string, entity_name = cfg.sink_target()
-    sink = build_sink(cfg.sink, cfg.output_file, connection_string, entity_name)
+    if cfg.uses_entra:
+        log.info("event hub auth: Microsoft Entra ID", extra={"namespace": cfg.eventhub_fqdn, "eventhub": cfg.eventhub_name})
+        sink = build_sink(
+            cfg.sink, cfg.output_file, entity_name=cfg.eventhub_name,
+            fully_qualified_namespace=cfg.eventhub_fqdn, credential=entra_credential(),
+        )
+    else:
+        connection_string, entity_name = cfg.sink_target()
+        sink = build_sink(cfg.sink, cfg.output_file, connection_string, entity_name)
     def _status_loop() -> None:
         # One INFO line every status_interval_s: proves the bridge is alive in Log Analytics even when the feed is quiet.
         while not stop.wait(cfg.status_interval_s):
