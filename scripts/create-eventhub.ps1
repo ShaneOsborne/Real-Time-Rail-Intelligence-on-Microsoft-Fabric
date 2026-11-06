@@ -11,6 +11,8 @@
   Optional .env: EVENTHUB_NAMESPACE, EVENTHUB_THROUGHPUT_UNITS, EVENTHUB_RETENTION_DAYS,
   STUDENT_CONSUMER_GROUP_PREFIX, STUDENT_CONSUMER_GROUP_COUNT, KEY_VAULT_NAME, NAME_PREFIX,
   SECRETS_SOURCE (keyvault | inline).
+  With DEPLOY_DARWIN_RELAY=true it also creates the rdm-darwin hub (and its send connection string) for the optional
+  class Darwin feed (Student 1.5). Darwin is much busier than TRUST: use EVENTHUB_THROUGHPUT_UNITS=2 or more for a class.
 .EXAMPLE
   ./scripts/create-eventhub.ps1
   ./scripts/create-eventhub.ps1 -WhatIf
@@ -37,6 +39,13 @@ $days = if ($env:EVENTHUB_RETENTION_DAYS) { $env:EVENTHUB_RETENTION_DAYS } else 
 $cgPrefix = if ($env:STUDENT_CONSUMER_GROUP_PREFIX) { $env:STUDENT_CONSUMER_GROUP_PREFIX } else { 'student' }
 $nrodHub = 'nrod-feed'
 $rdmHub = 'rdm-trust'
+$darwinHub = 'rdm-darwin'
+$darwin = if ($env:DEPLOY_DARWIN_RELAY -eq 'true') { 'true' } else { 'false' }
+if ($darwin -eq 'true' -and $tu -eq '1') {
+    Write-Warning 'DEPLOY_DARWIN_RELAY=true with 1 throughput unit. Darwin is much busier than TRUST, and every student reads every event, so a class usually needs EVENTHUB_THROUGHPUT_UNITS=2 or more (Instructor 1.4, Classroom sizing).'
+}
+$darwinLine = if ($darwin -eq 'true') { "   $darwinHub (-> RdmDarwinRaw, optional Student 1.5)" } else { '' }
+$darwinFlag = if ($darwin -eq 'true') { ' and DEPLOY_DARWIN_RELAY=true' } else { '' }
 $rg = $env:AZ_RESOURCE_GROUP
 if ($env:AZ_SUBSCRIPTION_ID) { Invoke-Az account set --subscription $env:AZ_SUBSCRIPTION_ID }
 
@@ -44,7 +53,8 @@ $ehParams = @(
     '--resource-group', $rg,
     '--template-file', (Join-Path $script:RepoRoot 'infra/eventhubs.bicep'),
     '--parameters', "location=$($env:AZ_LOCATION)", "namePrefix=$prefix", "namespaceName=$($env:EVENTHUB_NAMESPACE)",
-    "throughputUnits=$tu", "retentionDays=$days", "nrodHubName=$nrodHub", "rdmHubName=$rdmHub"
+    "throughputUnits=$tu", "retentionDays=$days", "nrodHubName=$nrodHub", "rdmHubName=$rdmHub",
+    "darwinHub=$darwin", "darwinHubName=$darwinHub"
 )
 
 Write-Step "Resource group $rg ($($env:AZ_LOCATION))"
@@ -77,7 +87,8 @@ else {
     Write-Step 'EVENTHUB_AUTH=entra: no keys - Key Vault and connection strings skipped'
 }
 
-Write-Step "Event Hubs Standard namespace, hubs $nrodHub + $rdmHub, SAS rules (infra/eventhubs.bicep)"
+$hubList = if ($darwin -eq 'true') { "$nrodHub + $rdmHub + $darwinHub" } else { "$nrodHub + $rdmHub" }
+Write-Step "Event Hubs Standard namespace, hubs $hubList, SAS rules (infra/eventhubs.bicep)"
 Invoke-Az deployment group create -n shared-eventhubs @ehParams -o none
 $ns = az deployment group show -g $rg -n shared-eventhubs --query properties.outputs.namespaceName.value -o tsv
 
@@ -122,17 +133,20 @@ if ($mode -eq 'entra') {
 else {
     $nrodCs = Get-SendConnectionString $nrodHub
     $rdmCs = Get-SendConnectionString $rdmHub
+    $darwinCs = if ($darwin -eq 'true') { Get-SendConnectionString $darwinHub } else { '' }
 }
 if ($mode -eq 'keyvault') {
     Write-Step "Writing send connection strings to Key Vault $kv (retrying while RBAC propagates)"
     Set-KvSecret 'eventhub-nrod-connection-string' $nrodCs
     Set-KvSecret 'eventhub-rdm-connection-string' $rdmCs
+    if ($darwin -eq 'true') { Set-KvSecret 'eventhub-darwin-connection-string' $darwinCs }
 }
 elseif ($mode -eq 'inline') {
     Write-Step 'Writing the namespace and send connection strings to .env (keep .env private; never commit it)'
     Set-DotEnvValue 'EVENTHUB_NAMESPACE' $ns
     Set-DotEnvValue 'EVENTHUB_CONNECTION_STRING' $nrodCs
     Set-DotEnvValue 'EVENTHUB_RDM_CONNECTION_STRING' $rdmCs
+    if ($darwin -eq 'true') { Set-DotEnvValue 'EVENTHUB_DARWIN_CONNECTION_STRING' $darwinCs }
 }
 
 $cgCount = 0
@@ -150,7 +164,7 @@ if ($mode -eq 'entra') {
     Write-Host @"
 
 Done. .env now has EVENTHUB_NAMESPACE=$ns and EVENTHUB_AUTH=entra.
-Then point the Azure apps at the hub (Solo 1.7): set EVENTHUB_AUTH=entra, BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true
+Then point the Azure apps at the hub (Solo 1.7): set EVENTHUB_AUTH=entra, BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true$darwinFlag
 in .env (plus SECRETS_SOURCE=inline if Key Vault is blocked by policy), then ./scripts/deploy-bridge.ps1
 Their managed identity gets 'Azure Event Hubs Data Sender'.
 
@@ -161,7 +175,7 @@ Students (and you, for your own workspace) connect with WORKSPACE IDENTITY - no 
        ./scripts/grant-eventhub-reader.ps1 -Id '<ID>','<another ID>'
   3. Eventstream > Azure Event Hubs source:
        Event Hub namespace : $ns
-       Event hubs          : $nrodHub (-> RawFeed)   $rdmHub (-> RdmTrustRaw)
+       Event hubs          : $nrodHub (-> RawFeed)   $rdmHub (-> RdmTrustRaw)$darwinLine
        Authentication kind : Workspace identity
        Consumer group      : their own, e.g. $($cgPrefix)01 (never `$Default, never shared)
        Data format         : JSON
@@ -177,11 +191,11 @@ $listenKey = if ($HideKey) {
 
 $nextSteps = if ($SecretsSource -eq 'inline') {
     "Done. .env now has EVENTHUB_NAMESPACE, EVENTHUB_CONNECTION_STRING and EVENTHUB_RDM_CONNECTION_STRING.`n" +
-    "Then point the Azure apps at the hub (Solo 1.7): set SECRETS_SOURCE=inline, BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true in .env, then`n" +
+    "Then point the Azure apps at the hub (Solo 1.7): set SECRETS_SOURCE=inline, BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true$darwinFlag in .env, then`n" +
     "  ./scripts/deploy-bridge.ps1"
 } else {
     "Done. Add to .env:`n  EVENTHUB_NAMESPACE=$ns`n" +
-    "Then point the Azure apps at the hub (Solo 1.7): set BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true in .env, then`n" +
+    "Then point the Azure apps at the hub (Solo 1.7): set BRIDGE_TARGET=eventhub and DEPLOY_RDM_RELAY=true$darwinFlag in .env, then`n" +
     "  ./scripts/deploy-bridge.ps1"
 }
 
@@ -191,7 +205,7 @@ $nextSteps
 
 Share with students over a private channel (never in a public repo or chat) - Eventstream > Azure Event Hubs source:
   Event Hub namespace : $ns
-  Event hubs          : $nrodHub (-> RawFeed)   $rdmHub (-> RdmTrustRaw)
+  Event hubs          : $nrodHub (-> RawFeed)   $rdmHub (-> RdmTrustRaw)$darwinLine
   Authentication      : Shared Access Key
   Key name            : students-listen
   Key                 : $listenKey

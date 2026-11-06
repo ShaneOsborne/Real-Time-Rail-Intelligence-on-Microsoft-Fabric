@@ -12,6 +12,8 @@
 # EVENTHUB_NAMESPACE and EVENTHUB_AUTH=entra into .env. Students' Eventstreams then use workspace identity.
 #   EVENTHUB_AUTH=entra ./scripts/create-eventhub.sh
 #   ./scripts/create-eventhub.sh --what-if
+# With DEPLOY_DARWIN_RELAY=true it also creates the rdm-darwin hub (and its send connection string) for the optional
+# class Darwin feed (Student 1.5). Darwin is much busier than TRUST: use EVENTHUB_THROUGHPUT_UNITS=2 or more for a class.
 #   ./scripts/create-eventhub.sh --hide-key     # don't print the students' Listen key
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP and AZ_LOCATION.
 # Optional .env: EVENTHUB_NAMESPACE, EVENTHUB_THROUGHPUT_UNITS, EVENTHUB_RETENTION_DAYS,
@@ -41,6 +43,12 @@ case "$EVENTHUB_AUTH" in key|entra) ;; *) echo "ERROR: EVENTHUB_AUTH must be 'ke
 MODE="$SECRETS_SOURCE"; [[ "$EVENTHUB_AUTH" == "entra" ]] && MODE=entra
 NROD_HUB=nrod-feed
 RDM_HUB=rdm-trust
+DARWIN_HUB=rdm-darwin
+DARWIN=false; [[ "${DEPLOY_DARWIN_RELAY:-false}" == "true" ]] && DARWIN=true
+if [[ "$DARWIN" == "true" && "${EVENTHUB_THROUGHPUT_UNITS:-1}" == "1" ]]; then
+  echo "NOTE: DEPLOY_DARWIN_RELAY=true with 1 throughput unit. Darwin is much busier than TRUST, and every student reads every" >&2
+  echo "      event, so a class usually needs EVENTHUB_THROUGHPUT_UNITS=2 or more (Instructor 1.4, Classroom sizing)." >&2
+fi
 [[ -n "${AZ_SUBSCRIPTION_ID:-}" ]] && az account set --subscription "$AZ_SUBSCRIPTION_ID"
 
 eh_params=(
@@ -48,7 +56,7 @@ eh_params=(
   --template-file "$REPO_ROOT/infra/eventhubs.bicep"
   --parameters location="$AZ_LOCATION" namePrefix="$NAME_PREFIX" namespaceName="${EVENTHUB_NAMESPACE:-}"
                throughputUnits="${EVENTHUB_THROUGHPUT_UNITS:-1}" retentionDays="${EVENTHUB_RETENTION_DAYS:-7}"
-               nrodHubName="$NROD_HUB" rdmHubName="$RDM_HUB"
+               nrodHubName="$NROD_HUB" rdmHubName="$RDM_HUB" darwinHub="$DARWIN" darwinHubName="$DARWIN_HUB"
 )
 
 log "Resource group $AZ_RESOURCE_GROUP ($AZ_LOCATION)"
@@ -82,7 +90,7 @@ else
   log "EVENTHUB_AUTH=entra: no keys - Key Vault and connection strings skipped"
 fi
 
-log "Event Hubs Standard namespace, hubs $NROD_HUB + $RDM_HUB, SAS rules (infra/eventhubs.bicep)"
+log "Event Hubs Standard namespace, hubs $NROD_HUB + $RDM_HUB$( [[ "$DARWIN" == "true" ]] && echo " + $DARWIN_HUB" ), SAS rules (infra/eventhubs.bicep)"
 az deployment group create -n shared-eventhubs "${eh_params[@]}" -o none
 NS="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n shared-eventhubs --query properties.outputs.namespaceName.value -o tsv)"
 
@@ -133,16 +141,23 @@ else
 NROD_CS="$(send_cs "$NROD_HUB")"
 RDM_CS="$(send_cs "$RDM_HUB")"
 [[ -n "$NROD_CS" && -n "$RDM_CS" ]] || { echo "ERROR: could not read the bridge-send connection strings" >&2; exit 1; }
+DARWIN_CS=""
+if [[ "$DARWIN" == "true" ]]; then
+  DARWIN_CS="$(send_cs "$DARWIN_HUB")"
+  [[ -n "$DARWIN_CS" ]] || { echo "ERROR: could not read the $DARWIN_HUB bridge-send connection string" >&2; exit 1; }
+fi
 fi
 if [[ "$MODE" == "keyvault" ]]; then
   log "Writing send connection strings to Key Vault $KV_NAME (retrying while RBAC propagates)"
   set_secret eventhub-nrod-connection-string "$NROD_CS"
   set_secret eventhub-rdm-connection-string "$RDM_CS"
+  [[ "$DARWIN" == "true" ]] && set_secret eventhub-darwin-connection-string "$DARWIN_CS"
 elif [[ "$MODE" == "inline" ]]; then
   log "Writing the namespace and send connection strings to .env (keep .env private; never commit it)"
   set_env_var EVENTHUB_NAMESPACE "$NS"
   set_env_var EVENTHUB_CONNECTION_STRING "$NROD_CS"
   set_env_var EVENTHUB_RDM_CONNECTION_STRING "$RDM_CS"
+  [[ "$DARWIN" == "true" ]] && set_env_var EVENTHUB_DARWIN_CONNECTION_STRING "$DARWIN_CS"
 fi
 
 if [[ "${STUDENT_CONSUMER_GROUP_COUNT:-0}" =~ ^[1-9][0-9]*$ ]]; then
@@ -154,12 +169,17 @@ else
   echo "Add them now with: ./scripts/add-student-consumer-groups.sh --namespace $NS --prefix ${STUDENT_CONSUMER_GROUP_PREFIX:-student} --count N"
 fi
 
+DARWIN_LINE=""; DARWIN_FLAG=""
+if [[ "$DARWIN" == "true" ]]; then
+  DARWIN_LINE="   $DARWIN_HUB (-> RdmDarwinRaw, optional Student 1.5)"
+  DARWIN_FLAG=" DEPLOY_DARWIN_RELAY=true"
+fi
 if [[ "$MODE" == "entra" ]]; then
   cat <<MSG
 
 Done. .env now has EVENTHUB_NAMESPACE=$NS and EVENTHUB_AUTH=entra.
 Then point the Azure apps at the hub (Solo 1.7). Their managed identity gets 'Azure Event Hubs Data Sender':
-  EVENTHUB_AUTH=entra BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
+  EVENTHUB_AUTH=entra BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true$DARWIN_FLAG ./scripts/deploy-bridge.sh
   (add SECRETS_SOURCE=inline as well if Key Vault is blocked by policy - it still holds the NROD and RDM credentials)
 
 Students (and you, for your own workspace) connect with WORKSPACE IDENTITY - no key to share:
@@ -169,7 +189,7 @@ Students (and you, for your own workspace) connect with WORKSPACE IDENTITY - no 
        ./scripts/grant-eventhub-reader.sh --id <ID> [--id <another ID> ...]
   3. Eventstream > Azure Event Hubs source:
        Event Hub namespace : $NS
-       Event hubs          : $NROD_HUB (-> RawFeed)   $RDM_HUB (-> RdmTrustRaw)
+       Event hubs          : $NROD_HUB (-> RawFeed)   $RDM_HUB (-> RdmTrustRaw)$DARWIN_LINE
        Authentication kind : Workspace identity
        Consumer group      : their own, e.g. ${STUDENT_CONSUMER_GROUP_PREFIX:-student}01 (never \$Default, never shared)
        Data format         : JSON
@@ -185,14 +205,14 @@ else
 fi
 
 if [[ "$SECRETS_SOURCE" == "inline" ]]; then
-  NEXT_STEPS="Done. .env now has EVENTHUB_NAMESPACE, EVENTHUB_CONNECTION_STRING and EVENTHUB_RDM_CONNECTION_STRING.
+  NEXT_STEPS="Done. .env now has EVENTHUB_NAMESPACE, EVENTHUB_CONNECTION_STRING and EVENTHUB_RDM_CONNECTION_STRING${DARWIN_FLAG:+ (and EVENTHUB_DARWIN_CONNECTION_STRING)}.
 Then point the Azure apps at the hub (Solo 1.7), keeping the inline choice:
-  SECRETS_SOURCE=inline BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh"
+  SECRETS_SOURCE=inline BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true$DARWIN_FLAG ./scripts/deploy-bridge.sh"
 else
   NEXT_STEPS="Done. Add to .env:
   EVENTHUB_NAMESPACE=$NS
 Then point the Azure apps at the hub (Solo 1.7):
-  BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh"
+  BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true$DARWIN_FLAG ./scripts/deploy-bridge.sh"
 fi
 
 cat <<MSG
@@ -201,7 +221,7 @@ $NEXT_STEPS
 
 Share with students over a private channel (never in a public repo or chat) - Eventstream > Azure Event Hubs source:
   Event Hub namespace : $NS
-  Event hubs          : $NROD_HUB (-> RawFeed)   $RDM_HUB (-> RdmTrustRaw)
+  Event hubs          : $NROD_HUB (-> RawFeed)   $RDM_HUB (-> RdmTrustRaw)$DARWIN_LINE
   Authentication      : Shared Access Key
   Key name            : students-listen
   Key                 : $LISTEN_KEY

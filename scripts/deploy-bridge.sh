@@ -6,6 +6,7 @@
 # Optional shared Event Hub tier (Instructor 1.4 / Solo 1.8; run scripts/create-eventhub.sh first):
 #   BRIDGE_TARGET=eventhub  -> the bridge uses Key Vault secret eventhub-nrod-connection-string instead
 #   DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
+#   DEPLOY_DARWIN_RELAY=true -> also deploys <prefix>-darwin-relay to the rdm-darwin hub (needs DARWIN_KAFKA_* in .env, Student 1.5)
 # Subscriptions whose policy blocks public access to Key Vault:
 #   SECRETS_SOURCE=inline   -> store the secrets as encrypted Container Apps secrets instead of Key Vault references
 # Event Hubs namespaces whose policy disables key (shared access) sign-in:
@@ -18,6 +19,7 @@ need_cmd az
 WHAT_IF="${1:-}"
 BRIDGE_TARGET="${BRIDGE_TARGET:-eventstream}"
 DEPLOY_RDM_RELAY="${DEPLOY_RDM_RELAY:-false}"
+DEPLOY_DARWIN_RELAY="${DEPLOY_DARWIN_RELAY:-false}"
 SECRETS_SOURCE="${SECRETS_SOURCE:-keyvault}"
 case "$SECRETS_SOURCE" in keyvault|inline) ;; *) echo "ERROR: SECRETS_SOURCE must be 'keyvault' or 'inline'" >&2; exit 1 ;; esac
 EVENTHUB_AUTH="${EVENTHUB_AUTH:-key}"
@@ -41,7 +43,26 @@ if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
     echo "ERROR: RDM_KAFKA_TOPIC looks like the Darwin Push Port topic: $RDM_KAFKA_TOPIC" >&2
     echo "       The RDM relay sends to rdm-trust (RdmTrustRaw), which expects NWR Train Movements. Put the Train Movements" >&2
     echo "       topic, consumer group, username and password in RDM_KAFKA_* (as in your Solo 1.4 Kafka source)." >&2
-    echo "       Darwin keeps its own Eventstream source (Solo 1.5). Set ALLOW_DARWIN_RELAY=true only if you really mean it." >&2
+    echo "       For a class Darwin feed, put the Darwin values in DARWIN_KAFKA_* and set DEPLOY_DARWIN_RELAY=true (Instructor 1.4)." >&2
+    echo "       Set ALLOW_DARWIN_RELAY=true only if you really mean to send Darwin to rdm-trust." >&2
+    exit 1
+  fi
+fi
+if [[ "$DEPLOY_DARWIN_RELAY" == "true" ]]; then
+  require DARWIN_KAFKA_BOOTSTRAP_SERVERS DARWIN_KAFKA_TOPIC DARWIN_KAFKA_CONSUMER_GROUP DARWIN_KAFKA_USERNAME DARWIN_KAFKA_PASSWORD
+  [[ "$SECRETS_SOURCE" == "inline" && "$EH_KEYS" == "true" ]] && require EVENTHUB_DARWIN_CONNECTION_STRING
+  [[ "$EH_KEYS" == "false" ]] && require EVENTHUB_NAMESPACE
+  # The Darwin relay feeds rdm-darwin -> RdmDarwinRaw. Catch Train Movements values pasted into DARWIN_KAFKA_* by mistake.
+  dtopic_lc="$(printf '%s' "$DARWIN_KAFKA_TOPIC" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$dtopic_lc" == *train_mvt* || "$dtopic_lc" == *movement* ]]; then
+    echo "ERROR: DARWIN_KAFKA_TOPIC looks like NWR Train Movements: $DARWIN_KAFKA_TOPIC" >&2
+    echo "       Put the Darwin Real Time Train Information (Push) topic, consumer group, username and password in" >&2
+    echo "       DARWIN_KAFKA_* (from the Darwin product page in RDM, as in Solo 1.5)." >&2
+    exit 1
+  fi
+  if [[ -n "${RDM_KAFKA_CONSUMER_GROUP:-}" && "$DARWIN_KAFKA_CONSUMER_GROUP" == "$RDM_KAFKA_CONSUMER_GROUP" ]]; then
+    echo "ERROR: DARWIN_KAFKA_CONSUMER_GROUP is the same as RDM_KAFKA_CONSUMER_GROUP. Each RDM product has its own" >&2
+    echo "       consumer group: copy the Darwin one from the Darwin product's subscription page." >&2
     exit 1
   fi
 fi
@@ -78,6 +99,8 @@ common_params=(
                rdmKafkaBootstrapServers="${RDM_KAFKA_BOOTSTRAP_SERVERS:-}" rdmKafkaTopic="${RDM_KAFKA_TOPIC:-}"
                rdmKafkaConsumerGroup="${RDM_KAFKA_CONSUMER_GROUP:-}" secretsSource="$SECRETS_SOURCE"
                eventhubAuth="$EVENTHUB_AUTH" eventhubNamespace="${EVENTHUB_NAMESPACE:-}"
+               deployDarwinRelay="$DEPLOY_DARWIN_RELAY" darwinKafkaBootstrapServers="${DARWIN_KAFKA_BOOTSTRAP_SERVERS:-}"
+               darwinKafkaTopic="${DARWIN_KAFKA_TOPIC:-}" darwinKafkaConsumerGroup="${DARWIN_KAFKA_CONSUMER_GROUP:-}"
 )
 
 if [[ "$WHAT_IF" == "--what-if" ]]; then
@@ -108,6 +131,8 @@ params = {
     "bridgeConnectionStringValue": v("BRIDGE_CS"),
     "rdmKafkaUsernameValue": v("RDM_KAFKA_USERNAME"), "rdmKafkaPasswordValue": v("RDM_KAFKA_PASSWORD"),
     "eventhubRdmConnectionStringValue": v("EVENTHUB_RDM_CONNECTION_STRING"),
+    "darwinKafkaUsernameValue": v("DARWIN_KAFKA_USERNAME"), "darwinKafkaPasswordValue": v("DARWIN_KAFKA_PASSWORD"),
+    "eventhubDarwinConnectionStringValue": v("EVENTHUB_DARWIN_CONNECTION_STRING"),
 }
 doc = {"$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentParameters.json#",
        "contentVersion": "1.0.0.0", "parameters": {k: {"value": x} for k, x in params.items()}}
@@ -146,6 +171,11 @@ if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
   set_secret rdm-kafka-password "$RDM_KAFKA_PASSWORD"
   [[ "$EH_KEYS" == "true" ]] && require_secret eventhub-rdm-connection-string
 fi
+if [[ "$DEPLOY_DARWIN_RELAY" == "true" ]]; then
+  set_secret darwin-kafka-username "$DARWIN_KAFKA_USERNAME"
+  set_secret darwin-kafka-password "$DARWIN_KAFKA_PASSWORD"
+  [[ "$EH_KEYS" == "true" ]] && require_secret eventhub-darwin-connection-string
+fi
 
 fi
 
@@ -154,7 +184,7 @@ if [[ "$CREATE_ACR" == "true" ]]; then
   az acr build -r "$ACR_NAME" -t "rail-bridge:$IMAGE_TAG" -t "rail-bridge:latest" "$REPO_ROOT/src/bridge" -o none
 fi
 
-log "Phase 2: container app (1 replica, ${CPU} vCPU / ${MEMORY}, target=$BRIDGE_TARGET, RDM relay=$DEPLOY_RDM_RELAY)"
+log "Phase 2: container app (1 replica, ${CPU} vCPU / ${MEMORY}, target=$BRIDGE_TARGET, RDM relay=$DEPLOY_RDM_RELAY, Darwin relay=$DEPLOY_DARWIN_RELAY)"
 for attempt in 1 2 3; do
   if az deployment group create -n bridge-phase2 "${common_params[@]}" "${phase2_params[@]}" --parameters deployApp=true -o none; then
     break
@@ -168,7 +198,8 @@ for attempt in 1 2 3; do
 done
 
 APP_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase2 --query properties.outputs.containerAppName.value -o tsv)"
-RELAY_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase2 --query properties.outputs.relayAppName.value -o tsv)"
+RELAY_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase2 --query properties.outputs.relayAppName.value -o tsv | tr -d '\r')"
+DARWIN_RELAY_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase2 --query properties.outputs.darwinRelayAppName.value -o tsv 2>/dev/null | tr -d '\r' || true)"
 # A Container App keeps the secret values it started with until it restarts, and a deployment that only changes
 # secrets creates no new revision. Restart the active revisions so changed secrets (inline or Key Vault) apply now.
 restart_app() {
@@ -198,14 +229,16 @@ start_if_stopped() {
 log "Starting stopped apps and restarting running ones so the latest secrets and settings are used"
 start_if_stopped "$APP_NAME"
 [[ -n "$RELAY_NAME" ]] && start_if_stopped "$RELAY_NAME"
+[[ -n "$DARWIN_RELAY_NAME" ]] && start_if_stopped "$DARWIN_RELAY_NAME"
 restart_app "$APP_NAME"
 [[ -n "$RELAY_NAME" ]] && restart_app "$RELAY_NAME"
+[[ -n "$DARWIN_RELAY_NAME" ]] && restart_app "$DARWIN_RELAY_NAME"
 if [[ "$EH_KEYS" == "false" ]]; then
   echo "  Entra ID sign-in: the apps' identity has 'Azure Event Hubs Data Sender' on $EVENTHUB_NAMESPACE."
   echo "  A new role assignment can take a few minutes; until then the logs show 'sink send failed' and the app retries."
 fi
 
-log "Done. Container app: $APP_NAME${RELAY_NAME:+ (RDM relay: $RELAY_NAME)}"
+log "Done. Container app: $APP_NAME${RELAY_NAME:+ (RDM relay: $RELAY_NAME)}${DARWIN_RELAY_NAME:+ (Darwin relay: $DARWIN_RELAY_NAME)}"
 cat <<MSG
 Follow logs:
   az containerapp logs show -g $AZ_RESOURCE_GROUP -n $APP_NAME --follow --format text
@@ -216,4 +249,9 @@ MSG
 if [[ -n "$RELAY_NAME" ]]; then
   echo "RDM relay logs: az containerapp logs show -g $AZ_RESOURCE_GROUP -n $RELAY_NAME --follow --format text"
   echo "REMEMBER: stop any local relay or Eventstream Kafka source using the same RDM consumer group."
+fi
+if [[ -n "$DARWIN_RELAY_NAME" ]]; then
+  echo "Darwin relay logs: az containerapp logs show -g $AZ_RESOURCE_GROUP -n $DARWIN_RELAY_NAME --follow --format text"
+  echo "REMEMBER: deactivate the Darwin Apache Kafka source in your own RailEventstreamDarwin (Solo 1.5) - it uses the same"
+  echo "          Darwin consumer group, so the two would split the messages between them."
 fi

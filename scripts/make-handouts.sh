@@ -60,6 +60,11 @@ list_groups() {
 }
 NROD_GROUPS="$(list_groups nrod-feed)"
 RDM_GROUPS="$(list_groups rdm-trust)"
+HAS_DARWIN=false; DARWIN_GROUPS=""
+if az eventhubs eventhub show -g "$AZ_RESOURCE_GROUP" --namespace-name "$NAMESPACE" -n rdm-darwin -o none 2>/dev/null; then
+  HAS_DARWIN=true; DARWIN_GROUPS="$(list_groups rdm-darwin)"
+  echo "  rdm-darwin found: the handouts include the optional Darwin feed (Student 1.5)"
+fi
 [[ -n "$NROD_GROUPS" ]] || { echo "ERROR: no '${PREFIX}NN' consumer groups on nrod-feed. Run ./scripts/add-student-consumer-groups.sh first." >&2; exit 1; }
 
 # Which students: all groups found, or the --students list (1-12, 3,7, student03).
@@ -133,6 +138,15 @@ for cg in "${selected[@]}"; do
     echo "  WARNING: $cg doesn't exist on nrod-feed - skipped. Add it with ./scripts/add-student-consumer-groups.sh" >&2; continue
   fi
   grep -qx "$cg" <<< "$RDM_GROUPS" || { echo "  WARNING: $cg is missing on rdm-trust" >&2; missing_rdm=1; }
+  if [[ "$HAS_DARWIN" == "true" ]] && ! grep -qx "$cg" <<< "$DARWIN_GROUPS"; then
+    echo "  WARNING: $cg is missing on rdm-darwin" >&2; missing_rdm=1
+  fi
+  if [[ "$HAS_DARWIN" == "true" ]]; then
+    darwin_row="| Optional Darwin feed (Student 1.5) | A third source: event hub \`rdm-darwin\` (→ table \`RdmDarwinRaw\`) in its own Eventstream, \`RailEventstreamDarwin\`, with the same settings |"
+    darwin_note=" Student 1.5 (Darwin) is optional: it adds to the capacity your workspace uses."
+  else
+    darwin_row=""; darwin_note=""
+  fi
   ws="${WS_PREFIX}${cg}"
   ws_id="${WS_IDS[$ws]:-}"
   agent="${AGENT_BASE}-${cg}"
@@ -194,13 +208,14 @@ Add an **Azure Event Hubs** source twice, once for each hub:
 $auth_rows
 | Consumer group | \`$cg\` (never \`\$Default\`) |
 | Data format | JSON |
+$darwin_row
 
-Start at **docs/student/README.md** in the repo.
+Start at **docs/student/README.md** in the repo.$darwin_note
 MD
   printf '%s,%s,%s,%s,%s\n' "$cg" "$ws" "$ws_id" "$agent" "$cg.md" >> "$OUT/index.csv"
   echo "  wrote  $cg.md   ($ws${ws_id:+, workspace found})"
 done
-[[ $missing_rdm -eq 0 ]] || echo "Some groups are missing on rdm-trust: re-run ./scripts/add-student-consumer-groups.sh" >&2
+[[ $missing_rdm -eq 0 ]] || echo "Some groups are missing on rdm-trust or rdm-darwin: re-run ./scripts/add-student-consumer-groups.sh" >&2
 
 echo
 echo "Done. Send each file in $OUT to its student privately."

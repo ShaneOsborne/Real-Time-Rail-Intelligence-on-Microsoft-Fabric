@@ -4,7 +4,7 @@
 .DESCRIPTION
   Idempotent: existing groups are skipped. Standard tier allows 20 consumer groups per event hub,
   including $Default (kept for the instructor), so at most 19 students per namespace.
-  Defaults: STUDENT_CONSUMER_GROUP_PREFIX / STUDENT_CONSUMER_GROUP_COUNT from .env, hubs nrod-feed and rdm-trust,
+  Defaults: STUDENT_CONSUMER_GROUP_PREFIX / STUDENT_CONSUMER_GROUP_COUNT from .env, hubs nrod-feed and rdm-trust (and rdm-darwin if it exists),
   namespace EVENTHUB_NAMESPACE or the output of the 'shared-eventhubs' deployment (scripts/create-eventhub.ps1).
 .EXAMPLE
   ./scripts/add-student-consumer-groups.ps1 -Prefix student -Count 15            # student01 ... student15
@@ -27,12 +27,6 @@ $rg = $env:AZ_RESOURCE_GROUP
 $maxPerHub = 20
 if (-not $Prefix) { $Prefix = if ($env:STUDENT_CONSUMER_GROUP_PREFIX) { $env:STUDENT_CONSUMER_GROUP_PREFIX } else { 'student' } }
 if ($Count -lt 0) { $Count = if ($env:STUDENT_CONSUMER_GROUP_COUNT) { [int]$env:STUDENT_CONSUMER_GROUP_COUNT } else { 0 } }
-if (-not $Hubs) {
-    $Hubs = @(
-        $(if ($env:EVENTHUB_NROD_HUB) { $env:EVENTHUB_NROD_HUB } else { 'nrod-feed' }),
-        $(if ($env:EVENTHUB_RDM_HUB) { $env:EVENTHUB_RDM_HUB } else { 'rdm-trust' })
-    )
-}
 if ($env:AZ_SUBSCRIPTION_ID) { Invoke-Az account set --subscription $env:AZ_SUBSCRIPTION_ID }
 
 if (-not $Namespace) { $Namespace = $env:EVENTHUB_NAMESPACE }
@@ -40,6 +34,16 @@ if (-not $Namespace) {
     $Namespace = az deployment group show -g $rg -n shared-eventhubs --query properties.outputs.namespaceName.value -o tsv 2>$null
 }
 if (-not $Namespace) { throw 'Set EVENTHUB_NAMESPACE or run ./scripts/create-eventhub.ps1 first' }
+$Namespace = $Namespace.Trim().Split('.')[0]
+if (-not $Hubs) {
+    $Hubs = @(
+        $(if ($env:EVENTHUB_NROD_HUB) { $env:EVENTHUB_NROD_HUB } else { 'nrod-feed' }),
+        $(if ($env:EVENTHUB_RDM_HUB) { $env:EVENTHUB_RDM_HUB } else { 'rdm-trust' })
+    )
+    # The optional Darwin class feed (Student 1.5): include its hub when create-eventhub made it.
+    az eventhubs eventhub show -g $rg --namespace-name $Namespace -n rdm-darwin -o none 2>$null
+    if ($LASTEXITCODE -eq 0) { $Hubs += 'rdm-darwin' }
+}
 
 $groups = @()
 if ($Names) { $groups = @($Names | ForEach-Object { $_.Trim() } | Where-Object { $_ }) }
@@ -68,6 +72,6 @@ foreach ($hub in $Hubs) {
 
 Write-Host @"
 
-Give each student ONE consumer group name (the same name works on both hubs), for example $($groups[0]).
+Give each student ONE consumer group name (the same name works on every hub), for example $($groups[0]).
 Never let two Eventstreams share a consumer group - they compete for the same partitions.
 "@

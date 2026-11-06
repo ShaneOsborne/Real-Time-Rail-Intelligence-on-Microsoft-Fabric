@@ -7,6 +7,7 @@
 //   eventhubAuth='entra'    -> no Event Hub keys: the apps sign in with their managed identity (Azure Event Hubs Data Sender)
 //   bridgeTarget='eventhub' -> the NROD bridge sends to the nrod-feed event hub instead of a Fabric Eventstream
 //   deployRdmRelay=true     -> a second app (<prefix>-rdm-relay, same image) relays RDM Kafka to the rdm-trust event hub
+//   deployDarwinRelay=true  -> a third app (<prefix>-darwin-relay, same image) relays RDM Darwin Push Port to the rdm-darwin event hub
 targetScope = 'resourceGroup'
 
 @description('Azure region. Pick the region closest to your Fabric capacity (e.g. uksouth).')
@@ -73,6 +74,18 @@ param rdmKafkaTopic string = ''
 @description('RDM Kafka consumer group issued by Rail Data Marketplace.')
 param rdmKafkaConsumerGroup string = ''
 
+@description('Deploy the optional RDM Darwin Push Port -> Event Hub relay (<prefix>-darwin-relay) for the class (Student 1.5).')
+param deployDarwinRelay bool = false
+
+@description('Darwin Kafka bootstrap servers (from the Darwin product page in RDM). Not a secret.')
+param darwinKafkaBootstrapServers string = ''
+
+@description('Darwin Kafka topic (the Darwin product, not NWR Train Movements).')
+param darwinKafkaTopic string = ''
+
+@description('Darwin Kafka consumer group issued by Rail Data Marketplace.')
+param darwinKafkaConsumerGroup string = ''
+
 @description('How the bridge and relay sign in to the shared Event Hub (bridgeTarget=eventhub / deployRdmRelay). key: connection strings with a shared access key. entra: the apps\' managed identity with the Azure Event Hubs Data Sender role - for namespaces where a policy disables local (key) authentication.')
 @allowed([ 'key', 'entra' ])
 param eventhubAuth string = 'key'
@@ -83,6 +96,7 @@ param eventhubNamespace string = ''
 @description('Event hub names used by the bridge and the relay.')
 param nrodHubName string = 'nrod-feed'
 param rdmHubName string = 'rdm-trust'
+param darwinHubName string = 'rdm-darwin'
 
 @description('Optional: name of an existing Key Vault in this resource group (e.g. one you created by hand in Solo 1.1). Leave empty to use the generated name, which matches infra/keyvault.bicep.')
 param keyVaultName string = ''
@@ -109,6 +123,15 @@ param rdmKafkaPasswordValue string = ''
 @secure()
 @description('secretsSource=inline and deployRdmRelay only: rdm-trust hub connection string.')
 param eventhubRdmConnectionStringValue string = ''
+@secure()
+@description('secretsSource=inline and deployDarwinRelay only: Darwin RDM Kafka username.')
+param darwinKafkaUsernameValue string = ''
+@secure()
+@description('secretsSource=inline and deployDarwinRelay only: Darwin RDM Kafka password.')
+param darwinKafkaPasswordValue string = ''
+@secure()
+@description('secretsSource=inline and deployDarwinRelay only: rdm-darwin hub connection string.')
+param eventhubDarwinConnectionStringValue string = ''
 
 var suffix = uniqueString(resourceGroup().id, namePrefix)
 var kvName = !empty(keyVaultName) ? keyVaultName : take('${namePrefix}kv${suffix}', 24)
@@ -451,12 +474,102 @@ resource relay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deplo
   ]
 }
 
+// Optional RDM Darwin Push Port -> Event Hub relay (Student 1.5): same image and code as the RDM relay, with the Darwin
+// product's topic, consumer group and credentials, sending to the rdm-darwin hub. Darwin is much busier than TRUST.
+resource darwinRelay 'Microsoft.App/containerApps@2024-03-01' = if (deployApp && deployDarwinRelay) {
+  name: '${namePrefix}-darwin-relay'
+  location: location
+  tags: tags
+  identity: {
+    type: 'UserAssigned'
+    userAssignedIdentities: {
+      '${uami.id}': {}
+    }
+  }
+  properties: {
+    environmentId: env.id
+    workloadProfileName: 'Consumption'
+    configuration: {
+      activeRevisionsMode: 'Single'
+      registries: createAcr ? [ { server: acr!.properties.loginServer, identity: uami.id } ] : []
+      secrets: concat(useKeyVault ? [
+        {
+          name: 'darwin-kafka-username'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/darwin-kafka-username'
+          identity: uami.id
+        }
+        {
+          name: 'darwin-kafka-password'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/darwin-kafka-password'
+          identity: uami.id
+        }
+      ] : [
+        { name: 'darwin-kafka-username', value: darwinKafkaUsernameValue }
+        { name: 'darwin-kafka-password', value: darwinKafkaPasswordValue }
+      ], useEntra ? [] : (useKeyVault ? [
+        {
+          name: 'eventhub-darwin-connection-string'
+          keyVaultUrl: '${kv.properties.vaultUri}secrets/eventhub-darwin-connection-string'
+          identity: uami.id
+        }
+      ] : [
+        { name: 'eventhub-darwin-connection-string', value: eventhubDarwinConnectionStringValue }
+      ]))
+    }
+    template: {
+      containers: [
+        {
+          name: 'darwin-relay'
+          image: image
+          // Darwin carries far more messages than TRUST, so this relay gets twice the bridge's size.
+          resources: {
+            cpu: json('0.5')
+            memory: '1Gi'
+          }
+          // The relay code reads RDM_KAFKA_*; here they hold the Darwin product's values.
+          env: concat([
+            { name: 'BRIDGE_SOURCE', value: 'kafka' }
+            { name: 'BRIDGE_SINK', value: 'eventhub' }
+            { name: 'RDM_KAFKA_BOOTSTRAP_SERVERS', value: darwinKafkaBootstrapServers }
+            { name: 'RDM_KAFKA_TOPIC', value: darwinKafkaTopic }
+            { name: 'RDM_KAFKA_CONSUMER_GROUP', value: darwinKafkaConsumerGroup }
+            { name: 'RDM_KAFKA_SECURITY_PROTOCOL', value: 'SASL_SSL' }
+            { name: 'RDM_KAFKA_SASL_MECHANISM', value: 'PLAIN' }
+            { name: 'HEALTH_PORT', value: '8080' }
+            { name: 'LOG_LEVEL', value: 'INFO' }
+            { name: 'RDM_KAFKA_USERNAME', secretRef: 'darwin-kafka-username' }
+            { name: 'RDM_KAFKA_PASSWORD', secretRef: 'darwin-kafka-password' }
+          ], useEntra ? [
+            { name: 'EVENTHUB_AUTH', value: 'entra' }
+            { name: 'EVENTHUB_NAMESPACE', value: ehFqdn }
+            { name: 'EVENTHUB_NAME', value: darwinHubName }
+            { name: 'AZURE_CLIENT_ID', value: uami.properties.clientId }
+          ] : [
+            { name: 'EVENTHUB_CONNECTION_STRING', secretRef: 'eventhub-darwin-connection-string' }
+          ])
+          probes: healthProbes
+        }
+      ]
+      scale: {
+        minReplicas: 1
+        maxReplicas: 1
+      }
+    }
+  }
+  dependsOn: [
+    kvSecretsUser
+    acrPull
+    ehSender
+  ]
+}
+
 output keyVaultName string = kv.name
 output keyVaultUri string = kv.properties.vaultUri
 output acrName string = createAcr ? acr!.name : ''
 output acrLoginServer string = createAcr ? acr!.properties.loginServer : ''
 output containerAppName string = deployApp ? app.name : ''
 output relayAppName string = (deployApp && deployRdmRelay) ? relay.name : ''
+output darwinRelayAppName string = (deployApp && deployDarwinRelay) ? darwinRelay.name : ''
 output bridgeTarget string = bridgeTarget
 output environmentName string = env.name
 output logAnalyticsWorkspaceName string = law.name

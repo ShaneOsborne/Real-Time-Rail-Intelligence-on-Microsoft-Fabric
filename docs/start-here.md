@@ -17,7 +17,7 @@ follow its folder top to bottom. Part 2 is the same build for everyone.
 |---|---|---|
 | **Solo builder** – your own NROD/RDM accounts, Azure and Fabric | [Solo path](solo/README.md) (Solo 1.1–1.8) | [Part 2 – the build](build/README.md) (Lab 2.1–2.10) |
 | **Instructor** – setting up a class | [Instructor path](instructor/README.md) (Instructor 1.1–1.7, which reuse some solo pages) | Run [Part 2](build/README.md) yourself before the class |
-| **Classroom student** – the instructor gives you a handout | [Student path](student/README.md) (Student 1.1–1.4) | [Part 2 – the build](build/README.md) (Lab 2.1–2.10) |
+| **Classroom student** – the instructor gives you a handout | [Student path](student/README.md) (Student 1.1–1.4, optional 1.5) | [Part 2 – the build](build/README.md) (Lab 2.1–2.10) |
 
 ## What you'll build
 
@@ -39,7 +39,7 @@ See the Mermaid diagram in the [README](../README.md#architecture).
 | Source | Protocol | Feeds used | Notes |
 |---|---|---|---|
 | RDM – [NWR Train Movements](https://raildata.org.uk/dataProduct/P-826477b8-3789-45e7-85bd-22c4ae9bcfae/overview) | Kafka, `SASL_SSL` + `PLAIN` | TRUST | **Beta, no SLA**. The bootstrap servers, topic, consumer group, username and password are on your subscription page |
-| RDM – [Darwin Real Time Train Information (Push)](https://raildata.org.uk/dataProduct/P-3f10bf96-d8e8-4041-aa5e-d75d82c45c4e/overview) | Kafka | Darwin | Optional extension: [Solo 1.5](solo/1.5-darwin-push-port.md) parses it into `DarwinLocations` |
+| RDM – [Darwin Real Time Train Information (Push)](https://raildata.org.uk/dataProduct/P-3f10bf96-d8e8-4041-aa5e-d75d82c45c4e/overview) | Kafka | Darwin | Optional extension: [Solo 1.5](solo/1.5-darwin-push-port.md) parses it into `DarwinLocations`. In a class, the instructor can relay it for everyone ([Student 1.5](student/1.5-darwin-class-feed.md)) |
 | NROD – `publicdatafeeds.networkrail.co.uk` | STOMP on **61618** (OpenWire and AMQP 61612 also exist) | `TRAIN_MVT_ALL_TOC`, `TD_ALL_SIG_AREA`, `RTPPM_ALL`, `VSTP_ALL`, `TSR_ALL_ROUTE` | One account, **one connection**. Durable subscription buffer is about **5 minutes**. Capped at about 1,000 users |
 | NROD reference files | HTTPS (basic auth) | CORPUS, SMART (`SupportingFileAuthenticate?type=`), SCHEDULE (`CifFileAuthenticate?type=CIF_ALL_FULL_DAILY&day=toc-full`) | Subscribe to *All Reference Data* in *My Feeds* |
 | NaPTAN (DfT) | HTTPS | Rail stations (`9100<TIPLOC>` ATCO codes) with latitude and longitude | OGL v3.0 |

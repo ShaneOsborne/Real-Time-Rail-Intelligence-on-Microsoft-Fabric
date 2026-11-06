@@ -190,7 +190,7 @@ class BridgeConfig:
             if not self.eventhub_namespace:
                 errors.append("EVENTHUB_NAMESPACE is required for EVENTHUB_AUTH=entra")
             if not self.eventhub_name:
-                errors.append("EVENTHUB_NAME (nrod-feed or rdm-trust) is required for EVENTHUB_AUTH=entra")
+                errors.append("EVENTHUB_NAME (nrod-feed, rdm-trust or rdm-darwin) is required for EVENTHUB_AUTH=entra")
         elif self.sink == "eventhub" and not self.sink_target()[0]:
             errors.append(
                 "EVENTHUB_CONNECTION_STRING is required for BRIDGE_SINK=eventhub "

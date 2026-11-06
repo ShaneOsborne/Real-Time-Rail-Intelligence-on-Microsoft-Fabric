@@ -21,6 +21,7 @@ Follow these in order.
 | [Student 1.2 – Fabric workspace](1.2-fabric-workspace.md) | Create your workspace and items, **including the raw tables and mappings** | 20 min |
 | [Student 1.3 – Reference data](1.3-reference-data.md) | Shortcut to the instructor's reference data | 10 min |
 | [Student 1.4 – Connect to the class feed](1.4-connect-to-the-class-feed.md) | Event Hubs sources with **your own** consumer group | 15 min |
+| [Student 1.5 – Darwin class feed](1.5-darwin-class-feed.md) (optional) | Darwin forecasts and platforms → `DarwinLocations`. Only if your handout has an *Optional Darwin feed* row | 15 min |
 
 ## Part 2 – the build
 

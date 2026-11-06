@@ -151,6 +151,7 @@ flowchart LR
 | [Student 1.2](docs/student/1.2-fabric-workspace.md) | Your workspace, Eventhouse, KQL database, Lakehouse, Eventstreams, raw tables | 20 min | ✅ `fabric-setup.sh/.ps1` |
 | [Student 1.3](docs/student/1.3-reference-data.md) | Reference data: shortcut to the instructor's Lakehouse | 10 min | Manual (portal) + KQL script |
 | [Student 1.4](docs/student/1.4-connect-to-the-class-feed.md) | Azure Event Hubs sources with your own consumer group | 15 min | Manual (portal) |
+| [Student 1.5](docs/student/1.5-darwin-class-feed.md) | *Optional:* Darwin class feed (`rdm-darwin` → `DarwinLocations`), if the instructor runs it | 15 min | Manual (portal) |
 
 ### Part 2 – Build (everyone)
 
@@ -254,7 +255,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ├── docs/start-here.md         Overview, architecture, costs, licensing, preview caveats and "choose your path"
 ├── docs/solo/                 Part 1 for a solo builder: Solo 1.1–1.8 (+ README index)
 ├── docs/instructor/           Part 1 for an instructor: Instructor 1.1–1.7 – class set-up, shared Event Hub, handout, clean-up
-├── docs/student/              Part 1 for a classroom student: Student 1.1–1.4
+├── docs/student/              Part 1 for a classroom student: Student 1.1–1.4 (+ optional 1.5, Darwin)
 ├── docs/build/                Part 2, the same for everyone: Lab 2.1–2.10
 ├── docs/capacity-planning.md  Fabric capacity sizing, classroom guidance and throttling recovery
 ├── docs/presentation/         Slide deck: architecture, PoC plan and one slide per lab

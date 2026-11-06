@@ -42,7 +42,7 @@ def sink_error_hint(message: str) -> str:
     if "could not be found" in m or ("entity" in m and "not found" in m):
         return (
             "The hub in the connection string doesn't exist. Check the namespace name and EntityPath "
-            "(nrod-feed or rdm-trust) - a missing last character in the namespace name is a common cause."
+            "(nrod-feed, rdm-trust or rdm-darwin) - a missing last character in the namespace name is a common cause."
         )
     return ""
 

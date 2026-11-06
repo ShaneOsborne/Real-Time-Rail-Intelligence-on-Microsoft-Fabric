@@ -4,6 +4,7 @@
   Optional shared Event Hub tier (Instructor 1.4 / Solo 1.8; run scripts/create-eventhub.ps1 first):
     BRIDGE_TARGET=eventhub  -> the bridge uses Key Vault secret eventhub-nrod-connection-string
     DEPLOY_RDM_RELAY=true   -> also deploys <prefix>-rdm-relay (needs RDM_KAFKA_* in .env)
+    DEPLOY_DARWIN_RELAY=true -> also deploys <prefix>-darwin-relay to the rdm-darwin hub (needs DARWIN_KAFKA_* in .env, Student 1.5)
   Subscriptions whose policy blocks public access to Key Vault:
     SECRETS_SOURCE=inline   -> store the secrets as encrypted Container Apps secrets instead of Key Vault references
   Event Hubs namespaces whose policy disables key (shared access) sign-in:
@@ -18,6 +19,7 @@ Import-DotEnv
 Assert-Command az
 $target = if ($env:BRIDGE_TARGET) { $env:BRIDGE_TARGET } else { 'eventstream' }
 $deployRelay = if ($env:DEPLOY_RDM_RELAY -eq 'true') { 'true' } else { 'false' }
+$deployDarwin = if ($env:DEPLOY_DARWIN_RELAY -eq 'true') { 'true' } else { 'false' }
 $secretsSource = if ($env:SECRETS_SOURCE) { $env:SECRETS_SOURCE } else { 'keyvault' }
 if ($secretsSource -notin @('keyvault', 'inline')) { throw "SECRETS_SOURCE must be 'keyvault' or 'inline'" }
 $ehAuth = if ($env:EVENTHUB_AUTH) { $env:EVENTHUB_AUTH } else { 'key' }
@@ -40,8 +42,21 @@ if ($deployRelay -eq 'true') {
     if ($env:RDM_KAFKA_TOPIC -match '(?i)darwin|push-?port' -and $env:ALLOW_DARWIN_RELAY -ne 'true') {
         throw ("RDM_KAFKA_TOPIC looks like the Darwin Push Port topic: $($env:RDM_KAFKA_TOPIC). The RDM relay sends to rdm-trust " +
             "(RdmTrustRaw), which expects NWR Train Movements. Put the Train Movements topic, consumer group, username and " +
-            "password in RDM_KAFKA_* (as in your Solo 1.4 Kafka source). Darwin keeps its own Eventstream source (Solo 1.5). " +
-            "Set ALLOW_DARWIN_RELAY=true only if you really mean it.")
+            "password in RDM_KAFKA_* (as in your Solo 1.4 Kafka source). For a class Darwin feed, put the Darwin values in " +
+            "DARWIN_KAFKA_* and set DEPLOY_DARWIN_RELAY=true (Instructor 1.4). Set ALLOW_DARWIN_RELAY=true only if you really mean to send Darwin to rdm-trust.")
+    }
+}
+if ($deployDarwin -eq 'true') {
+    Assert-Env @('DARWIN_KAFKA_BOOTSTRAP_SERVERS', 'DARWIN_KAFKA_TOPIC', 'DARWIN_KAFKA_CONSUMER_GROUP', 'DARWIN_KAFKA_USERNAME', 'DARWIN_KAFKA_PASSWORD')
+    if ($secretsSource -eq 'inline' -and $ehKeys) { Assert-Env @('EVENTHUB_DARWIN_CONNECTION_STRING') }
+    if (-not $ehKeys) { Assert-Env @('EVENTHUB_NAMESPACE') }
+    # The Darwin relay feeds rdm-darwin -> RdmDarwinRaw. Catch Train Movements values pasted into DARWIN_KAFKA_* by mistake.
+    if ($env:DARWIN_KAFKA_TOPIC -match '(?i)train_mvt|movement') {
+        throw ("DARWIN_KAFKA_TOPIC looks like NWR Train Movements: $($env:DARWIN_KAFKA_TOPIC). Put the Darwin Real Time Train " +
+            "Information (Push) topic, consumer group, username and password in DARWIN_KAFKA_* (from the Darwin product page in RDM, as in Solo 1.5).")
+    }
+    if ($env:RDM_KAFKA_CONSUMER_GROUP -and $env:DARWIN_KAFKA_CONSUMER_GROUP -eq $env:RDM_KAFKA_CONSUMER_GROUP) {
+        throw 'DARWIN_KAFKA_CONSUMER_GROUP is the same as RDM_KAFKA_CONSUMER_GROUP. Each RDM product has its own consumer group: copy the Darwin one from the Darwin product page.'
     }
 }
 
@@ -76,7 +91,9 @@ $common = @(
     "keyVaultName=$($env:KEY_VAULT_NAME)", "bridgeTarget=$target", "deployRdmRelay=$deployRelay",
     "rdmKafkaBootstrapServers=$($env:RDM_KAFKA_BOOTSTRAP_SERVERS)", "rdmKafkaTopic=$($env:RDM_KAFKA_TOPIC)",
     "rdmKafkaConsumerGroup=$($env:RDM_KAFKA_CONSUMER_GROUP)", "secretsSource=$secretsSource",
-    "eventhubAuth=$ehAuth", "eventhubNamespace=$($env:EVENTHUB_NAMESPACE)"
+    "eventhubAuth=$ehAuth", "eventhubNamespace=$($env:EVENTHUB_NAMESPACE)",
+    "deployDarwinRelay=$deployDarwin", "darwinKafkaBootstrapServers=$($env:DARWIN_KAFKA_BOOTSTRAP_SERVERS)",
+    "darwinKafkaTopic=$($env:DARWIN_KAFKA_TOPIC)", "darwinKafkaConsumerGroup=$($env:DARWIN_KAFKA_CONSUMER_GROUP)"
 )
 
 if ($WhatIf) { Invoke-Az deployment group what-if @common --parameters deployApp=false; return }
@@ -97,6 +114,8 @@ if ($secretsSource -eq 'inline') {
         bridgeConnectionStringValue = $bridgeCs
         rdmKafkaUsernameValue = $env:RDM_KAFKA_USERNAME; rdmKafkaPasswordValue = $env:RDM_KAFKA_PASSWORD
         eventhubRdmConnectionStringValue = $env:EVENTHUB_RDM_CONNECTION_STRING
+        darwinKafkaUsernameValue = $env:DARWIN_KAFKA_USERNAME; darwinKafkaPasswordValue = $env:DARWIN_KAFKA_PASSWORD
+        eventhubDarwinConnectionStringValue = $env:EVENTHUB_DARWIN_CONNECTION_STRING
     }
     $p = [ordered]@{}
     foreach ($k in $vals.Keys) { $p[$k] = @{ value = [string]$vals[$k] } }
@@ -130,6 +149,11 @@ else {
         Set-KvSecret 'rdm-kafka-password' $env:RDM_KAFKA_PASSWORD
         if ($ehKeys) { Assert-KvSecret 'eventhub-rdm-connection-string' }
     }
+    if ($deployDarwin -eq 'true') {
+        Set-KvSecret 'darwin-kafka-username' $env:DARWIN_KAFKA_USERNAME
+        Set-KvSecret 'darwin-kafka-password' $env:DARWIN_KAFKA_PASSWORD
+        if ($ehKeys) { Assert-KvSecret 'eventhub-darwin-connection-string' }
+    }
 }
 
 if ($createAcr -eq 'true') {
@@ -137,7 +161,7 @@ if ($createAcr -eq 'true') {
     Invoke-Az acr build -r $acr -t "rail-bridge:$tag" -t 'rail-bridge:latest' (Join-Path $script:RepoRoot 'src/bridge') -o none
 }
 
-Write-Step "Phase 2: container app (1 replica, $cpu vCPU / $memory, target=$target, RDM relay=$deployRelay)"
+Write-Step "Phase 2: container app (1 replica, $cpu vCPU / $memory, target=$target, RDM relay=$deployRelay, Darwin relay=$deployDarwin)"
 try {
     for ($attempt = 1; $attempt -le 3; $attempt++) {
         az deployment group create -n bridge-phase2 @common @phase2 --parameters deployApp=true -o none
@@ -156,6 +180,7 @@ finally {
 }
 $app = az deployment group show -g $rg -n bridge-phase2 --query properties.outputs.containerAppName.value -o tsv
 $relay = az deployment group show -g $rg -n bridge-phase2 --query properties.outputs.relayAppName.value -o tsv
+$darwinRelay = az deployment group show -g $rg -n bridge-phase2 --query properties.outputs.darwinRelayAppName.value -o tsv 2>$null
 # A Container App keeps the secret values it started with until it restarts, and a deployment that only changes
 # secrets creates no new revision. Restart the active revisions so changed secrets (inline or Key Vault) apply now.
 function Restart-App([string]$Name) {
@@ -180,8 +205,10 @@ function Start-IfStopped([string]$Name) {
 Write-Step 'Starting stopped apps and restarting running ones so the latest secrets and settings are used'
 Start-IfStopped $app
 if ($relay) { Start-IfStopped $relay }
+if ($darwinRelay) { Start-IfStopped $darwinRelay }
 Restart-App $app
 if ($relay) { Restart-App $relay }
+if ($darwinRelay) { Restart-App $darwinRelay }
 if (-not $ehKeys) {
     Write-Host "  Entra ID sign-in: the apps' identity has 'Azure Event Hubs Data Sender' on $($env:EVENTHUB_NAMESPACE)."
     Write-Host "  A new role assignment can take a few minutes; until then the logs show 'sink send failed' and the app retries."
@@ -194,4 +221,8 @@ Write-Host 'REMEMBER: stop any local bridge using the same NROD account / client
 if ($relay) {
     Write-Host "RDM relay logs: az containerapp logs show -g $rg -n $relay --follow --format text"
     Write-Host 'REMEMBER: stop any local relay or Eventstream Kafka source using the same RDM consumer group.'
+}
+if ($darwinRelay) {
+    Write-Host "Darwin relay logs: az containerapp logs show -g $rg -n $darwinRelay --follow --format text"
+    Write-Host 'REMEMBER: deactivate the Darwin Apache Kafka source in your own RailEventstreamDarwin (Solo 1.5) - it uses the same Darwin consumer group.'
 }

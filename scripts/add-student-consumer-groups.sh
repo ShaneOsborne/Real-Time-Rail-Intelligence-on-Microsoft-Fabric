@@ -3,7 +3,7 @@
 #   ./scripts/add-student-consumer-groups.sh --prefix student --count 15          # student01 ... student15
 #   ./scripts/add-student-consumer-groups.sh --prefix student --count 5 --start 16 # student16 ... student20 (!)
 #   ./scripts/add-student-consumer-groups.sh --names alice,bob
-# Defaults: STUDENT_CONSUMER_GROUP_PREFIX / STUDENT_CONSUMER_GROUP_COUNT from .env, hubs nrod-feed and rdm-trust,
+# Defaults: STUDENT_CONSUMER_GROUP_PREFIX / STUDENT_CONSUMER_GROUP_COUNT from .env, hubs nrod-feed and rdm-trust (and rdm-darwin if it exists),
 # namespace EVENTHUB_NAMESPACE or the output of the 'shared-eventhubs' deployment (scripts/create-eventhub.sh).
 # Idempotent: existing groups are skipped. Standard tier allows 20 consumer groups per event hub,
 # including $Default (kept for the instructor), so at most 19 students per namespace.
@@ -16,7 +16,7 @@ PREFIX="${STUDENT_CONSUMER_GROUP_PREFIX:-student}"
 COUNT="${STUDENT_CONSUMER_GROUP_COUNT:-0}"
 START=1
 NAMES=""
-HUBS="${EVENTHUB_NROD_HUB:-nrod-feed},${EVENTHUB_RDM_HUB:-rdm-trust}"
+HUBS=""
 NAMESPACE="${EVENTHUB_NAMESPACE:-}"
 MAX_PER_HUB=20
 
@@ -44,7 +44,15 @@ if [[ -z "$NAMESPACE" ]]; then
   NAMESPACE="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n shared-eventhubs \
     --query properties.outputs.namespaceName.value -o tsv 2>/dev/null || true)"
 fi
+NAMESPACE="$(printf '%s' "$NAMESPACE" | tr -d '\r')"; NAMESPACE="${NAMESPACE%%.*}"
 [[ -n "$NAMESPACE" ]] || { echo "ERROR: set EVENTHUB_NAMESPACE or run ./scripts/create-eventhub.sh first" >&2; exit 1; }
+if [[ -z "$HUBS" ]]; then
+  HUBS="${EVENTHUB_NROD_HUB:-nrod-feed},${EVENTHUB_RDM_HUB:-rdm-trust}"
+  # The optional Darwin class feed (Student 1.5): include its hub when create-eventhub made it.
+  if az eventhubs eventhub show -g "$AZ_RESOURCE_GROUP" --namespace-name "$NAMESPACE" -n rdm-darwin -o none 2>/dev/null; then
+    HUBS="$HUBS,rdm-darwin"
+  fi
+fi
 
 groups=()
 if [[ -n "$NAMES" ]]; then
@@ -64,7 +72,7 @@ IFS=',' read -r -a hubs <<< "$HUBS"
 for hub in "${hubs[@]}"; do
   log "Event hub $NAMESPACE/$hub"
   existing="$(az eventhubs eventhub consumer-group list -g "$AZ_RESOURCE_GROUP" --namespace-name "$NAMESPACE" \
-    --eventhub-name "$hub" --query "[].name" -o tsv)"
+    --eventhub-name "$hub" --query "[].name" -o tsv | tr -d '\r')"
   have=$(grep -c . <<< "$existing" || true)
   for cg in "${groups[@]}"; do
     cg="${cg// /}"
@@ -88,6 +96,6 @@ done
 
 cat <<MSG
 
-Give each student ONE consumer group name (the same name works on both hubs), for example ${groups[0]}.
+Give each student ONE consumer group name (the same name works on every hub), for example ${groups[0]}.
 Never let two Eventstreams share a consumer group - they compete for the same partitions.
 MSG

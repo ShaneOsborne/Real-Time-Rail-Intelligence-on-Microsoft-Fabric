@@ -1,5 +1,5 @@
 // OPTIONAL shared Azure Event Hubs tier (Instructor 1.4 / Solo 1.8).
-// One instructor-run ingestion (NROD bridge + optional RDM relay) sends here; every student's
+// One instructor-run ingestion (NROD bridge + optional RDM and Darwin relays) sends here; every student's
 // Eventstream reads through its own consumer group. Event Hubs keeps buffering (up to 7 days on
 // Standard) while a Fabric capacity is paused, and each Eventstream catches up when it resumes.
 //
@@ -42,7 +42,13 @@ param nrodHubName string = 'nrod-feed'
 @description('Event hub for the RDM Kafka relay (raw TRUST JSON -> student RdmTrustRaw tables).')
 param rdmHubName string = 'rdm-trust'
 
-@description('One consumer group per student Eventstream, created on BOTH hubs. Max 19 ($Default is reserved for the instructor; Standard allows 20 per hub).')
+@description('Also create the rdm-darwin event hub for the optional Darwin relay (DEPLOY_DARWIN_RELAY=true, Student 1.5). Darwin is much busier than TRUST: plan 2+ throughput units for a class.')
+param darwinHub bool = false
+
+@description('Event hub for the optional RDM Darwin relay (raw Darwin Push Port JSON -> student RdmDarwinRaw tables).')
+param darwinHubName string = 'rdm-darwin'
+
+@description('One consumer group per student Eventstream, created on EVERY hub. Max 19 ($Default is reserved for the instructor; Standard allows 20 per hub).')
 @maxLength(19)
 param studentConsumerGroups array = []
 
@@ -132,10 +138,37 @@ resource rdmConsumerGroups 'Microsoft.EventHub/namespaces/eventhubs/consumergrou
   }
 }]
 
+// Optional: Darwin Push Port relay target (Student 1.5). Same shape as rdm-trust.
+resource darwinHubRes 'Microsoft.EventHub/namespaces/eventhubs@2024-01-01' = if (darwinHub) {
+  parent: ns
+  name: darwinHubName
+  properties: {
+    partitionCount: partitionCount
+    messageRetentionInDays: retentionDays
+  }
+}
+
+resource darwinSend 'Microsoft.EventHub/namespaces/eventhubs/authorizationRules@2024-01-01' = if (darwinHub) {
+  parent: darwinHubRes
+  name: 'bridge-send'
+  properties: {
+    rights: [ 'Send' ]
+  }
+}
+
+resource darwinConsumerGroups 'Microsoft.EventHub/namespaces/eventhubs/consumergroups@2024-01-01' = [for cg in studentConsumerGroups: if (darwinHub) {
+  parent: darwinHubRes
+  name: cg
+  properties: {
+    userMetadata: 'rail-fabric-rti student Eventstream'
+  }
+}]
+
 output namespaceName string = ns.name
 output namespaceHost string = '${ns.name}.servicebus.windows.net'
 output nrodHubName string = nrodHub.name
 output rdmHubName string = rdmHub.name
+output darwinHubName string = darwinHub ? darwinHubName : ''
 output sendRuleName string = nrodSend.name
 output listenRuleName string = studentsListen.name
 output studentConsumerGroups array = studentConsumerGroups

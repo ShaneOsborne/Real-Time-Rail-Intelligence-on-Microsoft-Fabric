@@ -52,6 +52,12 @@ function Get-Groups([string]$Hub) {
 }
 $nrodGroups = Get-Groups 'nrod-feed'
 $rdmGroups = Get-Groups 'rdm-trust'
+$hasDarwin = $false; $darwinGroups = @()
+az eventhubs eventhub show -g $rg --namespace-name $Namespace -n rdm-darwin -o none 2>$null
+if ($LASTEXITCODE -eq 0) {
+    $hasDarwin = $true; $darwinGroups = Get-Groups 'rdm-darwin'
+    Write-Host '  rdm-darwin found: the handouts include the optional Darwin feed (Student 1.5)'
+}
 if (-not $nrodGroups) { throw "No '${prefix}NN' consumer groups on nrod-feed. Run ./scripts/add-student-consumer-groups.ps1 first." }
 
 $selected = @()
@@ -118,6 +124,9 @@ $fence = '```'
 foreach ($cg in $selected) {
     if ($cg -notin $nrodGroups) { Write-Warning "$cg doesn't exist on nrod-feed - skipped. Add it with ./scripts/add-student-consumer-groups.ps1"; continue }
     if ($cg -notin $rdmGroups) { Write-Warning "$cg is missing on rdm-trust"; $missingRdm = $true }
+    if ($hasDarwin -and $cg -notin $darwinGroups) { Write-Warning "$cg is missing on rdm-darwin"; $missingRdm = $true }
+    $darwinRow = if ($hasDarwin) { "| Optional Darwin feed (Student 1.5) | A third source: event hub ${tick}rdm-darwin$tick (→ table ${tick}RdmDarwinRaw$tick) in its own Eventstream, ${tick}RailEventstreamDarwin$tick, with the same settings |" } else { '' }
+    $darwinNote = if ($hasDarwin) { ' Student 1.5 (Darwin) is optional: it adds to the capacity your workspace uses.' } else { '' }
     $ws = "$WorkspacePrefix$cg"
     $wsId = if ($wsIds.ContainsKey($ws)) { $wsIds[$ws] } else { '' }
     $agent = "$agentBase-$cg"
@@ -176,8 +185,9 @@ Add an **Azure Event Hubs** source twice, once for each hub:
 $authRows
 | Consumer group | $tick$cg$tick (never ${tick}`$Default$tick) |
 | Data format | JSON |
+$darwinRow
 
-Start at **docs/student/README.md** in the repo.
+Start at **docs/student/README.md** in the repo.$darwinNote
 "@
     Set-Content -Path (Join-Path $Out "$cg.md") -Value $md -Encoding utf8
     $index += "$cg,$ws,$wsId,$agent,$cg.md"
@@ -185,7 +195,7 @@ Start at **docs/student/README.md** in the repo.
     Write-Host "  wrote  $cg.md   ($ws$found)"
 }
 Set-Content -Path (Join-Path $Out 'index.csv') -Value $index -Encoding utf8
-if ($missingRdm) { Write-Warning 'Some groups are missing on rdm-trust: re-run ./scripts/add-student-consumer-groups.ps1' }
+if ($missingRdm) { Write-Warning 'Some groups are missing on rdm-trust or rdm-darwin: re-run ./scripts/add-student-consumer-groups.ps1' }
 
 Write-Host ''
 Write-Host "Done. Send each file in $Out to its student privately."

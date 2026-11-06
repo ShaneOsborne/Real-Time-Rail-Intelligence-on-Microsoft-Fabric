@@ -41,7 +41,7 @@ Follow these in order. Several pages ask you to run a **solo** page yourself, th
 | [Instructor 1.6 – Running the class](1.6-running-the-class.md) | Capacity watch, common student problems, overnight pause | – | – |
 | [Instructor 1.7 – After the class](1.7-after-the-class.md) | Keys (or workspace identity roles), Event Hub, Foundry roles, your own clean-up | [Lab 2.10](../build/2.10-cleanup.md) | 15 min |
 
-Students follow [the student path](../student/README.md): Student 1.1–1.4, then Part 2.
+Students follow [the student path](../student/README.md): Student 1.1–1.4 (and the optional 1.5 if you run the Darwin class feed), then Part 2.
 
 ## Part 2 – run the build yourself before the class
 
