@@ -26,6 +26,15 @@ esac
 if [[ "$DEPLOY_RDM_RELAY" == "true" ]]; then
   require RDM_KAFKA_BOOTSTRAP_SERVERS RDM_KAFKA_TOPIC RDM_KAFKA_CONSUMER_GROUP RDM_KAFKA_USERNAME RDM_KAFKA_PASSWORD
   [[ "$SECRETS_SOURCE" == "inline" ]] && require EVENTHUB_RDM_CONNECTION_STRING
+  # The relay feeds rdm-trust -> RdmTrustRaw, which expects NWR Train Movements (TRUST). Darwin has its own path (Solo 1.5).
+  topic_lc="$(printf '%s' "$RDM_KAFKA_TOPIC" | tr '[:upper:]' '[:lower:]')"
+  if [[ "$topic_lc" == *darwin* || "$topic_lc" == *push-port* || "$topic_lc" == *pushport* ]] && [[ "${ALLOW_DARWIN_RELAY:-false}" != "true" ]]; then
+    echo "ERROR: RDM_KAFKA_TOPIC looks like the Darwin Push Port topic: $RDM_KAFKA_TOPIC" >&2
+    echo "       The RDM relay sends to rdm-trust (RdmTrustRaw), which expects NWR Train Movements. Put the Train Movements" >&2
+    echo "       topic, consumer group, username and password in RDM_KAFKA_* (as in your Solo 1.4 Kafka source)." >&2
+    echo "       Darwin keeps its own Eventstream source (Solo 1.5). Set ALLOW_DARWIN_RELAY=true only if you really mean it." >&2
+    exit 1
+  fi
 fi
 
 NAME_PREFIX="${NAME_PREFIX:-railrti}"
@@ -150,6 +159,22 @@ done
 
 APP_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase2 --query properties.outputs.containerAppName.value -o tsv)"
 RELAY_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n bridge-phase2 --query properties.outputs.relayAppName.value -o tsv)"
+# A Container App keeps the secret values it started with until it restarts, and a deployment that only changes
+# secrets creates no new revision. Restart the active revisions so changed secrets (inline or Key Vault) apply now.
+restart_app() {
+  local app="$1" rev
+  for rev in $(az containerapp revision list -g "$AZ_RESOURCE_GROUP" -n "$app" --query "[?properties.active].name" -o tsv | tr -d '\r'); do
+    if az containerapp revision restart -g "$AZ_RESOURCE_GROUP" -n "$app" --revision "$rev" -o none 2>/dev/null; then
+      echo "  restarted $app ($rev)"
+    else
+      echo "  WARNING: could not restart $app ($rev). Restart it in the portal: Container App > Revisions and replicas > Restart" >&2
+    fi
+  done
+}
+log "Restarting the apps so the latest secrets are used"
+restart_app "$APP_NAME"
+[[ -n "$RELAY_NAME" ]] && restart_app "$RELAY_NAME"
+
 log "Done. Container app: $APP_NAME${RELAY_NAME:+ (RDM relay: $RELAY_NAME)}"
 cat <<MSG
 Follow logs:

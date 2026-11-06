@@ -29,6 +29,13 @@ switch ($target) {
 if ($deployRelay -eq 'true') {
     Assert-Env @('RDM_KAFKA_BOOTSTRAP_SERVERS', 'RDM_KAFKA_TOPIC', 'RDM_KAFKA_CONSUMER_GROUP', 'RDM_KAFKA_USERNAME', 'RDM_KAFKA_PASSWORD')
     if ($secretsSource -eq 'inline') { Assert-Env @('EVENTHUB_RDM_CONNECTION_STRING') }
+    # The relay feeds rdm-trust -> RdmTrustRaw, which expects NWR Train Movements (TRUST). Darwin has its own path (Solo 1.5).
+    if ($env:RDM_KAFKA_TOPIC -match '(?i)darwin|push-?port' -and $env:ALLOW_DARWIN_RELAY -ne 'true') {
+        throw ("RDM_KAFKA_TOPIC looks like the Darwin Push Port topic: $($env:RDM_KAFKA_TOPIC). The RDM relay sends to rdm-trust " +
+            "(RdmTrustRaw), which expects NWR Train Movements. Put the Train Movements topic, consumer group, username and " +
+            "password in RDM_KAFKA_* (as in your Solo 1.4 Kafka source). Darwin keeps its own Eventstream source (Solo 1.5). " +
+            "Set ALLOW_DARWIN_RELAY=true only if you really mean it.")
+    }
 }
 
 $prefix = if ($env:NAME_PREFIX) { $env:NAME_PREFIX } else { 'railrti' }
@@ -141,6 +148,21 @@ finally {
 }
 $app = az deployment group show -g $rg -n bridge-phase2 --query properties.outputs.containerAppName.value -o tsv
 $relay = az deployment group show -g $rg -n bridge-phase2 --query properties.outputs.relayAppName.value -o tsv
+# A Container App keeps the secret values it started with until it restarts, and a deployment that only changes
+# secrets creates no new revision. Restart the active revisions so changed secrets (inline or Key Vault) apply now.
+function Restart-App([string]$Name) {
+    $revs = az containerapp revision list -g $rg -n $Name --query "[?properties.active].name" -o tsv
+    foreach ($rev in @($revs)) {
+        if (-not $rev) { continue }
+        az containerapp revision restart -g $rg -n $Name --revision $rev -o none 2>$null
+        if ($LASTEXITCODE -eq 0) { Write-Host "  restarted $Name ($rev)" }
+        else { Write-Warning "Could not restart $Name ($rev). Restart it in the portal: Container App > Revisions and replicas > Restart" }
+    }
+}
+Write-Step 'Restarting the apps so the latest secrets are used'
+Restart-App $app
+if ($relay) { Restart-App $relay }
+
 Write-Step "Done. Container app: $app"
 Write-Host "Logs:     az containerapp logs show -g $rg -n $app --follow --format text"
 Write-Host "Replicas: az containerapp replica list -g $rg -n $app -o table"

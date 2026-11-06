@@ -16,6 +16,28 @@ from typing import Any, Protocol, TextIO
 log = logging.getLogger(__name__)
 
 
+def sink_error_hint(message: str) -> str:
+    """Plain-language next step for the Event Hubs / Eventstream send errors people hit most often."""
+    m = message.lower()
+    if "claim" in m and "send" in m:
+        return "The key has no Send right. Use the bridge-send rule's connection string, not students-listen."
+    if "cbs token" in m or "unauthorized" in m or "invalidsignature" in m:
+        return (
+            "The Event Hub (or Eventstream custom endpoint) rejected the key in the connection string. Check that it "
+            "is the Send key for THIS hub: the relay needs the rdm-trust bridge-send string (EVENTHUB_RDM_CONNECTION_STRING), "
+            "the NROD bridge the nrod-feed one (EVENTHUB_CONNECTION_STRING) or the Eventstream custom endpoint's string; "
+            "that the namespace name and EntityPath are exact; and that the key hasn't been regenerated since. On Azure "
+            "Container Apps a changed secret only takes effect after a restart: "
+            "az containerapp revision restart -g <resource group> -n <app> --revision <active revision>."
+        )
+    if "could not be found" in m or ("entity" in m and "not found" in m):
+        return (
+            "The hub in the connection string doesn't exist. Check the namespace name and EntityPath "
+            "(nrod-feed or rdm-trust) - a missing last character in the namespace name is a common cause."
+        )
+    return ""
+
+
 class SinkError(RuntimeError):
     pass
 

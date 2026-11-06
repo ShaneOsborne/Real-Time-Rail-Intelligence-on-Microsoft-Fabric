@@ -16,7 +16,7 @@ from .backoff import ExponentialBackoff
 from .config import BridgeConfig
 from .health import BridgeState
 from .parsing import ParseError, summarise, to_events, topic_from_destination
-from .sinks import Sink, SinkError
+from .sinks import Sink, SinkError, sink_error_hint
 
 log = logging.getLogger(__name__)
 
@@ -88,6 +88,9 @@ class FrameHandler:
             # Do NOT ACK: the durable subscription will redeliver after reconnect.
             self._state.incr("send_failures")
             log.error("sink send failed; frame not acknowledged, reconnecting", extra={"topic": topic, "error": str(exc)})
+            hint = sink_error_hint(str(exc))
+            if hint:
+                log.error("what to check", extra={"hint": hint})
             self.disconnected.set()
             return False
 

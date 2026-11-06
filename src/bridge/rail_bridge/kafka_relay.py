@@ -28,7 +28,7 @@ from typing import Any
 from .backoff import ExponentialBackoff
 from .config import BridgeConfig
 from .health import BridgeState
-from .sinks import Sink, SinkError
+from .sinks import Sink, SinkError, sink_error_hint
 
 log = logging.getLogger(__name__)
 
@@ -170,6 +170,9 @@ def run_kafka(
                     backoff.reset()
         except SinkError as exc:
             log.error("sink send failed; offsets not committed, reconnecting", extra={"error": str(exc)})
+            hint = sink_error_hint(str(exc))
+            if hint:
+                log.error("what to check", extra={"hint": hint})
         except Exception as exc:  # noqa: BLE001
             log.error("kafka relay failed", extra={"error": str(exc)})
         finally:
