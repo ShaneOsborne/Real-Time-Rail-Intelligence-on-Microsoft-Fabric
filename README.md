@@ -138,7 +138,7 @@ flowchart LR
 | [Instructor 1.1](docs/instructor/1.1-prepare.md) | Solo 1.1, plus tenant settings for the student group, class capacity sizing, shared Foundry project and roles | 60 min (+ approval wait) | Manual |
 | [Instructor 1.2](docs/instructor/1.2-workspace-and-reference-data.md) | Solo 1.2 and Solo 1.3 (Option A2), then share the reference Lakehouse | 50 min | ✅ scripts / notebook; sharing manual |
 | [Instructor 1.3](docs/instructor/1.3-bridge.md) | Solo 1.6 (local test) and Solo 1.7 (deploy) | 70 min | ✅ `run-local`, `deploy-bridge` |
-| [Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) | Shared Azure Event Hub, consumer groups and RDM Kafka relay: the feed for the class | 30 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1`, `deploy-bridge` |
+| [Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) | Shared Azure Event Hub, consumer groups and RDM Kafka relay: the feed for the class | 30 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1`, `deploy-bridge`; Instructor 1.5: `make-handouts.sh/.ps1` |
 | [Instructor 1.5](docs/instructor/1.5-student-workspaces-and-handout.md) | Student workspaces, Foundry access, the student handout, a dry run | 30 min | ✅ `fabric-setup.sh` loop; rest manual |
 | [Instructor 1.6](docs/instructor/1.6-running-the-class.md) | On the day: capacity, common problems, overnight pause checkpoint | – | Manual |
 | [Instructor 1.7](docs/instructor/1.7-after-the-class.md) | After the class: keys, Event Hub, Foundry roles, clean-up | 15 min | Partly (`cleanup.sh/.ps1`) |
@@ -263,7 +263,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
 │                              optional shared Event Hubs namespace (eventhubs.bicep); optional Azure Maps account (azuremaps.bicep, Lab 2.9)
 ├── scripts/                   run-local / create-keyvault / deploy-bridge / fabric-setup / cleanup, optional create-eventhub /
-│                              add-student-consumer-groups (.sh and .ps1)
+│                              add-student-consumer-groups / grant-eventhub-reader / make-handouts (.sh and .ps1)
 ├── fabric/
 │   ├── kql/                   01–04 schema scripts, 05 shortcut load, 06 sample queries, 07 TOC seed, 08 one-off back-fill
 │   ├── notebooks/             Reference-data notebook (.ipynb)

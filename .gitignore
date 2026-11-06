@@ -1,5 +1,7 @@
 # Secrets
 .env
+# Instructor 1.5 student handouts (can contain the Event Hubs Listen key)
+handouts/
 *.env.local
 **/rayfin/.env
 

@@ -2,21 +2,28 @@
 .SYNOPSIS
   Give Fabric workspace identities read access to the shared Event Hub (Instructor 1.4 / Solo 1.8, EVENTHUB_AUTH=entra).
 .DESCRIPTION
-  Each student enables Workspace settings > Workspace identity and sends you the workspace name (or the identity ID).
+  Each student enables Workspace settings > Workspace identity and sends you the "ID" shown there (not the "App ID").
   Their Eventstream "Azure Event Hubs" source then uses Authentication kind = Workspace identity - no key to share.
   Assigns 'Azure Event Hubs Data Receiver' on the namespace (EVENTHUB_NAMESPACE, or the 'shared-eventhubs' deployment).
-  Safe to re-run. Needs Owner or User Access Administrator on the namespace, and directory read access to look up names.
+  Safe to re-run. Needs Owner or User Access Administrator on the namespace.
+  Workspace names aren't used: they aren't unique in Entra ID, and a name search also matches longer names.
 .EXAMPLE
-  ./scripts/grant-eventhub-reader.ps1 -Workspace 'Rail RTI - student01','Rail RTI - student02'
-  ./scripts/grant-eventhub-reader.ps1 -Id 00000000-0000-0000-0000-000000000000
-  ./scripts/grant-eventhub-reader.ps1 -Workspace 'Rail RTI - student01' -Remove
+  ./scripts/grant-eventhub-reader.ps1 -Id 59cc0a5f-0000-0000-0000-000000000000
+  ./scripts/grant-eventhub-reader.ps1 -Id '<student01 ID>','<student02 ID>'
+  ./scripts/grant-eventhub-reader.ps1 -Id '<student01 ID>' -Remove
 #>
-param([string[]]$Workspace = @(), [string[]]$Id = @(), [string]$Namespace = '', [switch]$Remove)
+param([Parameter(Mandatory = $true)][string[]]$Id, [string]$Namespace = '', [switch]$Remove)
 . "$PSScriptRoot/_common.ps1"
 Import-DotEnv
 Assert-Command az
 Assert-Env @('AZ_RESOURCE_GROUP')
-if (-not $Workspace -and -not $Id) { throw 'Give at least one -Workspace name or -Id.' }
+
+$Id = @($Id | ForEach-Object { $_.Trim() } | Where-Object { $_ })
+foreach ($i in $Id) {
+    if ($i -notmatch '^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$') {
+        throw "'$i' isn't an ID. Copy the 'ID' from Workspace settings > Workspace identity (it looks like 59cc0a5f-d78a-...)."
+    }
+}
 
 $role = 'Azure Event Hubs Data Receiver'
 $rg = $env:AZ_RESOURCE_GROUP
@@ -45,16 +52,14 @@ function Invoke-Grant([string]$Label, [string]$ObjectId) {
 }
 
 Write-Step "$role on $Namespace"
-foreach ($ws in $Workspace) {
-    $found = @(az ad sp list --display-name $ws --query '[].id' -o tsv 2>$null | Where-Object { $_ })
-    if ($found.Count -eq 1) { Invoke-Grant $ws $found[0] }
-    elseif ($found.Count -eq 0) { Write-Warning "No identity named '$ws'. Is Workspace identity enabled on that workspace (name spelled exactly)?"; $failed++ }
-    else { Write-Warning "$($found.Count) identities are named '$ws'. Use -Id with the ID from Workspace settings > Workspace identity."; $failed++ }
-}
 foreach ($i in $Id) {
+    # "ID" on the Workspace identity page is the object ID. If the App ID was sent, look up the object ID;
+    # if the directory can't be read, assume it's already the object ID.
     $oid = az ad sp show --id $i --query id -o tsv 2>$null
-    if (-not $oid) { $oid = $i }   # no directory read access: assume it's the object ID
-    Invoke-Grant $i $oid
+    if (-not $oid) { $oid = $i }
+    $name = az ad sp show --id $oid --query displayName -o tsv 2>$null
+    $label = if ($name) { "$i ($name)" } else { $i }
+    Invoke-Grant $label $oid
 }
 
 if (-not $Remove) {

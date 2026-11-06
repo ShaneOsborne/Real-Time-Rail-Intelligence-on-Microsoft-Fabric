@@ -156,10 +156,9 @@ Their managed identity gets 'Azure Event Hubs Data Sender'.
 
 Students (and you, for your own workspace) connect with WORKSPACE IDENTITY - no key to share:
   1. Each student: Fabric workspace > Workspace settings > Workspace identity > enable it, and send you the
-     workspace NAME (or the identity ID shown there).
+     "ID" shown there (not the "App ID").
   2. You give each workspace read access to the hubs:
-       ./scripts/grant-eventhub-reader.ps1 -Workspace '<workspace name>','<another>'
-       ./scripts/grant-eventhub-reader.ps1 -Id <identity id>
+       ./scripts/grant-eventhub-reader.ps1 -Id '<ID>','<another ID>'
   3. Eventstream > Azure Event Hubs source:
        Event Hub namespace : $ns
        Event hubs          : $nrodHub (-> RawFeed)   $rdmHub (-> RdmTrustRaw)
