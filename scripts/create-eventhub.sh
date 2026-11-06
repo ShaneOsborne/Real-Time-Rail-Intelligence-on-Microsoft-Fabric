@@ -3,12 +3,16 @@
 # event hubs nrod-feed and rdm-trust (7-day retention), a Send rule per hub and a namespace Listen rule for
 # students; writes the send connection strings into the shared Key Vault; creates student consumer groups;
 # and prints what students need for their Eventstream "Azure Event Hubs" source.
+# With SECRETS_SOURCE=inline (Key Vault blocked by policy, as in Solo 1.7) it doesn't touch Key Vault: it writes
+# EVENTHUB_NAMESPACE, EVENTHUB_CONNECTION_STRING and EVENTHUB_RDM_CONNECTION_STRING straight into .env instead.
 #   ./scripts/create-eventhub.sh
+#   SECRETS_SOURCE=inline ./scripts/create-eventhub.sh
 #   ./scripts/create-eventhub.sh --what-if
 #   ./scripts/create-eventhub.sh --hide-key     # don't print the students' Listen key
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP and AZ_LOCATION.
 # Optional .env: EVENTHUB_NAMESPACE, EVENTHUB_THROUGHPUT_UNITS, EVENTHUB_RETENTION_DAYS,
-#                STUDENT_CONSUMER_GROUP_PREFIX, STUDENT_CONSUMER_GROUP_COUNT, KEY_VAULT_NAME, NAME_PREFIX.
+#                STUDENT_CONSUMER_GROUP_PREFIX, STUDENT_CONSUMER_GROUP_COUNT, KEY_VAULT_NAME, NAME_PREFIX,
+#                SECRETS_SOURCE (keyvault | inline).
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
@@ -25,6 +29,8 @@ for arg in "$@"; do
 done
 
 NAME_PREFIX="${NAME_PREFIX:-railrti}"
+SECRETS_SOURCE="${SECRETS_SOURCE:-keyvault}"
+case "$SECRETS_SOURCE" in keyvault|inline) ;; *) echo "ERROR: SECRETS_SOURCE must be 'keyvault' or 'inline'" >&2; exit 1 ;; esac
 NROD_HUB=nrod-feed
 RDM_HUB=rdm-trust
 [[ -n "${AZ_SUBSCRIPTION_ID:-}" ]] && az account set --subscription "$AZ_SUBSCRIPTION_ID"
@@ -45,6 +51,7 @@ if [[ "$WHAT_IF" == "true" ]]; then
   exit 0
 fi
 
+if [[ "$SECRETS_SOURCE" == "keyvault" ]]; then
 DEPLOYER_ID="$(az ad signed-in-user show --query id -o tsv 2>/dev/null || true)"
 DEPLOYER_TYPE=User
 if [[ -z "$DEPLOYER_ID" ]]; then
@@ -59,12 +66,14 @@ az deployment group create -g "$AZ_RESOURCE_GROUP" -n shared-keyvault \
   --parameters location="$AZ_LOCATION" namePrefix="$NAME_PREFIX" keyVaultName="${KEY_VAULT_NAME:-}" \
                deployerPrincipalId="$DEPLOYER_ID" deployerPrincipalType="$DEPLOYER_TYPE" -o none
 KV_NAME="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n shared-keyvault --query properties.outputs.keyVaultName.value -o tsv)"
+else
+  log "SECRETS_SOURCE=inline: Key Vault skipped (connection strings go into .env instead)"
+fi
 
 log "Event Hubs Standard namespace, hubs $NROD_HUB + $RDM_HUB, SAS rules (infra/eventhubs.bicep)"
 az deployment group create -n shared-eventhubs "${eh_params[@]}" -o none
 NS="$(az deployment group show -g "$AZ_RESOURCE_GROUP" -n shared-eventhubs --query properties.outputs.namespaceName.value -o tsv)"
 
-log "Writing send connection strings to Key Vault $KV_NAME (retrying while RBAC propagates)"
 set_secret() {
   local name="$1" value="$2" i
   for i in {1..10}; do
@@ -79,10 +88,35 @@ send_cs() {
   az eventhubs eventhub authorization-rule keys list -g "$AZ_RESOURCE_GROUP" --namespace-name "$NS" \
     --eventhub-name "$1" --authorization-rule-name bridge-send --query primaryConnectionString -o tsv
 }
+# set_env_var KEY VALUE: replace KEY=... in the repo-root .env, or append it. Other lines are left as they are.
+set_env_var() {
+  local file="$REPO_ROOT/.env" tmp
+  [[ -f "$file" ]] || : > "$file"
+  tmp="$(mktemp)"
+  if grep -q "^[[:space:]]*$1[[:space:]]*=" "$file"; then
+    K="$1" V="$2" awk '{ line=$0; sub(/\r$/, "", line) }
+      line ~ "^[[:space:]]*" ENVIRON["K"] "[[:space:]]*=" { print ENVIRON["K"] "=" ENVIRON["V"]; next } { print }' "$file" > "$tmp"
+  else
+    cat "$file" > "$tmp"
+    [[ -s "$tmp" && -n "$(tail -c1 "$tmp")" ]] && echo >> "$tmp"
+    printf '%s=%s\n' "$1" "$2" >> "$tmp"
+  fi
+  cat "$tmp" > "$file"; rm -f "$tmp"
+  echo "  set $1 in .env"
+}
 NROD_CS="$(send_cs "$NROD_HUB")"
 RDM_CS="$(send_cs "$RDM_HUB")"
-set_secret eventhub-nrod-connection-string "$NROD_CS"
-set_secret eventhub-rdm-connection-string "$RDM_CS"
+[[ -n "$NROD_CS" && -n "$RDM_CS" ]] || { echo "ERROR: could not read the bridge-send connection strings" >&2; exit 1; }
+if [[ "$SECRETS_SOURCE" == "keyvault" ]]; then
+  log "Writing send connection strings to Key Vault $KV_NAME (retrying while RBAC propagates)"
+  set_secret eventhub-nrod-connection-string "$NROD_CS"
+  set_secret eventhub-rdm-connection-string "$RDM_CS"
+else
+  log "Writing the namespace and send connection strings to .env (keep .env private; never commit it)"
+  set_env_var EVENTHUB_NAMESPACE "$NS"
+  set_env_var EVENTHUB_CONNECTION_STRING "$NROD_CS"
+  set_env_var EVENTHUB_RDM_CONNECTION_STRING "$RDM_CS"
+fi
 
 if [[ "${STUDENT_CONSUMER_GROUP_COUNT:-0}" =~ ^[1-9][0-9]*$ ]]; then
   log "Student consumer groups (${STUDENT_CONSUMER_GROUP_PREFIX:-student}01..)"
@@ -99,12 +133,20 @@ else
   LISTEN_KEY="(hidden - az eventhubs namespace authorization-rule keys list -g $AZ_RESOURCE_GROUP --namespace-name $NS --authorization-rule-name students-listen --query primaryKey -o tsv)"
 fi
 
-cat <<MSG
-
-Done. Add to .env:
+if [[ "$SECRETS_SOURCE" == "inline" ]]; then
+  NEXT_STEPS="Done. .env now has EVENTHUB_NAMESPACE, EVENTHUB_CONNECTION_STRING and EVENTHUB_RDM_CONNECTION_STRING.
+Then point the Azure apps at the hub (Solo 1.7), keeping the inline choice:
+  SECRETS_SOURCE=inline BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh"
+else
+  NEXT_STEPS="Done. Add to .env:
   EVENTHUB_NAMESPACE=$NS
 Then point the Azure apps at the hub (Solo 1.7):
-  BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh
+  BRIDGE_TARGET=eventhub DEPLOY_RDM_RELAY=true ./scripts/deploy-bridge.sh"
+fi
+
+cat <<MSG
+
+$NEXT_STEPS
 
 Share with students over a private channel (never in a public repo or chat) - Eventstream > Azure Event Hubs source:
   Event Hub namespace : $NS
