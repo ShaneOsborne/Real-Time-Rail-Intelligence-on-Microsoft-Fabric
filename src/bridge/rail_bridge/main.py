@@ -113,10 +113,11 @@ def main(argv: list[str] | None = None) -> int:
         sink = build_sink(
             cfg.sink, cfg.output_file, entity_name=cfg.eventhub_name,
             fully_qualified_namespace=cfg.eventhub_fqdn, credential=entra_credential(),
+            drop_null_fields=cfg.eventhub_drop_nulls,
         )
     else:
         connection_string, entity_name = cfg.sink_target()
-        sink = build_sink(cfg.sink, cfg.output_file, connection_string, entity_name)
+        sink = build_sink(cfg.sink, cfg.output_file, connection_string, entity_name, drop_null_fields=cfg.eventhub_drop_nulls)
     def _status_loop() -> None:
         # One INFO line every status_interval_s: proves the bridge is alive in Log Analytics even when the feed is quiet.
         while not stop.wait(cfg.status_interval_s):

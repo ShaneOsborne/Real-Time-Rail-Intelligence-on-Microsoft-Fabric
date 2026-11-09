@@ -61,6 +61,48 @@ def _dumps(ev: Any) -> str:
     return json.dumps(ev, separators=(",", ":"), ensure_ascii=False)
 
 
+def drop_nulls(value: Any) -> Any:
+    """Return a copy without dictionary entries whose value is None, at any depth.
+
+    Fabric Eventstream's Azure Event Hubs source with *Extended features* (the only level that offers workspace identity)
+    infers a schema from the messages and refuses to publish ("Required property 'type' not found in JSON") when a field
+    is always null, as some RTPPM and TRUST fields are. KQL reads a missing field as null, so parsing is unchanged.
+    None items inside lists are kept, so list positions don't move.
+    """
+    if isinstance(value, dict):
+        return {k: drop_nulls(v) for k, v in value.items() if v is not None}
+    if isinstance(value, list):
+        return [drop_nulls(v) for v in value]
+    return value
+
+
+# RTPPM is converted from XML, so a repeating element is a JSON object when there's one of it and a list when there are
+# several (OperatorPage[].OprServiceGrp is an object for one operator and a list for the next). A field that is sometimes
+# an object and sometimes a list has no single type, which Fabric's Extended-features schema inference rejects with
+# "Required property 'type' not found". These keys are always sent as lists.
+ALWAYS_LIST_KEYS = frozenset({"RAGThresholds", "Sector", "Operator", "OperatorPage", "OprToleranceTotal", "OprServiceGrp"})
+
+
+def lists_for_repeating_keys(value: Any, keys: frozenset[str] = ALWAYS_LIST_KEYS) -> Any:
+    """Return a copy where every value under one of ``keys`` is a list (a single object becomes a one-item list)."""
+    if isinstance(value, dict):
+        out = {}
+        for k, v in value.items():
+            v = lists_for_repeating_keys(v, keys)
+            out[k] = [v] if k in keys and isinstance(v, dict) else v
+        return out
+    if isinstance(value, list):
+        return [lists_for_repeating_keys(v, keys) for v in value]
+    return value
+
+
+def schema_safe(ev: Any) -> Any:
+    """Shape an event so Fabric's Extended-features Event Hubs source can infer one schema: no null-only fields and no
+    fields that switch between object and list. KQL reads a missing field as null and Lab 2.1 only reads the RTPPM
+    NationalPage, so parsing is unchanged."""
+    return lists_for_repeating_keys(drop_nulls(ev))
+
+
 class ConsoleSink:
     def __init__(self, stream: TextIO | None = None) -> None:
         self._stream = stream or sys.stdout
@@ -114,8 +156,10 @@ class EventstreamSink:
         label: str = "Eventstream",
         fully_qualified_namespace: str = "",
         credential: Any = None,
+        drop_null_fields: bool = False,
     ) -> None:
         self.label = label
+        self._drop_nulls = drop_null_fields
         try:
             from azure.eventhub import EventData, EventHubProducerClient
         except ImportError as exc:  # pragma: no cover - dependency present in image
@@ -140,7 +184,7 @@ class EventstreamSink:
             try:
                 batch = self._client.create_batch()
                 for ev in events:
-                    data = self._EventData(_dumps(ev))
+                    data = self._EventData(_dumps(schema_safe(ev) if self._drop_nulls else ev))
                     data.content_type = "application/json"
                     if isinstance(ev, dict):
                         data.properties = {"topic": ev.get("topic", ""), "feed": ev.get("feed", "")}
@@ -178,6 +222,7 @@ def build_sink(
     entity_name: str = "",
     fully_qualified_namespace: str = "",
     credential: Any = None,
+    drop_null_fields: bool = True,
 ) -> Sink:
     if kind == "console":
         return ConsoleSink()
@@ -189,5 +234,6 @@ def build_sink(
         return EventstreamSink(
             connection_string, entity_name, label="Event Hub",
             fully_qualified_namespace=fully_qualified_namespace, credential=credential,
+            drop_null_fields=drop_null_fields,
         )
     raise ValueError(f"Unknown sink '{kind}'")

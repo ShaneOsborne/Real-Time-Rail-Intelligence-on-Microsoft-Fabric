@@ -73,6 +73,13 @@ class BridgeConfig:
     # local (key) authentication on the Event Hubs namespace.
     eventhub_auth: str = "key"
     eventhub_namespace: str = ""
+    # BRIDGE_SINK=eventhub only: leave out fields whose value is null (at any depth) before sending. A Fabric Eventstream
+    # "Azure Event Hubs" source with Extended features (needed for workspace identity) works out a schema from the
+    # messages and fails to publish with "Required property 'type' not found" when a field is only ever null.
+    # It also sends RTPPM's repeating sections (OperatorPage, OprServiceGrp ...) as lists every time: converted from XML,
+    # they're an object when there's one item and a list otherwise, which the schema inference can't type either.
+    # KQL reads a missing field as null, so the parsing in Lab 2.1 is unchanged.
+    eventhub_drop_nulls: bool = True
     split_batches: bool = True
 
     # Ops
@@ -120,6 +127,7 @@ class BridgeConfig:
             eventhub_name=e.get("EVENTHUB_NAME", ""),
             eventhub_auth=(e.get("EVENTHUB_AUTH", "") or "key").lower(),
             eventhub_namespace=e.get("EVENTHUB_NAMESPACE", ""),
+            eventhub_drop_nulls=_bool(e.get("EVENTHUB_DROP_NULLS"), True),
             split_batches=_bool(e.get("BRIDGE_SPLIT_BATCHES"), True),
             health_port=int(e.get("HEALTH_PORT", "8080")),
             log_level=e.get("LOG_LEVEL", "INFO").upper(),
