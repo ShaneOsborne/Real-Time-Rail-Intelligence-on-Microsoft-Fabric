@@ -40,12 +40,12 @@ find_item() {
 
 # ensure_item <collection> <displayName> <json-body>  -> echoes id (handles 201 and 202/LRO by polling)
 ensure_item() {
-  local coll="$1" name="$2" body="$3" id i
+  local coll="$1" name="$2" body="$3" id
   id="$(find_item "$coll" "$name")"
   if [[ -z "$id" || "$id" == "None" ]]; then
     echo "  creating $coll/$name" >&2
     fabric --method post --url "$WS/$coll" --body "$body" -o none >&2
-    for i in {1..30}; do
+    for _ in {1..30}; do
       id="$(find_item "$coll" "$name")"
       [[ -n "$id" && "$id" != "None" ]] && break
       sleep 10
