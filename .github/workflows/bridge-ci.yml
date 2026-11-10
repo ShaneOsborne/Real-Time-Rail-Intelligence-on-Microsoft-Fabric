@@ -15,9 +15,6 @@ on:
 permissions:
   contents: read
 
-env:
-  IMAGE_NAME: ghcr.io/${{ github.repository_owner }}/rail-fabric-rti-bridge
-
 jobs:
   lint-test:
     runs-on: ubuntu-latest
@@ -50,6 +47,10 @@ jobs:
       packages: write
     steps:
       - uses: actions/checkout@v4
+      # Container image names must be lowercase, but the GitHub owner can contain capitals
+      # (for example ShaneOsborne), so build the image name from a lowercased owner.
+      - name: Set image name
+        run: echo "IMAGE_NAME=ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/rail-fabric-rti-bridge" >> "$GITHUB_ENV"
       - uses: docker/setup-buildx-action@v3
       - name: Log in to GHCR (main branch only)
         if: github.event_name != 'pull_request' && github.ref == 'refs/heads/main'
