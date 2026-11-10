@@ -4,13 +4,14 @@
 
 | Resource | Notes |
 |---|---|
-| User-assigned managed identity | Pulls images from ACR and reads Key Vault secrets |
+| User-assigned managed identity | `<namePrefix>-bridge-id`. Pulls images from ACR and reads Key Vault secrets. With `eventhubAuth=entra` it also gets **Azure Event Hubs Data Sender** on the shared namespace, so the apps send without keys |
 | Log Analytics workspace | Container Apps console logs. Retention is 30 days by default |
 | Key Vault (RBAC mode) | Usually created earlier by `keyvault.bicep` (Solo 1.1, step 8) and re-used here: same resource group + `namePrefix` gives the same name, or pass `keyVaultName`. Secrets `nrod-username`, `nrod-password` and `eventstream-connection-string`. The deployer gets *Key Vault Secrets Officer* and the identity gets *Key Vault Secrets User* |
 | Azure Container Registry (Basic, optional) | `createAcr=false` together with `containerImage=ghcr.io/...` uses a public image instead |
 | Container Apps environment | Consumption workload profile |
-| Container app (phase 2) | **minReplicas = maxReplicas = 1** with **0.25 vCPU / 0.5 GiB**, no ingress, liveness and startup probes on `/healthz`, and secrets as Key Vault references |
+| Container app (phase 2) | **minReplicas = maxReplicas = 1** with **0.25 vCPU / 0.5 GiB**, no ingress, liveness and startup probes on `/healthz`, and secrets as Key Vault references (`secretsSource=keyvault`, the default) or encrypted Container Apps secrets (`secretsSource=inline`) |
 | *Optional:* RDM relay container app (phase 2, `deployRdmRelay=true`) | `<namePrefix>-rdm-relay`: same image with `BRIDGE_SOURCE=kafka`, `BRIDGE_SINK=eventhub`, 1 replica, 0.25 vCPU / 0.5 GiB. Secrets `rdm-kafka-username`, `rdm-kafka-password`, `eventhub-rdm-connection-string` |
+| *Optional:* Darwin relay container app (phase 2, `deployDarwinRelay=true`) | `<namePrefix>-darwin-relay`: the same relay image, sending to `rdm-darwin`, 1 replica, **0.5 vCPU / 1 GiB** (about $28/month, estimate). Bicep maps the `darwinKafka*` values into the relay's `RDM_KAFKA_*` settings. Secrets `darwin-kafka-username`, `darwin-kafka-password`, `eventhub-darwin-connection-string`. Output `darwinRelayAppName` |
 
 Optional shared Event Hub parameters (Instructor 1.4 / Solo 1.8). The defaults keep the original behaviour:
 
@@ -18,6 +19,10 @@ Optional shared Event Hub parameters (Instructor 1.4 / Solo 1.8). The defaults k
 |---|---|---|
 | `bridgeTarget` | `eventstream` | `eventhub`: the bridge reads `eventhub-nrod-connection-string` into `EVENTHUB_CONNECTION_STRING` and runs with `BRIDGE_SINK=eventhub` |
 | `deployRdmRelay` | `false` | `true`: deploys the RDM relay app (needs `rdmKafkaBootstrapServers`, `rdmKafkaTopic`, `rdmKafkaConsumerGroup`) |
+| `deployDarwinRelay` | `false` | `true`: deploys the Darwin relay app (needs `darwinKafkaBootstrapServers`, `darwinKafkaTopic`, `darwinKafkaConsumerGroup`; hub `darwinHubName`, default `rdm-darwin`) |
+| `eventhubAuth` | `key` | `entra`: no Event Hubs keys. The identity gets **Azure Event Hubs Data Sender** on `eventhubNamespace`, and the apps get `EVENTHUB_AUTH=entra`, `EVENTHUB_NAMESPACE` (FQDN), `EVENTHUB_NAME` and `AZURE_CLIENT_ID`. Use it when a policy sets `disableLocalAuth=true` on the namespace |
+| `eventhubNamespace` | (empty) | `eventhubAuth=entra` only: the Event Hubs namespace name in this resource group |
+| `secretsSource` | `keyvault` | `inline`: the apps get encrypted Container Apps secrets from the secure `*Value` parameters (`nrodUsernameValue`, `nrodPasswordValue`, `bridgeConnectionStringValue`, `rdmKafkaUsernameValue`, `rdmKafkaPasswordValue`, `eventhubRdmConnectionStringValue`, `darwinKafkaUsernameValue`, `darwinKafkaPasswordValue`, `eventhubDarwinConnectionStringValue`) instead of Key Vault references. For subscriptions whose policy blocks Key Vault public access |
 
 ## Two-phase deployment
 
@@ -28,6 +33,10 @@ Container Apps resolves Key Vault secret references when it creates a revision, 
 3. `deployApp=true` deploys the container app.
 
 `scripts/deploy-bridge.sh` and `scripts/deploy-bridge.ps1` do all three steps and retry while RBAC role assignments propagate.
+After deploying they start any stopped apps and restart the active revisions, so changed secrets apply straight away.
+
+With `SECRETS_SOURCE=inline` (`secretsSource=inline`), step 2 doesn't write to Key Vault and the apps don't read it at
+runtime: the script passes the values from `.env` to phase 2 as secure parameters. Phase 1 still deploys the vault.
 
 ## Manual commands
 
@@ -48,11 +57,11 @@ The shared Event Hubs tier, deployed by `scripts/create-eventhub.sh` / `.ps1` (d
 
 | Resource | Notes |
 |---|---|
-| Event Hubs namespace (`Microsoft.EventHub/namespaces@2024-01-01`) | **Standard**, `throughputUnits` (default 1), public network access, TLS 1.2, SAS enabled. Basic isn't offered: 1 consumer group and 1-day retention |
-| Event hubs `nrod-feed` and `rdm-trust` | `partitionCount` 2, `messageRetentionInDays` = `retentionDays` (default 7, the Standard maximum) |
-| `bridge-send` rule on each hub | **Send** only. The script stores the connection strings in Key Vault as `eventhub-nrod-connection-string` and `eventhub-rdm-connection-string` |
+| Event Hubs namespace (`Microsoft.EventHub/namespaces@2024-01-01`) | **Standard**, `throughputUnits` (default 1; plan 2 or more with the Darwin hub), public network access, TLS 1.2, SAS enabled (`disableLocalAuth: false`). An Azure Policy may still force `disableLocalAuth=true`; then keys fail with `CBS Token authentication failed`, so use `EVENTHUB_AUTH=entra`. Basic isn't offered: 1 consumer group and 1-day retention |
+| Event hubs `nrod-feed` and `rdm-trust`, plus optional `rdm-darwin` (`darwinHub=true`, name `darwinHubName`) | `partitionCount` 2, `messageRetentionInDays` = `retentionDays` (default 7, the Standard maximum) |
+| `bridge-send` rule on each hub | **Send** only. The script stores the connection strings in Key Vault as `eventhub-nrod-connection-string`, `eventhub-rdm-connection-string` and (Darwin) `eventhub-darwin-connection-string`, or in `.env` with `SECRETS_SOURCE=inline`. Not used with `EVENTHUB_AUTH=entra` |
 | `students-listen` rule on the namespace | **Listen** only. Students use it in their Eventstream Azure Event Hubs source |
-| Consumer groups | `studentConsumerGroups` (array, max 19) on both hubs. `$Default` exists automatically and is kept for the instructor |
+| Consumer groups | `studentConsumerGroups` (array, max 19) on every hub, including `rdm-darwin`. `$Default` exists automatically and is kept for the instructor |
 
 No keys appear in the outputs. The scripts read them with `az eventhubs eventhub authorization-rule keys list` and
 `az eventhubs namespace authorization-rule keys list`. `scripts/add-student-consumer-groups.sh` / `.ps1` adds groups later with the CLI.

@@ -28,6 +28,9 @@ follow its folder top to bottom. Part 2 is the same build for everyone.
      bridge (and an RDM Kafka relay) sends to it, and each student's Eventstream reads it with an **Azure Event Hubs** source and its own
      consumer group. Use it for a class (NROD allows one connection per account; RDM subscriptions are per user) or when the Fabric
      capacity is paused overnight: Event Hubs keeps buffering for up to 7 days. The direct paths above stay the default.
+     Students sign in with a Listen key, or, where a policy blocks keys on the namespace, with their **workspace identity**
+     (`EVENTHUB_AUTH=entra`). The instructor can also run an optional **Darwin relay** into a third hub, `rdm-darwin`, for the
+     optional Darwin class feed ([Student 1.5](student/1.5-darwin-class-feed.md)).
 2. **Store and shape** the data in an **Eventhouse**. Raw JSON lands in `RawFeed` / `RdmTrustRaw`. **Update policies** split batched TRUST messages by `msg_type` into typed tables, and **materialized views** keep the latest state for each train and the delay summaries (Lab 2.1). Reference data (CORPUS, SMART, NaPTAN) goes into a **Lakehouse** and a KQL `Locations` table (Solo 1.3).
 3. **Act and visualise** with **Activator** alerts (Lab 2.2), a **Real-Time Dashboard** and a **Power BI** report (Lab 2.3).
 4. **Converse** through a **Fabric data agent** (Lab 2.4), an **Azure AI Foundry agent** that calls it (Lab 2.6), and a **Rayfin** Fabric app with a live map and a chat panel (Lab 2.8).
@@ -72,7 +75,7 @@ Volumes: TRUST peaks at about 600 messages a minute (in batches), TD at about 6,
 | Azure Functions Premium/Flex (always ready) | Works, but over-provisioned | ~$80–150+/month |
 | Your laptop / Docker | ✅ Training and development | Free |
 
-For classes or paused capacities, add the optional shared **Azure Event Hubs Standard** tier ([Instructor 1.4](instructor/1.4-shared-event-hub.md) for a class, [Solo 1.8](solo/1.8-shared-event-hub.md) for one person): about **$22/month** for 1 throughput unit plus a few dollars of ingress, and **~$14/month** more if you also run the RDM relay app (list-price estimates).
+For classes or paused capacities, add the optional shared **Azure Event Hubs Standard** tier ([Instructor 1.4](instructor/1.4-shared-event-hub.md) for a class, [Solo 1.8](solo/1.8-shared-event-hub.md) for one person): about **$22/month** for 1 throughput unit plus a few dollars of ingress, and **~$14/month** more if you also run the RDM relay app (list-price estimates). The optional Darwin relay app adds about **$28/month** (estimate) and needs 2 or more throughput units.
 
 ## Fabric capacity requirements
 

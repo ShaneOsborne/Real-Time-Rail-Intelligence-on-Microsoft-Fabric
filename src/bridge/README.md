@@ -10,15 +10,23 @@ In the optional shared tier ([Instructor 1.4](../../docs/instructor/1.4-shared-e
   value unchanged to the sink, with `enable.auto.commit=false`, and commits offsets **only after** the sink has accepted the batch.
   A failed send or commit closes the consumer, backs off and re-joins the group, which resumes from the last committed offset
   (at-least-once). Values that aren't JSON are logged, counted in `parse_failures`, skipped and committed.
+  The optional **Darwin relay** (`<prefix>-darwin-relay`, Instructor 1.4) is the same relay sending to `rdm-darwin`:
+  Bicep maps the `DARWIN_KAFKA_*` values from `.env` into that app's `RDM_KAFKA_*` settings.
+
+Sending to an Azure Event Hub, the sink signs in with a **key** (connection string, the default) or with
+**Microsoft Entra ID** (`EVENTHUB_AUTH=entra`) where a policy sets `disableLocalAuth=true` on the namespace. With
+`entra` it uses `DefaultAzureCredential`: the apps' user-assigned managed identity on Azure, or your `az login` locally.
+Run Entra locally in the **venv** after `az login`; the Docker image can't use your `az login`.
 
 ## Features
 
 * **Durable subscriptions.** The CONNECT header `client-id` is set to the NROD username by default. Each feed gets a SUBSCRIBE header `activemq.subscriptionName` = `<prefix>-<topic>`, which is unique per feed.
 * **`ack: client-individual`.** A frame is ACKed **only after** the sink has accepted all of its events. If a send fails, the frame isn't ACKed, the bridge reconnects and the broker redelivers it. NROD buffers durable messages for only about **5 minutes** after a disconnect.
 * **Heartbeats** default to `15000,15000`.
-* **Exponential backoff** of 1, 2, 4, 8, 16 … seconds with ±10 % jitter, capped at `BACKOFF_MAX_S` (default 60 s). The backoff resets once messages flow again.
+* **Exponential backoff** of 30, 60, 120, 240 … seconds with ±10 % jitter, capped at `BACKOFF_MAX_S` (default 600 s). The backoff resets once messages flow again. After an NROD `AMQ339009` block the bridge waits `NROD_BLOCKED_WAIT_S` (default 25 minutes) before it tries again.
 * **Batch splitting.** TRUST and TD frames are JSON arrays, and each item becomes its own event. Set `BRIDGE_SPLIT_BATCHES=false` to keep whole arrays.
 * **Envelope.** Every event looks like `{source, topic, feed, msg_type, message_id, batch_index, received_utc, payload}`. It maps one-to-one onto the Eventhouse `RawFeed` table.
+* **Schema-friendly events for the shared Event Hub.** With `BRIDGE_SINK=eventhub` and `EVENTHUB_DROP_NULLS=true` (the default), the bridge and relays leave out null fields and always send the RTPPM repeating sections (`RAGThresholds`, `Sector`, `Operator`, `OperatorPage`, `OprToleranceTotal`, `OprServiceGrp`) as lists. An Eventstream **Azure Event Hubs** source with **Extended features** (needed for workspace identity) infers a schema and otherwise fails to publish with *Required property 'type' not found in JSON*. Lab 2.1 parsing is unchanged: it only reads the RTPPM `NationalPage`.
 * **Graceful shutdown.** On SIGTERM or SIGINT the bridge finishes the frame in flight, disconnects and closes the producer.
 * **Structured JSON logs** go to stderr, ready for Container Apps and Log Analytics.
 * **Health endpoint** on `:8080`: `/healthz` (liveness), `/readyz` (connected and a message received within `STALE_AFTER_S`) and `/metrics` (JSON counters).
@@ -60,11 +68,16 @@ The repo-root scripts `scripts/run-local.sh` and `scripts/run-local.ps1` wrap al
 | `NROD_CLIENT_ID` | = username | Only **one** live connection may use a given client-id |
 | `NROD_SUBSCRIPTION_PREFIX` | `rail-fabric-rti` | |
 | `NROD_HEARTBEAT_MS` | `15000` | |
-| `BACKOFF_INITIAL_S` / `BACKOFF_MAX_S` | `1` / `60` | |
+| `BACKOFF_INITIAL_S` / `BACKOFF_MAX_S` | `30` / `600` | Reconnect backoff (±10 % jitter) |
+| `NROD_BLOCKED_WAIT_S` | `1500` | Wait after an NROD `AMQ339009` block (25 minutes) |
 | `EVENTSTREAM_CONNECTION_STRING` | – | Eventstream custom endpoint → Event Hub → SAS key → connection string (with `EntityPath`) |
 | `EVENTSTREAM_ENTITY_NAME` | – | Only needed if the connection string has no `EntityPath` |
 | `EVENTHUB_CONNECTION_STRING` | = `EVENTSTREAM_CONNECTION_STRING` | Sink `eventhub`: Azure Event Hub **Send** connection string (with `EntityPath`). The `kafka` source never falls back to the Eventstream string |
-| `EVENTHUB_NAME` | = `EVENTSTREAM_ENTITY_NAME` | Only needed if the Event Hub connection string has no `EntityPath` (no fallback for the `kafka` source) |
+| `EVENTHUB_NAME` | = `EVENTSTREAM_ENTITY_NAME` | Only needed if the Event Hub connection string has no `EntityPath` (no fallback for the `kafka` source). **Required** with `EVENTHUB_AUTH=entra` (`nrod-feed`, `rdm-trust` or `rdm-darwin`) |
+| `EVENTHUB_AUTH` | `key` | `key` (connection string) or `entra` (Microsoft Entra ID; no connection string needed) |
+| `EVENTHUB_NAMESPACE` | – | `EVENTHUB_AUTH=entra` only: the namespace, as a name or FQDN (a bare name gets `.servicebus.windows.net`) |
+| `AZURE_CLIENT_ID` | – | Set by Bicep on Azure: picks the apps' user-assigned identity (`<prefix>-bridge-id`) for `EVENTHUB_AUTH=entra`. Leave unset locally |
+| `EVENTHUB_DROP_NULLS` | `true` | Sink `eventhub` only: drop null fields and send RTPPM repeating sections as lists (see Features) |
 | `RDM_KAFKA_BOOTSTRAP_SERVERS` / `RDM_KAFKA_TOPIC` / `RDM_KAFKA_CONSUMER_GROUP` | – | Source `kafka`. Topic may be a comma-separated list |
 | `RDM_KAFKA_USERNAME` / `RDM_KAFKA_PASSWORD` | – | Source `kafka` (SASL) |
 | `RDM_KAFKA_SECURITY_PROTOCOL` / `RDM_KAFKA_SASL_MECHANISM` | `SASL_SSL` / `PLAIN` | |
@@ -92,4 +105,4 @@ pip install -r requirements-dev.txt
 ruff check . && python -m pytest -q
 ```
 
-The tests cover parsing of batched TRUST/TD/RTPPM frames, backoff, config validation, ACK-after-send, the no-ACK path on sink failure, poison messages, the console and file sinks, and an end-to-end replay. For the optional tier they also cover the `eventhub` sink alias and its fallback, and the Kafka relay with a fake consumer: commit-after-send, no commit on failure, reconnect and redelivery, and poison messages. None of them need the network, `azure-eventhub` or `confluent-kafka`.
+The tests cover parsing of batched TRUST/TD/RTPPM frames, backoff, config validation, ACK-after-send, the no-ACK path on sink failure, poison messages, the console and file sinks, and an end-to-end replay. For the optional tier they also cover the `eventhub` sink alias and its fallback, and the Kafka relay with a fake consumer: commit-after-send, no commit on failure, reconnect and redelivery, and poison messages, plus `EVENTHUB_AUTH=entra` config validation, the plain-language hints for sink and NROD broker errors, and null-dropping with RTPPM sections sent as lists. None of them need the network, `azure-eventhub` or `confluent-kafka`.

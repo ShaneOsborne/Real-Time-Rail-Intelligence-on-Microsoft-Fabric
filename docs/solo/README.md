@@ -19,7 +19,7 @@ Follow these in order.
 | [Solo 1.5 – Darwin Push Port](1.5-darwin-push-port.md) (optional) | Forecasts and platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` |
 | [Solo 1.6 – Bridge, locally](1.6-bridge-local.md) | STOMP bridge in venv and Docker: console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` |
 | [Solo 1.7 – Bridge on Azure](1.7-bridge-azure.md) | Bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` |
-| [Solo 1.8 – Shared Event Hub](1.8-shared-event-hub.md) (optional) | Buffer the feeds while your capacity is paused overnight | 30 min | ✅ `create-eventhub.sh/.ps1`; Eventstream source manual |
+| [Solo 1.8 – Shared Event Hub](1.8-shared-event-hub.md) (optional) | Buffer the feeds while your capacity is paused overnight (`EVENTHUB_AUTH=entra` if a policy blocks keys) | 30 min | ✅ `create-eventhub.sh/.ps1`; Eventstream source manual |
 
 ## Then continue with Part 2
 

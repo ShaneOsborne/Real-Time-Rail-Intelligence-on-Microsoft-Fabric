@@ -93,6 +93,10 @@ capacity per student (pattern 3), rather than one large shared capacity.
 > Eventstream (an Azure Event Hubs source, ≈ 1 CU estimated) and their own Eventhouse, so the Fabric load per student is
 > the same.
 
+**Optional Darwin class feed.** If the instructor runs the Darwin relay and students do the optional
+[Student 1.5](student/1.5-darwin-class-feed.md), each student adds a third Eventstream (`RailEventstreamDarwin`, another
+Azure Event Hubs source). Plan about **1 CU more per student** (estimate). Students can deactivate it when they don't need it.
+
 ## Keeping within capacity
 
 * **Check the Capacity Metrics app daily** during a proof of concept or course: utilisation, throttling and carry-forward

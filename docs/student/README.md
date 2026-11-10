@@ -32,8 +32,8 @@ listed here too, so you know what to expect.
 |---|---|---|
 | [Lab 2.1 – KQL transformations](../build/2.1-kql-transformations.md) | 40 min | – |
 | [Lab 2.2 – Activator alerts](../build/2.2-activator-alerts.md) | 30 min | – |
-| [Lab 2.3 – Real-Time Dashboard and Power BI report](../build/2.3-dashboard-powerbi.md) | 45 min | – |
-| [Lab 2.4 – Fabric data agent](../build/2.4-fabric-data-agent.md) | 30 min | – |
+| [Lab 2.3 – Real-Time Dashboard and Power BI report](../build/2.3-dashboard-powerbi.md) | 45 min | Darwin tiles only if you did Student 1.5 |
+| [Lab 2.4 – Fabric data agent](../build/2.4-fabric-data-agent.md) | 30 min | Darwin tables and example queries only if you did Student 1.5 |
 | [Lab 2.5 – Rail ontology](../build/2.5-rail-ontology.md) (optional) | 50 min | Only if your instructor says the ontology tenant setting is on. Use your own workspace |
 | [Lab 2.6 – Foundry agent](../build/2.6-foundry-agent.md) | 30 min | Use the instructor's **shared** Foundry project and **your own** agent name (for example `rail-network-agent-student07`). Don't create a project |
 | [Lab 2.7 – Live semantic model](../build/2.7-live-semantic-model.md) | 25 min | Build your own model in your own workspace, unless your instructor shares one |

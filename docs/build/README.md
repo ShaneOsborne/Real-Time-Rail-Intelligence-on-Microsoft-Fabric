@@ -16,3 +16,10 @@ Everyone does the same build, whichever Part 1 path you followed ([solo](../solo
 | [Lab 2.8 – Rayfin app](2.8-rayfin-app.md) | RailPulse: live map and "chat with the network" | 60 min | CLI + overlay code |
 | [Lab 2.9 – Azure Maps](2.9-azure-maps.md) (optional) | Azure Maps basemap, satellite view and railway lines | 45 min | ✅ `create-azure-maps.sh/.ps1`, `new-azure-maps-sas.sh/.ps1` |
 | [Lab 2.10 – Clean-up](2.10-cleanup.md) | Stop spending, delete resources | 10 min | ✅ `cleanup.sh/.ps1` |
+
+**Optional Darwin steps.** Labs 2.3 and 2.4 have optional Darwin steps (tiles, tables and example queries). Do them only if
+`DarwinLocations` is filling, that is, if you did [Solo 1.5](../solo/1.5-darwin-push-port.md) or
+[Student 1.5](../student/1.5-darwin-class-feed.md).
+
+**Classroom students.** Some pages have a short **Classroom students** note (Labs 2.6–2.10). The
+[student path](../student/README.md#part-2--the-build) lists them all in one table.

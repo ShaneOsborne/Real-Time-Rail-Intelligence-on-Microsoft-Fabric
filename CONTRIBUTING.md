@@ -4,7 +4,7 @@ Thank you for helping improve the labs. Issues and pull requests are welcome.
 
 ## Ground rules
 
-* **No secrets.** Never commit `.env`, connection strings, NROD/RDM passwords or keys. CI and reviewers reject them.
+* **No secrets.** Never commit `.env`, `handouts/` (Instructor 1.5), connection strings, NROD/RDM passwords or keys. `.env` and `handouts/` are git-ignored; reviewers reject any other secret.
 * **No invented APIs.** If you add automation, link the official documentation for every endpoint, payload or CLI
   command in the PR description. Anything you can't verify must be marked `TODO(verify)`.
 * **UK English** in documentation.
@@ -23,7 +23,7 @@ ruff check . && python -m pytest -q
 
 Unit tests must not need network access. Add sample messages under `src/bridge/tests/fixtures/`.
 
-Infrastructure: `az bicep build --file infra/main.bicep` and `az bicep lint --file infra/main.bicep`.
+Infrastructure: `az bicep build` and `az bicep lint` on `infra/main.bicep`, `infra/keyvault.bicep` and `infra/eventhubs.bicep` (the same checks as the `infra-validate` workflow).
 
 Scripts: keep the `.sh` and `.ps1` versions in step. CI runs ShellCheck and the PowerShell parser.
 

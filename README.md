@@ -60,7 +60,7 @@ flowchart LR
 
   subgraph Bridge["STOMP bridge (Python)"]
     LOCAL["Local: venv / Docker Compose"]
-    ACA["Azure Container Apps<br/>1 replica · 0.25 vCPU / 0.5 GiB<br/>Key Vault · Log Analytics"]
+    ACA["Azure Container Apps<br/>1 replica · 0.25 vCPU / 0.5 GiB<br/>Key Vault (or inline secrets) · Log Analytics"]
   end
 
   subgraph Fabric["Microsoft Fabric workspace"]
@@ -78,8 +78,9 @@ flowchart LR
   FOUNDRY["Azure AI Foundry agent<br/>+ Fabric IQ tool (preview)"]
 
   subgraph Shared["Optional shared tier (Instructor 1.4 / Solo 1.8)"]
-    EHNS[("Azure Event Hubs Standard<br/>nrod-feed · rdm-trust<br/>7-day retention<br/>1 consumer group per student")]
+    EHNS[("Azure Event Hubs Standard<br/>nrod-feed · rdm-trust · optional rdm-darwin<br/>7-day retention<br/>1 consumer group per student<br/>sign-in: key or Entra ID / workspace identity")]
     RELAY["RDM relay<br/>(same image, BRIDGE_SOURCE=kafka)"]
+    DRELAY["Optional Darwin relay<br/>(same image, DEPLOY_DARWIN_RELAY=true)"]
   end
 
   RDM --> ESR
@@ -88,6 +89,7 @@ flowchart LR
   ACA -- Event Hubs protocol --> ESN
   ACA -. "BRIDGE_TARGET=eventhub" .-> EHNS
   RDM -.-> RELAY -.-> EHNS
+  RDM -.-> DRELAY -. "rdm-darwin" .-> EHNS
   EHNS -. "Event Hubs source (per student)" .-> ESN
   EHNS -. "Event Hubs source (per student)" .-> ESR
   ESR --> EH
@@ -97,7 +99,9 @@ flowchart LR
   LH -- OneLake shortcut / ingest --> EH
   EH --> RTD & PBI & DA & ACT
   DA --> FOUNDRY
-  EH -- "Rayfin function (KQL, delegated)" --> APP
+  SM["Live semantic model RailLiveMap<br/>(DirectQuery, Lab 2.7)"]
+  EH -- "DirectQuery over NetworkSnapshot" --> SM
+  SM -- "fabric-semanticmodel connector (signed-in user)" --> APP
   APP -- function (OBO) --> FOUNDRY
 ```
 
@@ -105,7 +109,7 @@ flowchart LR
 |---|---|---|
 | Kafka ingestion | Eventstream **Apache Kafka** source | Rail Data Marketplace exposes Kafka with SASL_SSL/PLAIN. No code needed |
 | STOMP ingestion | Python bridge → Eventstream **custom endpoint** (Event Hubs protocol) | Eventstream has no STOMP source |
-| Optional shared tier | **Azure Event Hubs Standard** between the sources and Fabric ([Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) / [Solo 1.8](docs/solo/1.8-shared-event-hub.md)) | One instructor ingestion feeds many students' workspaces, and data keeps buffering (7 days) while a capacity is paused. Direct paths stay the default |
+| Optional shared tier | **Azure Event Hubs Standard** between the sources and Fabric ([Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) / [Solo 1.8](docs/solo/1.8-shared-event-hub.md)) | One instructor ingestion feeds many students' workspaces, and data keeps buffering (7 days) while a capacity is paused. Students sign in with a key, or with their **workspace identity** where a policy blocks keys. An optional Darwin relay adds a Darwin class feed. Direct paths stay the default |
 | Bridge hosting | **Azure Container Apps**, exactly 1 replica | A long-lived connection that must be single-instance per durable client-id. Costs about $14/month at list price |
 | Storage and query | **Eventhouse** (KQL) and **Lakehouse** | Update policies parse batched TRUST JSON. Materialized views hold the current state |
 | Insight | Real-Time Dashboard, Power BI, Activator | Live tiles, history and alerts |
@@ -129,7 +133,7 @@ flowchart LR
 | [Solo 1.5](docs/solo/1.5-darwin-push-port.md) | *Optional:* Darwin Push Port: forecasts, platforms → `DarwinLocations` | 25 min | Manual (portal); KQL via `apply_kql.py` |
 | [Solo 1.6](docs/solo/1.6-bridge-local.md) | STOMP bridge running locally (venv and Docker): console → file → Eventstream | 40 min | ✅ `run-local.sh/.ps1` |
 | [Solo 1.7](docs/solo/1.7-bridge-azure.md) | STOMP bridge on Azure Container Apps (Bicep) | 30 min | ✅ `deploy-bridge.sh/.ps1` |
-| [Solo 1.8](docs/solo/1.8-shared-event-hub.md) | *Optional:* shared Azure Event Hub, so data keeps buffering while your capacity is paused | 30 min | ✅ `create-eventhub.sh/.ps1`; Eventstream source manual |
+| [Solo 1.8](docs/solo/1.8-shared-event-hub.md) | *Optional:* shared Azure Event Hub, so data keeps buffering while your capacity is paused (`EVENTHUB_AUTH=entra` if a policy blocks keys) | 30 min | ✅ `create-eventhub.sh/.ps1`; Eventstream source manual |
 
 ### Part 1 – Instructor
 
@@ -138,10 +142,10 @@ flowchart LR
 | [Instructor 1.1](docs/instructor/1.1-prepare.md) | Solo 1.1, plus tenant settings for the student group, class capacity sizing, shared Foundry project and roles | 60 min (+ approval wait) | Manual |
 | [Instructor 1.2](docs/instructor/1.2-workspace-and-reference-data.md) | Solo 1.2 and Solo 1.3 (Option A2), then share the reference Lakehouse | 50 min | ✅ scripts / notebook; sharing manual |
 | [Instructor 1.3](docs/instructor/1.3-bridge.md) | Solo 1.6 (local test) and Solo 1.7 (deploy) | 70 min | ✅ `run-local`, `deploy-bridge` |
-| [Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) | Shared Azure Event Hub, consumer groups and RDM Kafka relay: the feed for the class | 30 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1`, `deploy-bridge`; Instructor 1.5: `make-handouts.sh/.ps1` |
-| [Instructor 1.5](docs/instructor/1.5-student-workspaces-and-handout.md) | Student workspaces, Foundry access, the student handout, a dry run | 30 min | ✅ `fabric-setup.sh` loop; rest manual |
+| [Instructor 1.4](docs/instructor/1.4-shared-event-hub.md) | Shared Azure Event Hub, consumer groups, RDM Kafka relay and optional Darwin relay: the feed for the class | 30 min | ✅ `create-eventhub.sh/.ps1`, `add-student-consumer-groups.sh/.ps1`, `grant-eventhub-reader.sh/.ps1`, `deploy-bridge` |
+| [Instructor 1.5](docs/instructor/1.5-student-workspaces-and-handout.md) | Student workspaces, Foundry access, the student handout, a dry run | 30 min | ✅ `make-handouts.sh/.ps1` (+ `fabric-setup` loop); rest manual |
 | [Instructor 1.6](docs/instructor/1.6-running-the-class.md) | On the day: capacity, common problems, overnight pause checkpoint | – | Manual |
-| [Instructor 1.7](docs/instructor/1.7-after-the-class.md) | After the class: keys, Event Hub, Foundry roles, clean-up | 15 min | Partly (`cleanup.sh/.ps1`) |
+| [Instructor 1.7](docs/instructor/1.7-after-the-class.md) | After the class: keys or workspace identity roles, Event Hub, Foundry roles, clean-up | 15 min | Partly (`cleanup.sh/.ps1`) |
 
 ### Part 1 – Student
 
@@ -242,7 +246,7 @@ For Darwin forecasts and platforms, add the optional [Solo 1.5](docs/solo/1.5-da
 | All KQL tables, mappings, update policies, materialized views and functions | Activator rules |
 | Reference data download, Lakehouse load and KQL load | Real-Time Dashboard tiles and the Power BI report |
 | Bridge: local venv/Docker, Azure infrastructure (Bicep), image build, Key Vault secrets | Fabric data agent creation and publishing |
-| *Optional (Instructor 1.4 / Solo 1.8):* Event Hubs namespace, hubs, SAS rules, consumer groups, Key Vault secrets, RDM relay app | Each student's Eventstream **Azure Event Hubs** source and the overnight pause check |
+| *Optional (Instructor 1.4 / Solo 1.8):* Event Hubs namespace, hubs, SAS rules, consumer groups, secrets (Key Vault, `.env` with `SECRETS_SOURCE=inline`, or none with `EVENTHUB_AUTH=entra`), workspace identity role grants (`grant-eventhub-reader`), RDM relay app, optional Darwin relay app, student handouts (`make-handouts`) | Each student's Eventstream **Azure Event Hubs** source and the overnight pause check |
 | Foundry agent creation and chat (after the Fabric connection exists) | Foundry Fabric tool connection (portal, or an ARM REST call) |
 | CI: lint, tests, Docker build, GHCR push, Bicep lint | Rayfin scaffold and deploy (Rayfin CLI) |
 
@@ -260,7 +264,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 ├── docs/capacity-planning.md  Fabric capacity sizing, classroom guidance and throttling recovery
 ├── docs/presentation/         Slide deck: architecture, PoC plan and one slide per lab
 ├── docs/images/               Screenshots of the finished dashboard and app (used in this README)
-├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM Kafka relay (+ Dockerfile, compose, tests)
+├── src/bridge/                Python STOMP → Eventstream bridge, optional RDM and Darwin Kafka relays (+ Dockerfile, compose, tests)
 ├── infra/                     Bicep: shared Key Vault (keyvault.bicep); Container Apps env + app(s), Log Analytics, ACR, managed identity (main.bicep);
 │                              optional shared Event Hubs namespace (eventhubs.bicep); optional Azure Maps account (azuremaps.bicep, Lab 2.9)
 ├── scripts/                   run-local / create-keyvault / deploy-bridge / fabric-setup / cleanup, optional create-eventhub /
@@ -285,6 +289,7 @@ The Eventstream topology, Activator rules, dashboards and data agent can be defi
 | Azure Container Apps bridge (0.25 vCPU / 0.5 GiB, always on) | **~$14/month** list-price estimate after the monthly free grant | Size up to 0.5 vCPU / 1 GiB for `TD_ALL_SIG_AREA` (~6,000 msgs/min) |
 | *Optional:* Event Hubs Standard, 1 TU (Instructor 1.4 / Solo 1.8) | **~$22/month** ($0.03/hour) + ingress $0.028 per million events (≈ $1–4/month for TRUST) | List-price estimates. Basic ($0.015/hour) is unsuitable: 1 consumer group, 1-day retention |
 | *Optional:* RDM relay container app (Instructor 1.4 / Solo 1.8) | **~$14/month** | Same size as the bridge. Only with `DEPLOY_RDM_RELAY=true` |
+| *Optional:* Darwin relay container app (Instructor 1.4, Darwin class feed) | **~$28/month** (estimate) | 0.5 vCPU / 1 GiB. Only with `DEPLOY_DARWIN_RELAY=true`. Plan 2 or more Event Hubs throughput units (`EVENTHUB_THROUGHPUT_UNITS=2`), which adds about $22/month per extra TU |
 | Log Analytics | Pay per GB ingested | The bridge logs a small amount at INFO. Retention is 30 days by default |
 | Key Vault, ACR Basic | Small | Use GHCR (`CONTAINER_IMAGE=ghcr.io/...`) to skip ACR |
 | Fabric capacity | **F2 minimum for one live feed**; F4 recommended with Darwin (Solo 1.5) or the bridge; classes need more (trial works for most labs) | Always-on Eventstreams use capacity continuously. See [Capacity planning and sizing](docs/capacity-planning.md). Pause pay-as-you-go capacity when you're not using it. The Foundry Fabric tool needs **paid F2+** |
