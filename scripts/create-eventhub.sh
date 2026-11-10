@@ -19,6 +19,7 @@
 # Optional .env: EVENTHUB_NAMESPACE, EVENTHUB_THROUGHPUT_UNITS, EVENTHUB_RETENTION_DAYS,
 #                STUDENT_CONSUMER_GROUP_PREFIX, STUDENT_CONSUMER_GROUP_COUNT, KEY_VAULT_NAME, NAME_PREFIX,
 #                SECRETS_SOURCE (keyvault | inline), EVENTHUB_AUTH (key | entra).
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

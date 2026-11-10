@@ -2,6 +2,7 @@
 # Remove Azure resources (and optionally the Fabric workspace) created by the labs.
 #   ./scripts/cleanup.sh            # delete the Azure resource group
 #   ./scripts/cleanup.sh --fabric   # also delete the Fabric workspace in FABRIC_WORKSPACE_ID
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

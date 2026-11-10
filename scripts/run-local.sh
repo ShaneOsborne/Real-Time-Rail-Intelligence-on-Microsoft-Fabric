@@ -4,6 +4,7 @@
 #   ./scripts/run-local.sh docker [console|file|eventstream|eventhub] [--replay|--kafka]
 #   ./scripts/run-local.sh test
 # --kafka runs the optional RDM Kafka relay (BRIDGE_SOURCE=kafka, Instructor 1.4 / Solo 1.8) instead of the NROD STOMP source.
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 
@@ -57,14 +58,14 @@ fi
 
 case "$MODE" in
   venv)
-    cd "$BRIDGE_DIR"
+    cd "$BRIDGE_DIR" || exit 1
     activate_venv requirements.txt
     log "Starting bridge (sink=$SINK) - Ctrl+C to stop"
     exec python -m rail_bridge "${extra_args[@]}"
     ;;
   docker)
     need_cmd docker
-    cd "$BRIDGE_DIR"
+    cd "$BRIDGE_DIR" || exit 1
     if [[ "$REPLAY" == "--replay" ]]; then
       log "Starting offline replay container"
       exec docker compose --profile offline up --build replay
@@ -80,7 +81,7 @@ case "$MODE" in
     exec docker compose up --build bridge
     ;;
   test)
-    cd "$BRIDGE_DIR"
+    cd "$BRIDGE_DIR" || exit 1
     activate_venv requirements-dev.txt
     exec python -m pytest -q
     ;;

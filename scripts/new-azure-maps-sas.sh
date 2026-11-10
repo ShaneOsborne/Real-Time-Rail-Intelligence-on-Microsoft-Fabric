@@ -3,6 +3,7 @@
 #   ./scripts/new-azure-maps-sas.sh [hours=24] [maxRatePerSecond=50]
 # Prints the token. Store it in the app with:  npx rayfin secret set AZURE_MAPS_TOKEN
 # Requires .env: AZ_RESOURCE_GROUP, AZURE_MAPS_ACCOUNT_NAME, AZURE_MAPS_SAS_PRINCIPAL_ID (from create-azure-maps.sh).
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

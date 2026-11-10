@@ -7,6 +7,7 @@
 #   ./scripts/grant-eventhub-reader.sh --id <student01 ID> --remove     # after the course
 # Assigns 'Azure Event Hubs Data Receiver' on the namespace (EVENTHUB_NAMESPACE, or the 'shared-eventhubs' deployment).
 # Safe to re-run. Needs Owner or User Access Administrator on the namespace.
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

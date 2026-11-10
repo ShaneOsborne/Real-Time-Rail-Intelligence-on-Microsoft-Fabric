@@ -15,7 +15,7 @@ jobs:
   bicep:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Bicep build + lint (no Azure login needed)
         run: |
           az bicep install
@@ -29,10 +29,13 @@ jobs:
   scripts:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: ShellCheck
-        run: shellcheck -S warning -e SC1091,SC2154 scripts/*.sh   # variables come from .env at runtime
+        # SC1091: _common.sh is named in a "# shellcheck source=" line but not followed (no -x).
+        # SC2154: variables come from .env at runtime, loaded by _common.sh.
+        run: shellcheck -S warning -e SC1091,SC2154 scripts/*.sh
       - name: PowerShell parse check
+        if: ${{ !cancelled() }}   # run even when ShellCheck fails, so both sets of problems show in one run
         shell: pwsh
         run: |
           $errors = $null

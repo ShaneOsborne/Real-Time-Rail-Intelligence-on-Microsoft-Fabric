@@ -7,6 +7,7 @@
 # namespace EVENTHUB_NAMESPACE or the output of the 'shared-eventhubs' deployment (scripts/create-eventhub.sh).
 # Idempotent: existing groups are skipped. Standard tier allows 20 consumer groups per event hub,
 # including $Default (kept for the instructor), so at most 19 students per namespace.
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

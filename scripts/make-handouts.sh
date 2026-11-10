@@ -8,6 +8,7 @@
 # Options: --students LIST (1-12, 3,7 or student03)  --workspace-prefix TEXT (default rail-rti-)
 #          --reference-workspace NAME  --notes TEXT  --maps | --maps-token TOKEN  --out DIR (default handouts)
 # With key sign-in the handouts contain the Listen key: the handouts folder is git-ignored. Delete it after the class.
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

@@ -3,6 +3,7 @@
 # Solo 1.3 (Fabric notebook) reads them from here; Solo 1.7 re-uses the same vault.
 #   ./scripts/create-keyvault.sh
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP, AZ_LOCATION, NROD_USERNAME, NROD_PASSWORD.
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

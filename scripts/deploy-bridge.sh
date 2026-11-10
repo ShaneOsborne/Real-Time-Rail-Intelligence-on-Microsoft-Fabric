@@ -12,6 +12,7 @@
 # Event Hubs namespaces whose policy disables key (shared access) sign-in:
 #   EVENTHUB_AUTH=entra     -> the bridge/relay sign in to the shared Event Hub with their managed identity
 #                              (Azure Event Hubs Data Sender on EVENTHUB_NAMESPACE); no Event Hub connection strings
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

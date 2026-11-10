@@ -3,6 +3,7 @@
 # Creates (idempotently): workspace (optional), Eventhouse, KQL database, Lakehouse, empty Eventstreams
 # (RDM, NROD and the optional Darwin one for Solo 1.5).
 # The Eventstream SOURCES/DESTINATIONS are configured manually in the portal (Solo 1.4/1.5/1.6/1.7).
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az

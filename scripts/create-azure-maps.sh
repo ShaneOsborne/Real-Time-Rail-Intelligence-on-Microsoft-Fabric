@@ -4,6 +4,7 @@
 #   ./scripts/create-azure-maps.sh
 # Requires: az CLI (logged in), .env with AZ_RESOURCE_GROUP and AZ_LOCATION (or AZURE_MAPS_LOCATION).
 # Optional .env: AZURE_MAPS_ALLOWED_ORIGINS=https://<your-app>.webapp.fabricapps.net,http://localhost:5173
+# shellcheck source=scripts/_common.sh
 source "$(dirname "$0")/_common.sh"
 load_env
 need_cmd az
