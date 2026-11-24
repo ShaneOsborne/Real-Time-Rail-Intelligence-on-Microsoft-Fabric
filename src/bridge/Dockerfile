@@ -17,8 +17,9 @@ COPY rail_bridge ./rail_bridge
 COPY tests/fixtures/replay_frames.json ./fixtures/replay_frames.json
 
 # Run as an unprivileged user
-RUN groupadd --system --gid 10001 bridge \
- && useradd --system --uid 10001 --gid bridge --home-dir /app --shell /usr/sbin/nologin bridge \
+# Non-root user. A regular (not --system) account, so a UID above 10000 doesn't trigger a useradd warning.
+RUN groupadd --gid 10001 bridge \
+ && useradd --no-create-home --uid 10001 --gid bridge --home-dir /app --shell /usr/sbin/nologin bridge \
  && mkdir -p /app/out && chown -R bridge:bridge /app
 USER 10001
 
